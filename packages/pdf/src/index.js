@@ -100,11 +100,15 @@ export class PdfSource {
             while (this.#cache.size > (this.options.maxCachedPages ?? 3))
                 this.#cache.delete(this.#cache.keys().next().value);
         }
-        const vp = page.getViewport({ scale: 1, dontFlip: true });
+        // Flip the destination canvas Y axis, not the PDF's local Y axis.
+        // dontFlip:true flips before page rotation and reverses 90/270-degree sheets.
+        const vp = page.getViewport({ scale: 1 });
+        const [a,b,c,d,e,f] = vp.transform;
+        const pageTransform = [a,-b,c,-d,e,vp.height-f];
         const groups = {};
         for (const [id, g] of Object.entries(this.ocgs))
             groups[id] = { name: g.name, visible: g.visible, locked: g.locked };
-        const scene = await interpretOperators(cached.list, { ...options, OPS: this.lib.OPS, pageNumber, box: page.view, pageTransform: vp.transform, userUnit: page.userUnit, rotation: page.rotate, fonts: cached.fonts, ocgs: groups, structure: cached.structure, annotations: cached.annotations, source: { name: this.options.name || this.metadata?.info?.Title || 'PDF document', fingerprints: this.pdf.fingerprints, producer: this.metadata?.info?.Producer || '', creator: this.metadata?.info?.Creator || '', pdfVersion: this.metadata?.info?.PDFFormatVersion || '', ...this.metadata?.info } });
+        const scene = await interpretOperators(cached.list, { ...options, OPS: this.lib.OPS, pageNumber, box: page.view, pageTransform, userUnit: page.userUnit, rotation: page.rotate, fonts: cached.fonts, ocgs: groups, structure: cached.structure, annotations: cached.annotations, source: { name: this.options.name || this.metadata?.info?.Title || 'PDF document', fingerprints: this.pdf.fingerprints, producer: this.metadata?.info?.Producer || '', creator: this.metadata?.info?.Creator || '', pdfVersion: this.metadata?.info?.PDFFormatVersion || '', ...this.metadata?.info } });
         scene.pageSize = [vp.width, vp.height];
         scene.colorManagement = {engine: 'PDF.js', version: this.lib.version, output: 'sRGB', useWasm: this.options.pdfOptions?.useWasm !== false, iccResourcesConfigured: !!this.options.pdfOptions?.iccUrl, policy: 'Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied.'};
         if (!scene.colorManagement.iccResourcesConfigured) scene.diagnostics.push(diagnostic('ICC_RESOURCES_NOT_CONFIGURED', 'No ICC resource URL was configured; PDF.js may use its fallback CMYK conversion.', 'warning'));
