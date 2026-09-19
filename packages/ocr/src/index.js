@@ -30,7 +30,7 @@ export class TesseractOcr {
                     const namespace=this.options.provider||await import(/* @vite-ignore */ moduleUrl);
                     const lib=typeof namespace?.createWorker==='function'?namespace:namespace?.default;
                     if(typeof lib?.createWorker!=='function')throw new TypeError('OCR provider must export createWorker, directly or through its ES-module default export');
-                    const worker=await lib.createWorker(this.options.languages||'eng',1,{...(this.options.node ? {} : {workerPath:this.options.workerPath,corePath:this.options.corePath,workerBlobURL:false}),langPath:this.options.langPath,gzip:true,logger:this.options.onProgress});
+                    const worker=await lib.createWorker(this.options.languages||'eng',1,{...(this.options.node ? {} : {workerPath:this.options.workerPath,corePath:this.options.corePath,workerBlobURL:false}),langPath:this.options.langPath,gzip:true,logger:typeof this.options.onProgress === 'function' ? this.options.onProgress : () => {}});
                     if(cancelled){await worker.terminate();throw Object.assign(new Error('OCR cancelled'),{name:'AbortError'});}this.worker=worker;
                 }
                 await this.worker.setParameters({tessedit_pageseg_mode:String(options.psm??11),preserve_interword_spaces:'1',user_defined_dpi:String(options.dpi||300)});

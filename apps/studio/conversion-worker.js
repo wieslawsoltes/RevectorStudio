@@ -2422,8 +2422,11 @@ class TesseractOcr {
             const work = (async () => {
                 if (!this.worker) {
                     const moduleUrl = this.options.moduleUrl;
-                    const lib = this.options.provider || await globalThis.__revectorImport(moduleUrl);
-                    const worker = await lib.createWorker(this.options.languages || 'eng', 1, { ...(this.options.node ? {} : { workerPath: this.options.workerPath, corePath: this.options.corePath, workerBlobURL: false }), langPath: this.options.langPath, gzip: true, logger: this.options.onProgress });
+                    const namespace = this.options.provider || await globalThis.__revectorImport(moduleUrl);
+                    const lib = typeof namespace?.createWorker === 'function' ? namespace : namespace?.default;
+                    if (typeof lib?.createWorker !== 'function')
+                        throw new TypeError('OCR provider must export createWorker, directly or through its ES-module default export');
+                    const worker = await lib.createWorker(this.options.languages || 'eng', 1, { ...(this.options.node ? {} : { workerPath: this.options.workerPath, corePath: this.options.corePath, workerBlobURL: false }), langPath: this.options.langPath, gzip: true, logger: typeof this.options.onProgress === 'function' ? this.options.onProgress : () => { } });
                     if (cancelled) {
                         await worker.terminate();
                         throw Object.assign(new Error('OCR cancelled'), { name: 'AbortError' });
@@ -2726,11 +2729,15 @@ class PdfSource {
             while (this.#cache.size > (this.options.maxCachedPages ?? 3))
                 this.#cache.delete(this.#cache.keys().next().value);
         }
-        const vp = page.getViewport({ scale: 1, dontFlip: true });
+        // Flip the destination canvas Y axis, not the PDF's local Y axis.
+        // dontFlip:true flips before page rotation and reverses 90/270-degree sheets.
+        const vp = page.getViewport({ scale: 1 });
+        const [a, b, c, d, e, f] = vp.transform;
+        const pageTransform = [a, -b, c, -d, e, vp.height - f];
         const groups = {};
         for (const [id, g] of Object.entries(this.ocgs))
             groups[id] = { name: g.name, visible: g.visible, locked: g.locked };
-        const scene = await (0, interpreter_js_1.interpretOperators)(cached.list, { ...options, OPS: this.lib.OPS, pageNumber, box: page.view, pageTransform: vp.transform, userUnit: page.userUnit, rotation: page.rotate, fonts: cached.fonts, ocgs: groups, structure: cached.structure, annotations: cached.annotations, source: { name: this.options.name || this.metadata?.info?.Title || 'PDF document', fingerprints: this.pdf.fingerprints, producer: this.metadata?.info?.Producer || '', creator: this.metadata?.info?.Creator || '', pdfVersion: this.metadata?.info?.PDFFormatVersion || '', ...this.metadata?.info } });
+        const scene = await (0, interpreter_js_1.interpretOperators)(cached.list, { ...options, OPS: this.lib.OPS, pageNumber, box: page.view, pageTransform, userUnit: page.userUnit, rotation: page.rotate, fonts: cached.fonts, ocgs: groups, structure: cached.structure, annotations: cached.annotations, source: { name: this.options.name || this.metadata?.info?.Title || 'PDF document', fingerprints: this.pdf.fingerprints, producer: this.metadata?.info?.Producer || '', creator: this.metadata?.info?.Creator || '', pdfVersion: this.metadata?.info?.PDFFormatVersion || '', ...this.metadata?.info } });
         scene.pageSize = [vp.width, vp.height];
         scene.colorManagement = { engine: 'PDF.js', version: this.lib.version, output: 'sRGB', useWasm: this.options.pdfOptions?.useWasm !== false, iccResourcesConfigured: !!this.options.pdfOptions?.iccUrl, policy: 'Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied.' };
         if (!scene.colorManagement.iccResourcesConfigured)
@@ -5399,7 +5406,7 @@ class Workbench {
         this.explorer.append((0, ui_1.element)('div', { class: 'section-label', text: `BLOCK LIBRARY · ${d.blocks.length}` }));
         for (const b of d.blocks)
             this.explorer.append((0, ui_1.button)(`◇ ${b.name}`, () => this.inspectBlock(b), { className: 'tree-row' }));
-        this.explorer.append((0, ui_1.element)('div', { class: 'explorer-foot' }, (0, ui_1.element)('b', { text: 'No raster tracing' }), (0, ui_1.element)('span', { text: 'Only PDF vectors and encoded text enter the CAD model.' })));
+        this.explorer.append((0, ui_1.element)('div', { class: 'explorer-foot' }, (0, ui_1.element)('b', { text: this.result?.report.ocr ? 'Raster OCR recovery' : 'Vector-first recovery' }), (0, ui_1.element)('span', { text: this.result?.report.ocr ? `${this.result.report.ocr.accepted} inferred words · ${this.result.report.ocr.lines} estimated lines. Native text is preserved.` : 'Native vectors and encoded text are preserved. Raster OCR is opt-in.' })));
     }
     setTab(tab) {
         this.tab = tab;
@@ -5495,7 +5502,7 @@ class Workbench {
             for (const [label, value] of [['ENTITIES', s.entities], ['LAYERS', d.layers.length], ['BLOCKS', d.blocks.length], ['TO REVIEW', d.candidates.filter(c => c.status === 'pending').length]])
                 stats.append((0, ui_1.element)('div', {}, (0, ui_1.element)('b', { text: fmt(value) }), (0, ui_1.element)('span', { text: label })));
             this.inspector.append(stats, (0, ui_1.element)('div', { class: 'section-label', text: 'OUTPUT CONTRACT' }));
-            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster images', 'Not traced / not exported']])
+            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster recovery', this.result.report.ocr ? `${this.result.report.ocr.accepted} OCR words · ${this.result.report.ocr.lines} estimated lines` : 'OCR off'], ['Image embedding', 'Not exported']])
                 this.inspector.append(this.property(k, v));
         }
         this.inspector.append((0, ui_1.element)('div', { class: 'inspector-note' }, (0, ui_1.element)('b', { text: 'Evidence-first recovery' }), (0, ui_1.element)('p', { text: 'A PDF form is reusable structure, not proof of an original CAD block. Inferred names and meanings are identified explicitly.' })), (0, ui_1.button)('Convert all pages to ZIP', () => this.exportAll(), { className: 'wide', disabled: !this.source }));

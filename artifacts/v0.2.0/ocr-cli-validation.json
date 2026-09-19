@@ -1,0 +1,37 @@
+{
+  "passed": true,
+  "texts": [
+    "NATIVE-42",
+    "PUMP",
+    "P-101",
+    "FLOW",
+    "120",
+    "L/MIN"
+  ],
+  "errors": 0,
+  "fixes": 0,
+  "ocr": {
+    "engine": "tesseract.js",
+    "version": "7.0.0",
+    "options": {
+      "scope": "raster",
+      "languages": "eng",
+      "dpi": 250,
+      "minConfidence": 60,
+      "preprocess": "none",
+      "rotation": 0,
+      "traceLines": false,
+      "maxPixels": 24000000,
+      "maxRegions": 128,
+      "maxWords": 25000,
+      "timeoutMs": 120000
+    },
+    "accepted": 5,
+    "rejected": 0,
+    "duplicates": 1,
+    "regions": 1,
+    "lines": 0,
+    "rejectedWords": [],
+    "effectiveDpi": 250
+  }
+}

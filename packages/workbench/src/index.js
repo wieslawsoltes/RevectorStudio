@@ -319,7 +319,7 @@ export class Workbench {
         this.explorer.append(el('div', { class: 'section-label', text: `BLOCK LIBRARY · ${d.blocks.length}` }));
         for (const b of d.blocks)
             this.explorer.append(button(`◇ ${b.name}`, () => this.inspectBlock(b), { className: 'tree-row' }));
-        this.explorer.append(el('div', { class: 'explorer-foot' }, el('b', { text: 'No raster tracing' }), el('span', { text: 'Only PDF vectors and encoded text enter the CAD model.' })));
+        this.explorer.append(el('div', { class: 'explorer-foot' }, el('b', { text: this.result?.report.ocr ? 'Raster OCR recovery' : 'Vector-first recovery' }), el('span', { text: this.result?.report.ocr ? `${this.result.report.ocr.accepted} inferred words · ${this.result.report.ocr.lines} estimated lines. Native text is preserved.` : 'Native vectors and encoded text are preserved. Raster OCR is opt-in.' })));
     }
     setTab(tab) {
         this.tab = tab;
@@ -415,7 +415,7 @@ export class Workbench {
             for (const [label, value] of [['ENTITIES', s.entities], ['LAYERS', d.layers.length], ['BLOCKS', d.blocks.length], ['TO REVIEW', d.candidates.filter(c => c.status === 'pending').length]])
                 stats.append(el('div', {}, el('b', { text: fmt(value) }), el('span', { text: label })));
             this.inspector.append(stats, el('div', { class: 'section-label', text: 'OUTPUT CONTRACT' }));
-            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster images', 'Not traced / not exported']])
+            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster recovery', this.result.report.ocr ? `${this.result.report.ocr.accepted} OCR words · ${this.result.report.ocr.lines} estimated lines` : 'OCR off'], ['Image embedding', 'Not exported']])
                 this.inspector.append(this.property(k, v));
         }
         this.inspector.append(el('div', { class: 'inspector-note' }, el('b', { text: 'Evidence-first recovery' }), el('p', { text: 'A PDF form is reusable structure, not proof of an original CAD block. Inferred names and meanings are identified explicitly.' })), button('Convert all pages to ZIP', () => this.exportAll(), { className: 'wide', disabled: !this.source }));

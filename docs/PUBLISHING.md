@@ -10,7 +10,7 @@ Download the `pages-build-validation` and `pages-live-validation` Actions artifa
 
 ## Source import
 
-The complete reusable packages, CLI, documentation, fixtures, recorded validation outputs, twelve npm archives and standalone HTML are tracked in the repository. Source payload hashes are recorded in `source-import.json`. The generated bundles and package archives were reproduced and verified against the supplied ZIP; the five visual artifacts were refreshed by the original validation harness in CI. Temporary transfer files and one-time import workflows were removed after the import succeeded. The original import is retained in Git history.
+The complete reusable packages, CLI, documentation, fixtures, recorded validation outputs, sixteen npm archives and standalone HTML are tracked in the repository. Source payload hashes are recorded in `source-import.json`. The generated bundles and package archives were reproduced and verified against the supplied ZIP; the five visual artifacts were refreshed by the original validation harness in CI. Temporary transfer files and one-time import workflows were removed after the import succeeded. The original import is retained in Git history.
 
 The publication commit also corrects `index.html` to resolve PDF.js assets relative to the document URL. Dynamic module imports would otherwise resolve a relative engine URL against the PDF adapter module directory.
 
@@ -24,8 +24,12 @@ npm start
 To rebuild:
 
 ```sh
-npm install --ignore-scripts --omit=optional
+npm ci --ignore-scripts --include=optional
 npm run build
 ```
 
-The twelve packages in `release/npm/` are installable tarballs. Pages publication does not publish them to the npm registry.
+The sixteen packages in `release/npm/` are installable tarballs. Pages publication does not publish them to the npm registry.
+
+## Version 0.2 validation gates
+
+CI and Pages run real browser OCR on a mixed raster/native-text PDF, rotated-page recovery, eleven color swatches and all six OCR-to-DXF versions. A separate Node test executes the CLI with native Canvas and the WASM OCR engine. The deployment workflow repeats browser OCR and color checks on the public HTTPS site. Runtime, core and English/German/Polish model files are served from `vendor/ocr/`; recognition does not upload document bytes.

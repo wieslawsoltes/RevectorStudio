@@ -1,8 +1,8 @@
 # @revector/pdf
 
-**PDF.js vector adapter** — Revector Studio 0.1.0.
+**PDF.js vector adapter** — Revector Studio 0.2.0.
 
-Decoded PDF operator interpretation, native text, optional content, forms, page transforms and source rendering. No OCR or raster tracing. The executed vendor build is 6.4.172; inspected optional peer contract is 6.3.289.
+Decoded PDF operator interpretation, native text, optional content, forms, page transforms and source rendering. Raster recognition is composed through @revector/ocr. The executed vendor build is 6.4.172; inspected optional peer contract is 6.3.289.
 
 ## Distribution
 
@@ -20,6 +20,6 @@ The declaration file is the authoritative signature reference; source implementa
 
 ## Contract
 
-Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. No OCR or raster tracing is performed.
+Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. Native conversion remains vector-first. Optional @revector/ocr adds inferred raster text and ruled lines with confidence and provenance.
 
 Original package code: MIT; see `LICENSE`. Any included third-party notice remains applicable.

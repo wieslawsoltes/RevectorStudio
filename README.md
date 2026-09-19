@@ -137,3 +137,7 @@ Native DXF text uses available CAD/browser fonts; the original appearance is not
 ## License
 
 Original Revector source: MIT. PDF.js and vendored data/decoders retain upstream licenses. The ACI numeric palette carries the ezdxf MIT notice. See [Third-party notices](THIRD_PARTY_NOTICES.md). No font programs, paid SDKs or remote-service credentials are included. Self-hosted permissively licensed OCR runtime and language data are built from pinned npm dependencies.
+
+## Current validation
+
+See [version 0.2.0 validation](docs/VALIDATION-0.2.md) for real browser/CLI OCR, color swatches, rotation regressions and isolated npm installation. Historical 0.1.0 evidence is retained separately.

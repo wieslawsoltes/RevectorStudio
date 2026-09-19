@@ -2,9 +2,9 @@
 
 ## ESM/npm consumption
 
-Every package exports an ESM entry plus `src/index.d.ts`. TypeScript discriminated unions describe each supported entity. The root workspace is private; the twelve packages are independently packable. The renderer and workbench depend on browser DOM/Canvas, while geometry, model, topology, semantics, rules, lowering and DXF logic can run headlessly.
+Every package exports an ESM entry plus `src/index.d.ts`. TypeScript discriminated unions describe each supported entity. The root workspace is private; the sixteen packages are independently packable. The renderer and workbench depend on browser DOM/Canvas, while geometry, model, topology, semantics, rules, lowering and DXF logic can run headlessly.
 
-Install all supplied tarballs together into a consumer so exact `@revector/*@0.1.0` dependencies resolve locally:
+Install all supplied tarballs together into a consumer so exact `@revector/*@0.2.0` dependencies resolve locally:
 
 ```sh
 npm install /path/to/revector-studio/release/npm/*.tgz
@@ -25,6 +25,7 @@ const app = mountWorkbench(document.getElementById('converter'), {
   pdfjsWorkerUrl: '/vendor/pdfjs/legacy/build/pdf.worker.mjs',
   conversionWorkerUrl: '/apps/studio/conversion-worker.js',
   assetBase: '/vendor/pdfjs/',
+  ocrAssetBase: '/vendor/ocr/',
   autoDemo: false
 });
 // app.dispose() when the hosting view is destroyed.
@@ -50,7 +51,7 @@ try {
 
 One active job is allowed per worker. Cancellation terminates the worker, making termination independent of a geometry loop's yield frequency. JavaScript rule functions are not structured-cloneable: register trusted plugins in an in-process `ConversionEngine`, or incorporate them into a custom worker entry/build. Declarative `ruleSet` data can be sent across the worker boundary.
 
-The bundled worker is a statically generated factory bundle, not eval-based source execution. Browser workers were blocked by the delivery environment; its kernel was tested in Node worker_threads and its explicit browser fallback was exercised. A deployed-browser worker smoke test remains an integration acceptance item.
+The bundled worker is a statically generated factory bundle, not eval-based source execution. CI exercises the actual PDF.js and conversion browser workers under HTTP and HTTPS, in addition to the Node worker kernel. Raster OCR runs in a separate Tesseract worker.
 
 ## File and memory lifecycle
 
@@ -60,7 +61,7 @@ The application processes files locally. It does not persist sensitive PDFs to a
 
 ## Static deployment
 
-`npm run build` generates `dist/`, the conversion worker and standalone HTML. Publish `dist/` to a static host with JavaScript, CSS, WASM and PDF MIME types. Nested-path deployments use relative paths from `index.html`. No deployment has been made as part of this source delivery.
+`npm run build` generates `dist/`, the conversion worker and standalone HTML. Publish `dist/` to a static host with JavaScript, CSS, WASM and PDF MIME types. Nested-path deployments use relative paths from `index.html`. GitHub Pages publication and real-browser verification are configured in `.github/workflows/pages.yml`; see `docs/PUBLISHING.md`.
 
 The standalone build uses inline code and blob module/worker URLs. A restrictive Content Security Policy must permit the corresponding mechanisms, or use the multi-file build and a reviewed bundler/CSP strategy instead. Decoders may need WebAssembly compilation. Do not weaken a production site's entire policy solely to embed a converter; give it a dedicated origin or reviewed isolation boundary.
 
@@ -68,6 +69,10 @@ No standard font programs are included. PDF.js/browser font substitution and an 
 
 ## Failure policy and security
 
-Input-byte/operator/candidate budgets, path intersection limits, pattern expansion bounds and abort support are present. The app does not call PDF document JavaScript actions or invoke OCR. Nevertheless PDF parsing, decompression and WASM decoders form an attack surface. For adversarial service workloads, use a dedicated process/container with wall-clock, CPU and heap limits, patched dependencies and an explicit sandbox policy; do not regard client-side validation as complete protection.
+Input-byte/operator/candidate budgets, path intersection limits, pattern expansion bounds and abort support are present. The app does not call PDF document JavaScript actions. Raster OCR is explicitly opt-in and uses self-hosted runtime and language assets. Nevertheless PDF parsing, decompression and WASM decoders form an attack surface. For adversarial service workloads, use a dedicated process/container with wall-clock, CPU and heap limits, patched dependencies and an explicit sandbox policy; do not regard client-side validation as complete protection.
 
 Untrusted JSON rules are limited to the documented DSL. Arbitrary JavaScript rule plugins are trusted code with the host's privileges. Escape text in any alternate UI, validate file names and document IDs, and retain diagnostics with partially recovered geometry.
+
+## Optional raster OCR
+
+See [EXTENSIONS.md](EXTENSIONS.md) for reusable OCR, preprocessing, language, confidence, cancellation and coordinate contracts. OCR is not part of exact vector transcription. The standalone HTML embeds the PDF engine but needs adjacent `vendor/ocr/` assets for raster recognition.

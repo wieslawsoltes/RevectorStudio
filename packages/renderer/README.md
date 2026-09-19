@@ -1,6 +1,6 @@
 # @revector/renderer
 
-**Retained CAD Canvas renderer** — Revector Studio 0.1.0.
+**Retained CAD Canvas renderer** — Revector Studio 0.2.0.
 
 Camera, display-list culling, entity picking, native cubic paths, block/attribute rendering, measurements and linked viewports. Presentation sampling does not modify exported geometry.
 
@@ -20,6 +20,6 @@ The declaration file is the authoritative signature reference; source implementa
 
 ## Contract
 
-Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. No OCR or raster tracing is performed.
+Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. Native conversion remains vector-first. Optional @revector/ocr adds inferred raster text and ruled lines with confidence and provenance.
 
 Original package code: MIT; see `LICENSE`. Any included third-party notice remains applicable.

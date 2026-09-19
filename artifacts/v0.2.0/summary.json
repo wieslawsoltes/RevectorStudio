@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "testedSourceParent": "53bc86e036da75bf3456d6941aba84aafc3b737b",
+  "workflowRun": "35468531777",
+  "nodeTests": 90,
+  "nodeFailures": 0,
+  "browserWorkflowChecks": 35,
+  "browserOcrColorChecks": 21,
+  "independentDxfFiles": 35,
+  "ocrDxfVersions": 6,
+  "nativeNodeOcr": true,
+  "isolatedNpmImports": 16,
+  "qualification": "Authored regression fixtures, not exhaustive document or printer coverage. Recognition and semantics remain inferred."
+}

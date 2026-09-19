@@ -1,6 +1,6 @@
 # @revector/dxf
 
-**DXF 2000–2018 writer and reader** — Revector Studio 0.1.0.
+**DXF 2000–2018 writer and reader** — Revector Studio 0.2.0.
 
 Version-aware DXF serialization with tables, handles, owners, blocks, supported entities, groups and metadata; reader for the writer-supported subset, not a universal DXF parser.
 
@@ -20,6 +20,6 @@ The declaration file is the authoritative signature reference; source implementa
 
 ## Contract
 
-Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. No OCR or raster tracing is performed.
+Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. Native conversion remains vector-first. Optional @revector/ocr adds inferred raster text and ruled lines with confidence and provenance.
 
 Original package code: MIT; see `LICENSE`. Any included third-party notice remains applicable.

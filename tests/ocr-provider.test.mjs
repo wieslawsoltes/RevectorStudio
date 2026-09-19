@@ -12,7 +12,9 @@ test('Tesseract browser ES-module default export is normalized to the provider A
         },
         async terminate() { terminated++; }
     };
-    const provider = { default: { async createWorker(language, engine) {
+    const provider = { default: { async createWorker(language, engine, options) {
+        assert.equal(typeof options.logger, 'function');
+        options.logger({ status: 'loading', progress: 0 });
         assert.equal(language, 'eng');
         assert.equal(engine, 1);
         return worker;

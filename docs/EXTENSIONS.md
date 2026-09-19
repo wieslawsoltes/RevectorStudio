@@ -34,7 +34,7 @@ The implementation uses **Tesseract.js 7.0.0** and its WASM LSTM engine, under A
 5. The inverse actual rendering transform maps OCR pixel geometry back to PDF coordinates, then the normal PDF→drawing transform applies units and scale. This handles page rotation without guessing from nominal DPI.
 6. Accepted words become editable TEXT on `OCR_TEXT`. Source image identifiers, confidence, pixel box, transform, substituted font and estimated metrics are retained in provenance and DXF XDATA.
 
-Worker calls are serialized, cancellable and time-limited. Page pixel, region and word budgets bound allocations; effective DPI is reported when a page is downscaled. Sauvola has a separate eight-megapixel integral-image limit. OCR does not upload document data to a service. The browser loads runtime, WASM and language assets from the same site; IndexedDB may cache language data.
+Worker calls are serialized, cancellable and time-limited. Page pixel, region and word budgets bound requested OCR work, not all internal PDF/WASM decoder allocations; effective DPI is reported when a page is downscaled. Sauvola has a separate eight-megapixel integral-image limit. OCR does not upload document data to a service. The browser loads runtime, WASM and language assets from the same site; IndexedDB may cache language data.
 
 Optional horizontal/vertical raster line inference masks OCR word boxes, scans runs with small gap tolerance and merges adjacent runs into estimated centerlines. The resulting entities are tagged as inferred. This is **not** general illustration tracing, arbitrary angled curve reconstruction or recovery of original CAD objects.
 
@@ -96,3 +96,9 @@ npm run pack:all
 ```
 
 `tests/extensions_browser.py --url <published-site>/` exercises the same OCR/color checks on HTTPS without mocked workers. Its evidence includes screenshots, per-swatch channel errors, OCR provenance, six independent DXF audits and network-origin checks. Original 0.1.0 reports remain historical; CI artifacts identify the revision actually tested.
+
+## Corrected page orientation
+
+CAD coordinates now flip the destination canvas Y axis after applying the normal PDF.js viewport transform. Four real-PDF regressions cover rotations 0/90/180/270 with a nonzero CropBox and UserUnit=2. This fixes a previous quarter-turn orientation error affecting native text as well as OCR.
+
+Tesseract provider integration accepts a named API or an ES-module default API and supplies a no-op progress callback when none is provided. The real Node OCR regression covers the callback path in addition to browser recognition.
