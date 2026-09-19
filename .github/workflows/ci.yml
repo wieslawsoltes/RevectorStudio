@@ -5,24 +5,27 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.16.0'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install build tools and link local workspaces
+      - name: Install locked build, OCR and test dependencies
         run: |
-          npm install --ignore-scripts --omit=optional
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
           node scripts/link-workspaces.mjs
-          python -m pip install -r tests/requirements.txt
-          python -m playwright install --with-deps chromium
+          python -m pip install -r tests/requirements.txt --quiet
+          python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
       - run: npm run build
       - run: npm test
       - run: npm run test:types
       - run: npm run test:browser
+      - run: npm run test:extensions
+      - run: python tests/ocr_cli.py
       - run: npm run test:dxf
       - run: npm run pack:all
       - uses: actions/upload-artifact@v4
@@ -32,3 +35,5 @@ jobs:
           path: |
             artifacts/
             release/npm/
+            vendor/ocr/manifest.json
+          retention-days: 14

@@ -11,7 +11,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       pages: read
@@ -23,17 +23,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install pinned build and test dependencies
+      - name: Install locked build, OCR and test dependencies
         run: |
-          npm install --ignore-scripts --omit=optional --no-audit --no-fund
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
           node scripts/link-workspaces.mjs
           python -m pip install -r tests/requirements.txt --quiet
           python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
-      - name: Build and validate conversion engines
+      - name: Build and validate conversion engines and actual OCR
         run: |
           npm run build
           npm test
           npm run test:types
+          npm run test:extensions
+          python tests/ocr_cli.py
           npm run test:dxf
       - name: Record the exact deployment revision
         run: |
@@ -54,12 +56,15 @@ jobs:
         if: always()
         with:
           name: pages-build-validation
-          path: artifacts/pages-local
+          path: |
+            artifacts/pages-local
+            artifacts/extensions
+            artifacts/ocr-cli
           retention-days: 14
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       pages: write
@@ -79,13 +84,17 @@ jobs:
         run: |
           python -m pip install -r tests/requirements.txt --quiet
           python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
-      - name: Verify the public HTTPS deployment and download a valid DXF
+      - name: Verify the public HTTPS deployment, raster OCR and color profiles
         env:
           SITE_URL: ${{ steps.deployment.outputs.page_url }}
-        run: python tests/pages.py --url "$SITE_URL" --sha "$GITHUB_SHA" --output artifacts/pages-live
+        run: |
+          python tests/pages.py --url "$SITE_URL" --sha "$GITHUB_SHA" --output artifacts/pages-live
+          python tests/extensions_browser.py --url "$SITE_URL" --output artifacts/extensions-live
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: pages-live-validation
-          path: artifacts/pages-live
+          path: |
+            artifacts/pages-live
+            artifacts/extensions-live
           retention-days: 14
