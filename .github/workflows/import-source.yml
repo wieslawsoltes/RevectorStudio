@@ -1,0 +1,99 @@
+name: Import supplied source archive
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/import-source.yml
+      - .bootstrap/ready.json
+permissions:
+  contents: write
+concurrency:
+  group: source-archive-import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Preserve the exact upstream PDF.js artifact
+        if: ${{ hashFiles('vendor/pdfjs/legacy/build/pdf.mjs') == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/mozilla/pdf.js/actions/artifacts/10534003871/zip > "$RUNNER_TEMP/pdfjs.zip"
+          echo '8a4e918003d2677e557cd70a00a8f15cb1307e883993414a2f6510a3b2d2f64a  '"$RUNNER_TEMP/pdfjs.zip" | sha256sum --check
+          python - <<'PY'
+          import io, os, pathlib, tarfile, zipfile
+          with zipfile.ZipFile(pathlib.Path(os.environ['RUNNER_TEMP']) / 'pdfjs.zip') as archive:
+              with tarfile.open(fileobj=io.BytesIO(archive.read('website.tar'))) as tar:
+                  count = 0
+                  for member in tar.getmembers():
+                      if not member.isfile():
+                          continue
+                      name = member.name.removeprefix('./')
+                      target = None
+                      if name in ('build/pdf.mjs', 'build/pdf.worker.mjs', 'legacy/build/pdf.mjs', 'legacy/build/pdf.worker.mjs'):
+                          target = name
+                      elif name == 'legacy/LICENSE':
+                          target = 'LICENSE'
+                      elif name.startswith(('internal-viewer/web/cmaps/', 'internal-viewer/web/wasm/', 'internal-viewer/web/iccs/')):
+                          target = name.removeprefix('internal-viewer/web/')
+                      if target:
+                          destination = pathlib.Path('vendor/pdfjs') / target
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          destination.write_bytes(tar.extractfile(member).read())
+                          count += 1
+                  assert count == 189, f'Unexpected upstream runtime file count: {count}'
+          PY
+      - name: Commit preserved runtime
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add vendor/pdfjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'Preserve exact PDF.js 6.4.172 runtime from the supplied source distribution'
+            git push origin HEAD:main
+          fi
+      - name: Import complete payload when available
+        if: ${{ hashFiles('.bootstrap/ready.json') != '' }}
+        run: |
+          python - <<'PY'
+          import base64, hashlib, io, json, pathlib, tarfile
+          root = pathlib.Path.cwd()
+          ready = json.loads((root / '.bootstrap/ready.json').read_text())
+          encoded = ''.join((root / name).read_text().strip() for name in ready['parts'])
+          data = base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(data).hexdigest() == ready['sha256'], 'Source payload checksum mismatch'
+          with tarfile.open(fileobj=io.BytesIO(data), mode='r:xz') as archive:
+              for entry in archive.getmembers():
+                  path = pathlib.PurePosixPath(entry.name)
+                  assert entry.isfile() and not path.is_absolute() and '..' not in path.parts, entry.name
+                  destination = root / path
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(archive.extractfile(entry).read())
+          PY
+          npm install --ignore-scripts --omit=optional --no-audit --no-fund
+          node scripts/link-workspaces.mjs
+          npm run build
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path.cwd()
+          manifest = json.loads((root / 'source-import-manifest.json').read_text())
+          for name, expected in manifest['files'].items():
+              data = (root / name).read_bytes()
+              assert len(data) == expected['size'], name
+              assert hashlib.sha256(data).hexdigest() == expected['sha256'], name
+          print(f"Verified all {len(manifest['files'])} original source archive files byte-for-byte.")
+          PY
+          git add -f -- . ':!.git' ':!node_modules' ':!dist' ':!package-lock.json' ':!.github/workflows' ':!.bootstrap'
+          if ! git diff --cached --quiet; then
+            git commit -m 'Import complete Revector Studio source, packages, fixtures and validation artifacts'
+            git push origin HEAD:main
+          fi
