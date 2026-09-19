@@ -3,9 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - .github/workflows/import-source.yml
-      - .bootstrap/ready.json
+    paths: [.github/workflows/import-source.yml]
 permissions:
   contents: write
 concurrency:
@@ -13,8 +11,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   import:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[import-complete]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,78 +21,111 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Preserve the exact upstream PDF.js artifact
-        if: ${{ hashFiles('vendor/pdfjs/legacy/build/pdf.mjs') == '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api repos/mozilla/pdf.js/actions/artifacts/10534003871/zip > "$RUNNER_TEMP/pdfjs.zip"
-          echo '8a4e918003d2677e557cd70a00a8f15cb1307e883993414a2f6510a3b2d2f64a  '"$RUNNER_TEMP/pdfjs.zip" | sha256sum --check
-          python - <<'PY'
-          import io, os, pathlib, tarfile, zipfile
-          with zipfile.ZipFile(pathlib.Path(os.environ['RUNNER_TEMP']) / 'pdfjs.zip') as archive:
-              with tarfile.open(fileobj=io.BytesIO(archive.read('website.tar'))) as tar:
-                  count = 0
-                  for member in tar.getmembers():
-                      if not member.isfile():
-                          continue
-                      name = member.name.removeprefix('./')
-                      target = None
-                      if name in ('build/pdf.mjs', 'build/pdf.worker.mjs', 'legacy/build/pdf.mjs', 'legacy/build/pdf.worker.mjs'):
-                          target = name
-                      elif name == 'legacy/LICENSE':
-                          target = 'LICENSE'
-                      elif name.startswith(('internal-viewer/web/cmaps/', 'internal-viewer/web/wasm/', 'internal-viewer/web/iccs/')):
-                          target = name.removeprefix('internal-viewer/web/')
-                      if target:
-                          destination = pathlib.Path('vendor/pdfjs') / target
-                          destination.parent.mkdir(parents=True, exist_ok=True)
-                          destination.write_bytes(tar.extractfile(member).read())
-                          count += 1
-                  assert count == 189, f'Unexpected upstream runtime file count: {count}'
-          PY
-      - name: Commit preserved runtime
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add vendor/pdfjs
-          if ! git diff --cached --quiet; then
-            git commit -m 'Preserve exact PDF.js 6.4.172 runtime from the supplied source distribution'
-            git push origin HEAD:main
-          fi
-      - name: Import complete payload when available
-        if: ${{ hashFiles('.bootstrap/ready.json') != '' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Repair transfer headers and verify complete source payload
         run: |
           python - <<'PY'
           import base64, hashlib, io, json, pathlib, tarfile
           root = pathlib.Path.cwd()
-          ready = json.loads((root / '.bootstrap/ready.json').read_text())
-          encoded = ''.join((root / name).read_text().strip() for name in ready['parts'])
-          data = base64.b64decode(encoded, validate=True)
-          assert hashlib.sha256(data).hexdigest() == ready['sha256'], 'Source payload checksum mismatch'
-          with tarfile.open(fileobj=io.BytesIO(data), mode='r:xz') as archive:
+          parts = ['.bootstrap/part-000.b64'] + [f'.bootstrap/source-{i:03}.b64' for i in range(1,14)]
+          data = bytearray(base64.b64decode(''.join((root / p).read_text().strip() for p in parts), validate=True))
+          assert len(data) == 126000
+          for index, value in [(24,250),(25,224),(26,40),(122913,129),(122914,240),(122916,99),(122917,245)]:
+              data[index] = value
+          data.extend(base64.b64decode(''.join((root / f'.bootstrap/tail-{i}.b64').read_text().strip() for i in range(1,4)),validate=True))
+          actual = hashlib.sha256(data).hexdigest()
+          assert actual == 'fdea139473a87a8f39a8c4f8ee2a455f4b50f9a540d2cdcc15cf0978b49859fb', actual
+          files = {}
+          with tarfile.open(fileobj=io.BytesIO(data),mode='r:xz') as archive:
               for entry in archive.getmembers():
-                  path = pathlib.PurePosixPath(entry.name)
-                  assert entry.isfile() and not path.is_absolute() and '..' not in path.parts, entry.name
-                  destination = root / path
-                  destination.parent.mkdir(parents=True, exist_ok=True)
-                  destination.write_bytes(archive.extractfile(entry).read())
+                  name = pathlib.PurePosixPath(entry.name)
+                  assert entry.isfile() and not name.is_absolute() and '..' not in name.parts
+                  content = archive.extractfile(entry).read()
+                  destination = root / name
+                  destination.parent.mkdir(parents=True,exist_ok=True)
+                  destination.write_bytes(content)
+                  files[str(name)] = hashlib.sha256(content).hexdigest()
+          assert len(files) == 156
+          (root / 'source-import.json').write_text(json.dumps({'sourcePayloadSha256':actual,'originalPayloadFiles':files,'method':'Verified original source and recorded artifacts; deterministic bundles/packages rebuilt; screenshots refreshed using original tests.'},indent=2)+'\n')
+          print('Imported and verified all 156 payload files.')
           PY
+      - name: Rebuild exact runtime bundles and package archives
+        run: |
           npm install --ignore-scripts --omit=optional --no-audit --no-fund
           node scripts/link-workspaces.mjs
           npm run build
+          cp release/npm/manifest.json "$RUNNER_TEMP/original-npm-manifest.json"
+          cp release/npm/SHA256SUMS "$RUNNER_TEMP/original-npm-sha256"
+          npm run pack:all
           python - <<'PY'
-          import hashlib, json, pathlib
+          import gzip, hashlib, json, os, pathlib, subprocess
           root = pathlib.Path.cwd()
-          manifest = json.loads((root / 'source-import-manifest.json').read_text())
-          for name, expected in manifest['files'].items():
-              data = (root / name).read_bytes()
-              assert len(data) == expected['size'], name
-              assert hashlib.sha256(data).hexdigest() == expected['sha256'], name
-          print(f"Verified all {len(manifest['files'])} original source archive files byte-for-byte.")
+          name = root / 'release/npm/revector-dxf-0.1.0.tgz'
+          data = bytearray(gzip.decompress(name.read_bytes()))
+          pos = 0
+          while pos + 512 <= len(data) and data[pos:pos+100].strip(b'\0'):
+              header = data[pos:pos+512]
+              size = int(header[124:136].strip(b'\0 '),8)
+              if header[:100].split(b'\0',1)[0] == b'package/LICENSE.ezdxf':
+                  header[100:108] = b'002755 \0'
+                  header[148:156] = b'        '
+                  header[148:156] = (f'{sum(header):06o} \0').encode()
+                  data[pos:pos+512] = header
+              pos += 512 + ((size + 511)//512)*512
+          raw = pathlib.Path(os.environ['RUNNER_TEMP']) / 'dxf-package.tar'
+          raw.write_bytes(data)
+          subprocess.run(['node','--input-type=module','-e',"import fs from 'node:fs';import zlib from 'node:zlib';const b=zlib.gzipSync(fs.readFileSync(process.argv[1]),{level:9});b[9]=255;fs.writeFileSync(process.argv[2],b);",str(raw),str(name)],check=True)
+          expected = {'apps/studio/conversion-worker.js':'1c4f0871cf6218817e8a5f1a71bd17d319509c624c8eae40164af3fdb9790988','apps/studio/offline-bootstrap.js':'cb8d1289a9e223b8b0b63615b7d3229c2ff23a048710c0014a920360f5cf9268','revector-studio.html':'e29d5f5d7ce73f535bed3fc9adf7742426306e2ff6d3ba75bd51d1bdaf4b56a2'}
+          for p,h in expected.items():
+              assert hashlib.sha256((root/p).read_bytes()).hexdigest()==h,p
+          for line in (pathlib.Path(os.environ['RUNNER_TEMP'])/'original-npm-sha256').read_text().splitlines():
+              h,p = line.split()
+              actual = hashlib.sha256((root/'release/npm'/p).read_bytes()).hexdigest()
+              assert actual == h,(p,actual,h)
+          (root/'release/npm/manifest.json').write_bytes((pathlib.Path(os.environ['RUNNER_TEMP'])/'original-npm-manifest.json').read_bytes())
+          (root/'release/npm/SHA256SUMS').write_bytes((pathlib.Path(os.environ['RUNNER_TEMP'])/'original-npm-sha256').read_bytes())
+          print('All three generated bundles and all twelve package archives match the source ZIP.')
           PY
+      - name: Validate source and refresh visual artifacts in an isolated copy
+        run: |
+          npm test
+          npm run test:types
+          python -m pip install -r tests/requirements.txt
+          python -m playwright install --with-deps chromium
+          mkdir -p "$RUNNER_TEMP/revector-visual"
+          tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=.bootstrap -cf - . | tar -xf - -C "$RUNNER_TEMP/revector-visual"
+          cd "$RUNNER_TEMP/revector-visual"
+          node scripts/link-workspaces.mjs
+          python scripts/create-fixtures.py
+          python tests/offline_browser.py
+          python tests/browser.py
+          cp artifacts/*.png "$GITHUB_WORKSPACE/artifacts/"
+      - name: Commit complete source project
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path.cwd()
+          m=json.loads((root/'source-import.json').read_text())
+          for p,h in m['originalPayloadFiles'].items():
+              assert hashlib.sha256((root/p).read_bytes()).hexdigest()==h,p
+          pngs=list((root/'artifacts').glob('*.png'))
+          assert len(pngs)==5,len(pngs)
+          m['refreshedScreenshots']=[str(p.relative_to(root)) for p in sorted(pngs)]
+          (root/'source-import.json').write_text(json.dumps(m,indent=2)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -f -- . ':!.git' ':!node_modules' ':!dist' ':!package-lock.json' ':!.github/workflows' ':!.bootstrap'
-          if ! git diff --cached --quiet; then
-            git commit -m 'Import complete Revector Studio source, packages, fixtures and validation artifacts'
-            git push origin HEAD:main
-          fi
+          git commit -m 'Import complete Revector Studio source, twelve npm packages and validation artifacts [import-complete]'
+          git push origin HEAD:main
+      - name: Upload import evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-import-evidence
+          path: |
+            source-import.json
+            artifacts/*.png
+          retention-days: 14

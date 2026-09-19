@@ -1,0 +1,9 @@
+{
+  "version": "6.4.172",
+  "channel": "development snapshot",
+  "repository": "mozilla/pdf.js",
+  "commit": "579c4b700f23f7782234f03358b5e9eaa3f58889",
+  "artifact": 10534003871,
+  "upstream": "https://github.com/mozilla/pdf.js/actions/runs/35314750710",
+  "standardFontsIncluded": false
+}

@@ -1,0 +1,34 @@
+name: Validate converter
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build tools and link local workspaces
+        run: |
+          npm install --ignore-scripts --omit=optional
+          node scripts/link-workspaces.mjs
+          python -m pip install -r tests/requirements.txt
+          python -m playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:types
+      - run: npm run test:browser
+      - run: npm run test:dxf
+      - run: npm run pack:all
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revector-validation
+          path: |
+            artifacts/
+            release/npm/
