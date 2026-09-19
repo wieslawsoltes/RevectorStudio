@@ -57,7 +57,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Back to overview',exact=True).click();page.get_by_title('Two-point measurement').click()
  # Entity and candidate inspectors, JSON-rule extension.
  page.locator('.candidate-name').first.click();check('Recovery inspector shows rule evidence',page.locator('.evidence').count()==1)
- page.locator('[data-tab="rules"]').click();check('All eight built-in rules have toggles',page.locator('.rule-card input').count()==8)
+ page.locator('[data-tab="rules"]').click();check('All sixteen built-in rules have toggles',page.locator('.rule-card input').count()==16)
  page.get_by_role('button',name='Edit JSON rules',exact=True).click()
  rule={'schema':'revector.rules/1','rules':[{'id':'test.tags','when':{'all':[{'field':'type','value':'TEXT'},{'field':'text','op':'prefix','value':'V-'}]},'then':{'layer':'TEST_TAGS','semantic':{'class':'test-tag'}}}]}
  page.locator('.rule-editor').fill(json.dumps(rule));page.get_by_role('button',name='Validate & apply',exact=True).click();settled(page)
@@ -67,7 +67,7 @@ with sync_playwright() as p:
  check('Page navigation performs a new real PDF extraction',page.evaluate('workbench.scene.items.length')>20)
  check('Rotated form reuse on page two remains one block',page.evaluate('workbench.result.document.blocks.length===1 && workbench.result.document.entities.filter(e=>e.type==="INSERT").length===8'))
  check('Page two contains native cubic HATCH boundary',page.evaluate('workbench.result.document.entities.some(e=>e.type==="HATCH" && e.paths.some(p=>p.segments.some(s=>s.kind==="C")))'))
- page.get_by_title('Switch paper / dark CAD view').click();check('Paper comparison mode works',page.evaluate('workbench.cadView.paper'))
+ page.get_by_title('Switch paper / dark CAD view').click();check('Paper/dark comparison toggle works',not page.evaluate('workbench.cadView.paper'));page.get_by_title('Switch paper / dark CAD view').click()
  page.locator('[data-tab="recovery"]').click();page.screenshot(path=str(ROOT/'artifacts/workbench-page2.png'))
  # Scale makes physical DXF coordinates, not just a mislabeled header.
  old=page.evaluate('workbench.result.document.pageBox[2]');page.locator('#scale').fill('100');page.locator('#scale').dispatch_event('change');settled(page,'workbench.result.document.source.options.drawingScale===100')

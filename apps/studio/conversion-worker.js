@@ -77,7 +77,7 @@ async function lowerScene(scene, userOptions = {}) {
         }
         return name;
     }
-    function common(item, paint = 'stroke') { const style = item.style || {}, color = style[paint] || [0, 0, 0], opacity = style[paint + 'Alpha'] ?? 1; return { id: makeId(), layer: layerFor(item, color), color: [...color], lineweight: (style.lineWidth || 0) * 25.4 / 72 * (scene.userUnit || 1), opacity, dash: (style.dash || []).map(v => v * scale), dashPhase: (style.dashPhase || 0) * scale, source: { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], markedContent: item.markedContent || [], kind: item.kind }, semantic: { class: item.annotation ? 'annotation' : null, confidence: 1, method: 'source' } }; }
+    function common(item, paint = 'stroke') { const style = item.style || {}, color = style[paint] || [0, 0, 0], opacity = style[paint + 'Alpha'] ?? 1; return { id: makeId(), layer: layerFor(item, color), color: [...color], lineweight: (style.lineWidth || 0) * 25.4 / 72 * (scene.userUnit || 1), opacity, dash: (style.dash || []).map(v => v * scale), dashPhase: (style.dashPhase || 0) * scale, source: { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], markedContent: item.markedContent || [], kind: item.ocr ? 'ocr' : item.kind, ...(item.ocr ? { ocr: item.ocr } : {}), ...(item.rasterInference ? { rasterInference: item.rasterInference } : {}) }, semantic: { class: item.ocr ? 'ocr-text' : item.rasterInference ? 'raster-line' : item.annotation ? 'annotation' : null, confidence: item.ocr?.confidence ?? item.rasterInference?.confidence ?? 1, method: item.ocr ? 'ocr' : item.rasterInference ? 'raster-inference' : 'source' } }; }
     function append(e, item) {
         doc.entities.push(e);
         if (!sourceEntities.has(item.id))
@@ -278,7 +278,7 @@ async function lowerScene(scene, userOptions = {}) {
                 append(e, item);
         }
     }
-    function commonSource(item) { return { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], kind: item.kind }; }
+    function commonSource(item) { return { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], kind: item.ocr ? 'ocr' : item.kind, ...(item.ocr ? { ocr: item.ocr } : {}), ...(item.rasterInference ? { rasterInference: item.rasterInference } : {}) }; }
     for (let i = 0; i < scene.items.length; i++) {
         if ((i & 127) === 0) {
             (0, model_1.checkAbort)(options.signal);
@@ -349,6 +349,94 @@ async function lowerScene(scene, userOptions = {}) {
     doc.source.rasterItems = scene.items.filter(i => i.kind === 'image').length;
     options.onProgress?.({ phase: 'lower', done: scene.items.length, total: scene.items.length });
     return doc;
+}
+
+},
+"@revector/color":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizeRgb = normalizeRgb;
+exports.displayColor = displayColor;
+exports.srgbToLab = srgbToLab;
+exports.deltaE2000 = deltaE2000;
+exports.auditColors = auditColors;
+/** RGB here is always display-referred sRGB bytes. Never infer [0,1] from magnitude:
+ * [1,0,0] is a valid near-black color in PDF.js's normalized operator stream. */
+function normalizeRgb(value, { domain = 'byte' } = {}) {
+    let a = value;
+    if (typeof a === 'string') {
+        if (/^#[\da-f]{6}$/i.test(a))
+            a = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+        else if (/^#[\da-f]{3}$/i.test(a))
+            a = [...a.slice(1)].map(x => parseInt(x + x, 16));
+        else {
+            const m = a.match(/^rgb\(\s*([\d.]+)(%)?[ ,]+([\d.]+)(%)?[ ,]+([\d.]+)(%)?\s*\)$/i);
+            if (!m)
+                throw new TypeError('Unsupported RGB syntax: ' + a);
+            a = [1, 3, 5].map(i => Number(m[i]) * (m[i + 1] ? 2.55 : 1));
+        }
+    }
+    else if (domain === 'unit')
+        a = Array.from(a || [], x => x * 255);
+    if ((!Array.isArray(a) && !ArrayBuffer.isView(a)) || a.length !== 3 || !Array.from(a).every(Number.isFinite))
+        throw new TypeError('Expected three finite RGB components');
+    return Array.from(a, x => Math.round(Math.max(0, Math.min(255, x))));
+}
+function displayColor(rgb, mode = 'faithful') {
+    const c = normalizeRgb(rgb || [0, 0, 0]);
+    if (!['faithful', 'contrast'].includes(mode))
+        throw new RangeError('Unknown color presentation mode');
+    const out = mode === 'contrast' && c.reduce((a, b) => a + b, 0) < 420 ? c.map(v => Math.min(255, Math.round(135 + v * .65))) : c;
+    return `rgb(${out.join(' ')})`;
+}
+function srgbToLab(rgb) {
+    const [r, g, b] = normalizeRgb(rgb).map(x => (x /= 255) <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4);
+    const f = t => t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116;
+    const x = f((.4124564 * r + .3575761 * g + .1804375 * b) / .95047), y = f(.2126729 * r + .7151522 * g + .072175 * b), z = f((.0193339 * r + .119192 * g + .9503041 * b) / 1.08883);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+/** CIEDE2000 with unit parametric weights; inputs are CIE Lab under the same white. */
+function deltaE2000(a, b) {
+    const [l1, a1, b1] = a, [l2, a2, b2] = b, rad = Math.PI / 180, pow = x => x ** 7;
+    const cbar = (Math.hypot(a1, b1) + Math.hypot(a2, b2)) / 2, g = .5 * (1 - Math.sqrt(pow(cbar) / (pow(cbar) + 25 ** 7)));
+    const ap1 = (1 + g) * a1, ap2 = (1 + g) * a2, c1 = Math.hypot(ap1, b1), c2 = Math.hypot(ap2, b2);
+    const hue = (x, y) => (Math.atan2(y, x) / rad + 360) % 360, h1 = hue(ap1, b1), h2 = hue(ap2, b2);
+    let dh = h2 - h1;
+    if (c1 * c2 === 0)
+        dh = 0;
+    else if (dh > 180)
+        dh -= 360;
+    else if (dh < -180)
+        dh += 360;
+    const dl = l2 - l1, dc = c2 - c1, dH = 2 * Math.sqrt(c1 * c2) * Math.sin(dh * rad / 2), lm = (l1 + l2) / 2, cm = (c1 + c2) / 2;
+    const hm = c1 * c2 === 0 ? h1 + h2 : Math.abs(h1 - h2) <= 180 ? (h1 + h2) / 2 : (h1 + h2 + (h1 + h2 < 360 ? 360 : -360)) / 2;
+    const t = 1 - .17 * Math.cos((hm - 30) * rad) + .24 * Math.cos(2 * hm * rad) + .32 * Math.cos((3 * hm + 6) * rad) - .20 * Math.cos((4 * hm - 63) * rad);
+    const sl = 1 + .015 * (lm - 50) ** 2 / Math.sqrt(20 + (lm - 50) ** 2), sc = 1 + .045 * cm, sh = 1 + .015 * cm * t;
+    const rt = -2 * Math.sqrt(pow(cm) / (pow(cm) + 25 ** 7)) * Math.sin(60 * Math.exp(-(((hm - 275) / 25) ** 2)) * rad);
+    const x = dl / sl, y = dc / sc, z = dH / sh;
+    return Math.sqrt(Math.max(0, x * x + y * y + z * z + rt * y * z));
+}
+function auditColors(original, preview, { maxSamples = 32 } = {}) {
+    const all = d => [...d.entities, ...d.blocks.flatMap(b => b.entities)].flatMap(e => [e, ...(e.attributes || [])]);
+    const targets = new Map(all(preview).map(e => [e.id, e]));
+    let compared = 0, changed = 0, maxDeltaE = 0, maxChannelError = 0;
+    const samples = [];
+    for (const e of all(original)) {
+        const target = targets.get(e.id);
+        if (!e.color || !target?.color)
+            continue;
+        const a = normalizeRgb(e.color), b = normalizeRgb(target.color), error = Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+        compared++;
+        maxChannelError = Math.max(maxChannelError, error);
+        if (error) {
+            changed++;
+            const deltaE = deltaE2000(srgbToLab(a), srgbToLab(b));
+            maxDeltaE = Math.max(maxDeltaE, deltaE);
+            if (samples.length < maxSamples)
+                samples.push({ id: e.id, source: a, exported: b, deltaE2000: deltaE });
+        }
+    }
+    return { space: 'sRGB', metric: 'CIEDE2000 / D65', compared, changed, maxChannelError, maxDeltaE, samples, exact: changed === 0, profilePolicy: 'PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.' };
 }
 
 },
@@ -711,7 +799,7 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
     const handles = new Map([...doc.entities, ...doc.blocks.flatMap(b => b.entities)].map(e => [e.handle, e.id]));
     for (const r of records(sections.get('OBJECTS') || []))
         if (r.type === 'GROUP')
-            doc.groups.push({ name: get(r, 5, ''), description: (0, exports.decodeDxfString)(get(r, 300, '')), members: r.tags.filter(t => t[0] === 340).map(t => handles.get(t[1])).filter(Boolean) });
+            doc.groups.push({ name: parseXdata(r)?.id || get(r, 5, ''), semantic: parseXdata(r)?.semantic || {}, description: (0, exports.decodeDxfString)(get(r, 300, '')), members: r.tags.filter(t => t[0] === 340).map(t => handles.get(t[1])).filter(Boolean) });
     return doc;
 }
 
@@ -875,7 +963,11 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
     function provenance(e) {
         if (!xdata)
             return;
-        const value = JSON.stringify({ id: e.id, source: { ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: (0, geometry_1.stableHash)(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
+        let value = JSON.stringify({ id: e.id, source: { kind: e.source?.kind, ocr: e.source?.ocr, rasterInference: e.source?.rasterInference, ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: (0, geometry_1.stableHash)(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
+        if (dxfString(value).length > 14000) {
+            diagnostics.push((0, model_1.diagnostic)('XDATA_DETAIL_LIMIT', 'Semantic detail exceeds the portable XDATA budget; full detail remains in the CAD model/report.', 'warning', { id: e.id }));
+            value = JSON.stringify({ id: e.id, source: { ref: (0, geometry_1.stableHash)(e.source || {}) }, semantic: { class: e.semantic?.class, confidence: e.semantic?.confidence, detailHash: (0, geometry_1.stableHash)(e.semantic || {}), truncated: true } });
+        }
         tag(1001, 'REVECTOR');
         let chunk = '';
         for (const c of value) {
@@ -1275,6 +1367,7 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
         for (const id of g.members)
             if (handles.has(id))
                 tag(340, handles.get(id));
+        provenance({ id: g.name, semantic: g.semantic || {}, source: g.source || {} });
     }
     tag(0, 'ENDSEC');
     tag(0, 'EOF');
@@ -1333,6 +1426,9 @@ function writeDxf(doc, options) { return exportDxf(doc, options).text; }
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConversionWorker = exports.convertPdf = exports.convertScene = exports.ConversionEngine = exports.DEFAULT_CONVERSION_OPTIONS = exports.CAD_PROFILES = void 0;
+const rules_document_1 = require("@revector/rules-document");
+const color_1 = require("@revector/color");
+const ocr_1 = require("@revector/ocr");
 const pdf_1 = require("@revector/pdf");
 const cad_1 = require("@revector/cad");
 Object.defineProperty(exports, "DEFAULT_CONVERSION_OPTIONS", { enumerable: true, get: function () { return cad_1.DEFAULT_CONVERSION_OPTIONS; } });
@@ -1343,7 +1439,7 @@ const dxf_1 = require("@revector/dxf");
 const model_1 = require("@revector/model");
 /** No browser, renderer, persistence, or framework dependency in the conversion core. */
 class ConversionEngine {
-    constructor({ rules = rules_cad_1.cadRules } = {}) { this.rules = [...rules]; }
+    constructor({ rules = [...rules_cad_1.cadRules, ...rules_document_1.documentRules] } = {}) { this.rules = [...rules]; }
     register(rule) {
         if (this.rules.some(r => r.id === rule.id))
             throw Error(`Duplicate rule ${rule.id}`);
@@ -1383,14 +1479,16 @@ class ConversionEngine {
         if (!roundtripValidation.valid)
             throw new Error('Serialized DXF failed round-trip validation: ' + roundtripValidation.errors.join('; '));
         checkpoint('roundtripMs');
-        const report = { schema: 'revector.report/1', version: '0.1.0', source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const report = { schema: 'revector.report/1', version: '0.2.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, ocr: scene.ocr || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
     }
     async convertPdf(bytes, options = {}) {
         const source = await pdf_1.PdfSource.open(bytes, options);
         try {
-            const scene = await source.extract(options.page || 1, options);
+            let scene = await source.extract(options.page || 1, options);
+            if (options.ocr)
+                scene = await (0, ocr_1.recoverPdfRaster)(source, scene, { ...options.ocr, signal: options.signal, onProgress: options.onProgress });
             return { ...await this.convertScene(scene, options), scene };
         }
         finally {
@@ -2277,6 +2375,247 @@ const yieldTask = () => new Promise(resolve => setTimeout(resolve, 0));
 exports.yieldTask = yieldTask;
 
 },
+"@revector/ocr":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TesseractOcr = exports.DEFAULT_OCR_OPTIONS = exports.OCR_VERSION = void 0;
+exports.normalizeOcrOptions = normalizeOcrOptions;
+exports.ocrWords = ocrWords;
+exports.rotationMatrix = rotationMatrix;
+exports.nativeTextBoxes = nativeTextBoxes;
+exports.wordToPaint = wordToPaint;
+exports.recoverPdfRaster = recoverPdfRaster;
+const geometry_1 = require("@revector/geometry");
+const model_1 = require("@revector/model");
+const raster_1 = require("@revector/raster");
+const topology_1 = require("@revector/topology");
+exports.OCR_VERSION = '7.0.0';
+exports.DEFAULT_OCR_OPTIONS = Object.freeze({ scope: 'raster', languages: 'eng', dpi: 300, minConfidence: 65, preprocess: 'none', rotation: 0, traceLines: false, maxPixels: 24_000_000, maxRegions: 128, maxWords: 25000, timeoutMs: 120000 });
+function normalizeOcrOptions(input = {}) {
+    const o = { ...exports.DEFAULT_OCR_OPTIONS, ...input };
+    if (!/^[a-z][a-z0-9_]{1,23}(\+[a-z][a-z0-9_]{1,23}){0,7}$/.test(o.languages))
+        throw new RangeError('Invalid OCR language codes');
+    if (!['raster', 'page'].includes(o.scope) || !['none', 'otsu', 'sauvola'].includes(o.preprocess) || ![0, 90, 180, 270].includes(o.rotation))
+        throw new RangeError('Invalid OCR mode');
+    for (const [key, min, max] of [['dpi', 72, 600], ['minConfidence', 0, 100], ['maxPixels', 1, 48_000_000], ['maxRegions', 1, 1024], ['maxWords', 1, 100000], ['timeoutMs', 1000, 600000]])
+        if (!Number.isFinite(o[key]) || o[key] < min || o[key] > max)
+            throw new RangeError('Invalid OCR ' + key);
+    return o;
+}
+/** Injectable OCR provider. A session owns exactly one worker, serialized jobs and hard cancellation. */
+class TesseractOcr {
+    constructor(options = {}) { this.options = options; this.worker = null; this.busy = false; }
+    async recognize(image, options = {}) {
+        if (this.busy)
+            throw new Error('OCR session is busy; await the previous recognition');
+        this.busy = true;
+        let timer, abort;
+        const signal = options.signal;
+        let cancelled = false;
+        try {
+            (0, model_1.checkAbort)(signal);
+            const failure = new Promise((_, reject) => {
+                abort = () => { cancelled = true; void this.dispose(); reject(Object.assign(new Error('OCR cancelled'), { name: 'AbortError' })); };
+                signal?.addEventListener('abort', abort, { once: true });
+                timer = setTimeout(() => { cancelled = true; void this.dispose(); reject(new Error('OCR deadline exceeded')); }, options.timeoutMs || 120000);
+            });
+            const work = (async () => {
+                if (!this.worker) {
+                    const moduleUrl = this.options.moduleUrl;
+                    const lib = this.options.provider || await globalThis.__revectorImport(moduleUrl);
+                    const worker = await lib.createWorker(this.options.languages || 'eng', 1, { ...(this.options.node ? {} : { workerPath: this.options.workerPath, corePath: this.options.corePath, workerBlobURL: false }), langPath: this.options.langPath, gzip: true, logger: this.options.onProgress });
+                    if (cancelled) {
+                        await worker.terminate();
+                        throw Object.assign(new Error('OCR cancelled'), { name: 'AbortError' });
+                    }
+                    this.worker = worker;
+                }
+                await this.worker.setParameters({ tessedit_pageseg_mode: String(options.psm ?? 11), preserve_interword_spaces: '1', user_defined_dpi: String(options.dpi || 300) });
+                return (await this.worker.recognize(image, {}, { blocks: true, text: true })).data;
+            })();
+            return await Promise.race([work, failure]);
+        }
+        catch (error) {
+            await this.dispose();
+            throw error;
+        }
+        finally {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', abort);
+            this.busy = false;
+        }
+    }
+    async dispose() { const worker = this.worker; this.worker = null; if (worker)
+        await worker.terminate(); }
+}
+exports.TesseractOcr = TesseractOcr;
+function ocrWords(data) {
+    const out = [];
+    for (const block of data.blocks || [])
+        for (const paragraph of block.paragraphs || [])
+            for (const line of paragraph.lines || [])
+                for (const word of line.words || []) {
+                    const b = word.bbox;
+                    if (b && [b.x0, b.y0, b.x1, b.y1].every(Number.isFinite) && b.x1 > b.x0 && b.y1 > b.y0 && String(word.text || '').trim())
+                        out.push({ ...word, text: String(word.text).trim(), lineBaseline: line.baseline });
+                }
+    return out;
+}
+function rotationMatrix(rotation, width, height) {
+    if (rotation === 0)
+        return [...geometry_1.I];
+    if (rotation === 90)
+        return [0, 1, -1, 0, height, 0];
+    if (rotation === 180)
+        return [-1, 0, 0, -1, width, height];
+    if (rotation === 270)
+        return [0, -1, 1, 0, 0, width];
+    throw new RangeError('OCR rotation must be a quarter-turn');
+}
+function canvasPath(ctx, paths) { ctx.beginPath(); for (const p of paths) {
+    ctx.moveTo(...p.start);
+    for (const s of p.segments)
+        s.kind === 'C' ? ctx.bezierCurveTo(...s.c1, ...s.c2, ...s.to) : ctx.lineTo(...s.to);
+    if (p.closed)
+        ctx.closePath();
+} }
+function canvasFactory(width, height) { const canvas = globalThis.document?.createElement('canvas') || new OffscreenCanvas(width, height); canvas.width = width; canvas.height = height; return canvas; }
+function overlap(a, b) { const w = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])), h = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1])); return w * h / Math.max(1e-12, (a[2] - a[0]) * (a[3] - a[1])); }
+/** Conservative duplicate suppression: native text occupying the word region wins, regardless of OCR spelling. */
+function nativeTextBoxes(scene, pdfToPixels) {
+    return scene.items.filter(i => i.kind === 'text' && !i.ocr && !i.invisibleText && i.visible !== false && i.matrix).map(i => {
+        const first = i.matrix, last = i.glyphs?.at(-1), width = last ? Math.hypot(last.matrix[4] + last.matrix[0] * last.width - first[4], last.matrix[5] + last.matrix[1] * last.width - first[5]) / Math.max(1e-9, Math.hypot(first[0], first[1])) : String(i.text).length * .55;
+        return (0, geometry_1.transformBox)([0, -.2, width, i.capHeight || .8], (0, geometry_1.compose)(pdfToPixels, first));
+    });
+}
+function inkColor(image, box) { const bins = new Map(); const [x0, y0, x1, y1] = box.map(Math.round); for (let y = Math.max(0, y0); y < Math.min(image.height, y1); y += 2)
+    for (let x = Math.max(0, x0); x < Math.min(image.width, x1); x += 2) {
+        const j = 4 * (y * image.width + x), c = Array.from(image.data.slice(j, j + 3));
+        if (Math.min(...c) > 215)
+            continue;
+        const k = c.map(v => v >> 4).join(','), b = bins.get(k) || [0, 0, 0, 0];
+        b[0]++;
+        for (let i = 0; i < 3; i++)
+            b[i + 1] += c[i];
+        bins.set(k, b);
+    } const best = [...bins.values()].sort((a, b) => b[0] - a[0])[0]; return best ? best.slice(1).map(v => Math.round(v / best[0])) : [0, 0, 0]; }
+/** Pixel baseline -> PDF paint IR. No coordinates are guessed from a nominal DPI. */
+function wordToPaint(word, pixelToPdf, { page = 1, regionId = 'r0', color = [0, 0, 0], imageIds = [] } = {}) {
+    const b = word.bbox, h = b.y1 - b.y0, w = b.x1 - b.x0, baseline = word.lineBaseline;
+    // The baseline is only used when it lies within this word's vertical extent.
+    const by = baseline && Number.isFinite(baseline.y0) && baseline.y0 >= b.y0 && baseline.y0 <= b.y1 ? baseline.y0 : b.y1;
+    const textHeight = Math.max(1, by - b.y0), matrix = (0, geometry_1.compose)(pixelToPdf, [textHeight, 0, 0, -textHeight, b.x0, by]);
+    return { id: `ocr-${page}-${(0, geometry_1.stableHash)([regionId, word.text, b])}`, kind: 'text', operator: -1, layerId: 'REVECTOR_OCR', visible: true, formPath: [], markedContent: [], clips: [], text: word.text, matrix, glyphs: [{ text: word.text, matrix, width: w / textHeight }], capHeight: 1, font: 'ocr-substitute', fontName: 'Arial', style: { fill: color, stroke: color, fillAlpha: 1, strokeAlpha: 1, lineWidth: 0, dash: [] }, ocr: { engine: 'tesseract.js', version: exports.OCR_VERSION, confidence: word.confidence / 100, box: [b.x0, b.y0, b.x1, b.y1], pixelToPdf, imageIds, regionId, geometry: 'estimated text metrics', font: 'substituted' } };
+}
+/** Recognizes composited visible raster regions; vector extraction is untouched.
+ * PDF.js performs image decoding, ICC transforms, soft masks and page rotation before OCR. */
+async function recoverPdfRaster(source, scene, input = {}) {
+    const o = normalizeOcrOptions(input), signal = o.signal, make = o.canvasFactory || canvasFactory, regions = (0, raster_1.rasterRegions)(scene, o);
+    const out = structuredClone(scene);
+    out.items = out.items.filter(i => !i.ocr && !i.rasterInference);
+    out.ocr = { engine: 'tesseract.js', version: exports.OCR_VERSION, options: Object.fromEntries(Object.entries(o).filter(([k, v]) => !['signal', 'provider', 'canvasFactory', 'session', 'onProgress'].includes(k) && typeof v !== 'function')), accepted: 0, rejected: 0, duplicates: 0, regions: regions.length, lines: 0, rejectedWords: [] };
+    if (!regions.length) {
+        out.diagnostics.push((0, model_1.diagnostic)('OCR_NO_RASTER', 'No visible raster content was found. Native PDF text was not OCR processed.', 'info'));
+        return out;
+    }
+    const page = await source.pdf.getPage(scene.pageNumber), vp = page.getViewport({ scale: 1 }), scale = Math.min(o.dpi / 72, Math.sqrt(o.maxPixels / (vp.width * vp.height)) * .999);
+    const full = make(1, 1), render = await source.render(scene.pageNumber, full, { scale, signal, background: '#ffffff' }), pdfToPixels = render.transform, pixelToPdf = (0, geometry_1.inverse)(pdfToPixels), pageToPixels = (0, geometry_1.compose)(pdfToPixels, (0, geometry_1.inverse)(scene.pageTransform || geometry_1.I)), native = new topology_1.SpatialIndex(nativeTextBoxes(out, pdfToPixels), b => b);
+    out.ocr.effectiveDpi = 72 * scale;
+    const base = new URL(o.assetBase || './vendor/ocr/', globalThis.document?.baseURI || 'file:///').href;
+    const own = !o.session, session = o.session || new TesseractOcr({ languages: o.languages, moduleUrl: base + 'tesseract.esm.min.js', workerPath: base + 'worker.min.js', corePath: base + 'core/', langPath: base + 'lang', provider: o.provider, onProgress: p => o.onProgress?.({ phase: 'ocr', status: p.status, done: p.progress, total: 1 }) });
+    try {
+        for (let ri = 0; ri < regions.length; ri++) {
+            (0, model_1.checkAbort)(signal);
+            o.onProgress?.({ phase: 'ocr-region', done: ri, total: regions.length });
+            const region = regions[ri], b = (0, geometry_1.transformBox)(region.box, pageToPixels), x = Math.max(0, Math.floor(b[0])), y = Math.max(0, Math.floor(b[1])), w = Math.min(full.width, Math.ceil(b[2])) - x, h = Math.min(full.height, Math.ceil(b[3])) - y;
+            if (w < 2 || h < 2)
+                continue;
+            const crop = make(w, h), ctx = crop.getContext('2d', { willReadFrequently: true });
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, w, h);
+            if (region.wholePage)
+                ctx.drawImage(full, -x, -y);
+            else
+                for (const item of region.items) {
+                    ctx.save();
+                    const m = (0, geometry_1.compose)([1, 0, 0, 1, -x, -y], pdfToPixels);
+                    canvasPath(ctx, (0, geometry_1.mapPaths)([(0, geometry_1.rectPath)([0, 0, 1, 1])], (0, geometry_1.compose)(m, item.transform)));
+                    ctx.clip();
+                    for (const clip of item.clips || [])
+                        if (!clip.text) {
+                            canvasPath(ctx, (0, geometry_1.mapPaths)(clip.paths || [], m));
+                            ctx.clip(clip.rule === 'evenodd' ? 'evenodd' : 'nonzero');
+                        }
+                    ctx.drawImage(full, -x, -y);
+                    ctx.restore();
+                }
+            const R = rotationMatrix(o.rotation, w, h), rotated = make(o.rotation % 180 ? h : w, o.rotation % 180 ? w : h), rc = rotated.getContext('2d', { willReadFrequently: true });
+            rc.setTransform(...R);
+            rc.drawImage(crop, 0, 0);
+            rc.resetTransform();
+            const original = rc.getImageData(0, 0, rotated.width, rotated.height), localToGlobal = (0, geometry_1.compose)([1, 0, 0, 1, x, y], (0, geometry_1.inverse)(R)), localToPdf = (0, geometry_1.compose)(pixelToPdf, localToGlobal);
+            let binary;
+            if (o.preprocess !== 'none') {
+                binary = (0, raster_1.binarize)(original, { method: o.preprocess, invert: !!o.invert, signal, maxPixels: o.maxPixels });
+                const clean = (0, raster_1.binaryRgba)(binary, original.width, original.height), image = rc.createImageData(clean.width, clean.height);
+                image.data.set(clean.data);
+                rc.putImageData(image, 0, 0);
+            }
+            const data = await session.recognize(typeof rotated.toBuffer === 'function' ? rotated.toBuffer('image/png') : rotated, { ...o, signal }), words = ocrWords(data);
+            if (out.ocr.accepted + out.ocr.rejected + out.ocr.duplicates + words.length > o.maxWords)
+                throw new RangeError('OCR word budget exceeded');
+            const wordBoxes = [];
+            for (const word of words) {
+                const box = [word.bbox.x0, word.bbox.y0, word.bbox.x1, word.bbox.y1];
+                wordBoxes.push(box);
+                const global = (0, geometry_1.transformBox)(box, localToGlobal);
+                if (native.search(global).some(b => (0, geometry_1.intersects)(global, b) && overlap(global, b) > .6)) {
+                    out.ocr.duplicates++;
+                    continue;
+                }
+                if (!Number.isFinite(word.confidence) || word.confidence < o.minConfidence) {
+                    out.ocr.rejected++;
+                    if (out.ocr.rejectedWords.length < 200)
+                        out.ocr.rejectedWords.push({ text: word.text, confidence: word.confidence ?? 0, box, region: ri });
+                    continue;
+                }
+                out.items.push(wordToPaint(word, localToPdf, { page: scene.pageNumber, regionId: String(ri), imageIds: region.items.map(i => i.id), color: inkColor(original, box) }));
+                out.ocr.accepted++;
+            }
+            if (o.traceLines) {
+                binary ||= (0, raster_1.binarize)(original, { signal });
+                for (const b of wordBoxes) {
+                    for (let py = Math.max(0, Math.floor(b[1]) - 2); py < Math.min(original.height, Math.ceil(b[3]) + 2); py++)
+                        for (let px = Math.max(0, Math.floor(b[0]) - 2); px < Math.min(original.width, Math.ceil(b[2]) + 2); px++)
+                            binary[py * original.width + px] = 0;
+                }
+                for (const line of (0, raster_1.detectRasterLines)(binary, original.width, original.height, { minLength: Math.max(24, scale * 15), maxThickness: Math.max(3, Math.round(scale * 3)), signal })) {
+                    const start = (0, geometry_1.transform)(localToPdf, line.start), end = (0, geometry_1.transform)(localToPdf, line.end);
+                    out.items.push({ id: `raster-line-${ri}-${out.ocr.lines++}`, kind: 'path', operator: -1, visible: true, layerId: 'REVECTOR_RASTER_LINES', paths: [{ start, segments: [{ kind: 'L', to: end }], closed: false }], stroke: true, fill: false, clips: [], formPath: [], style: { stroke: [0, 0, 0], lineWidth: line.thickness / scale, strokeAlpha: 1, dash: [] }, rasterInference: { method: 'axis-runs', confidence: line.confidence } });
+                }
+            }
+            crop.width = crop.height = 1;
+            rotated.width = rotated.height = 1;
+        }
+    }
+    finally {
+        if (own)
+            await session.dispose();
+        full.width = full.height = 1;
+    }
+    if (out.ocr.accepted)
+        out.ocgs.REVECTOR_OCR = { name: 'OCR_TEXT', visible: true };
+    if (out.ocr.lines)
+        out.ocgs.REVECTOR_RASTER_LINES = { name: 'RASTER_LINE_HYPOTHESES', visible: true };
+    out.diagnostics = out.diagnostics.filter(d => !d.code.startsWith('OCR_'));
+    out.diagnostics.push((0, model_1.diagnostic)('OCR_RECOVERY', `${out.ocr.accepted} OCR words added; ${out.ocr.rejected} below confidence threshold; ${out.ocr.duplicates} native-text overlaps suppressed. OCR is inferred, not lossless.`, 'warning', { ocr: out.ocr }));
+    if (o.traceLines)
+        out.diagnostics.push((0, model_1.diagnostic)('RASTER_LINE_INFERENCE', 'Axis-aligned raster lines are estimated, not exact recovered CAD primitives; text boxes are excluded.', 'warning'));
+    out.source = { ...out.source, ocr: { engine: out.ocr.engine, accepted: out.ocr.accepted, effectiveDpi: out.ocr.effectiveDpi } };
+    return out;
+}
+
+},
 "@revector/pdf":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -2393,6 +2732,9 @@ class PdfSource {
             groups[id] = { name: g.name, visible: g.visible, locked: g.locked };
         const scene = await (0, interpreter_js_1.interpretOperators)(cached.list, { ...options, OPS: this.lib.OPS, pageNumber, box: page.view, pageTransform: vp.transform, userUnit: page.userUnit, rotation: page.rotate, fonts: cached.fonts, ocgs: groups, structure: cached.structure, annotations: cached.annotations, source: { name: this.options.name || this.metadata?.info?.Title || 'PDF document', fingerprints: this.pdf.fingerprints, producer: this.metadata?.info?.Producer || '', creator: this.metadata?.info?.Creator || '', pdfVersion: this.metadata?.info?.PDFFormatVersion || '', ...this.metadata?.info } });
         scene.pageSize = [vp.width, vp.height];
+        scene.colorManagement = { engine: 'PDF.js', version: this.lib.version, output: 'sRGB', useWasm: this.options.pdfOptions?.useWasm !== false, iccResourcesConfigured: !!this.options.pdfOptions?.iccUrl, policy: 'Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied.' };
+        if (!scene.colorManagement.iccResourcesConfigured)
+            scene.diagnostics.push((0, model_1.diagnostic)('ICC_RESOURCES_NOT_CONFIGURED', 'No ICC resource URL was configured; PDF.js may use its fallback CMYK conversion.', 'warning'));
         if (this.pdf.isPureXfa)
             scene.diagnostics.push((0, model_1.diagnostic)('XFA_DOCUMENT', 'Dynamic XFA content is previewed by PDF.js but has no complete DXF conversion mapping.', 'error'));
         return scene;
@@ -2402,7 +2744,7 @@ class PdfSource {
         const page = await this.pdf.getPage(pageNumber), viewport = page.getViewport({ scale });
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
-        const ctx = canvas.getContext('2d', { alpha: false });
+        const ctx = canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' });
         const task = page.render({ canvasContext: ctx, viewport, background, optionalContentConfigPromise: Promise.resolve(this.optionalContent), annotationMode: this.lib.AnnotationMode.ENABLE });
         const abort = () => task.cancel();
         signal?.addEventListener('abort', abort, { once: true });
@@ -2426,25 +2768,12 @@ exports.PdfSource = PdfSource;
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.interpretOperators = interpretOperators;
+const color_1 = require("@revector/color");
 const geometry_1 = require("@revector/geometry");
 const model_1 = require("@revector/model");
 const ops_js_1 = require("@revector/pdf/ops.js");
 const clone = x => structuredClone(x);
-function rgb(args) {
-    const a = args.length === 1 ? args[0] : args;
-    if (typeof a === 'string') {
-        const v = a.startsWith('#') ? a.slice(1) : '';
-        if (v.length === 6)
-            return [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16));
-        const m = a.match(/[\d.]+/g);
-        return m?.length >= 3 ? m.slice(0, 3).map(Number) : [0, 0, 0];
-    }
-    if (ArrayBuffer.isView(a) || Array.isArray(a)) {
-        const v = Array.from(a).slice(0, 3);
-        return v.map(x => Math.max(0, Math.min(255, Number(x))));
-    }
-    return [0, 0, 0];
-}
+function rgb(args) { return (0, color_1.normalizeRgb)(args.length === 1 ? args[0] : args); }
 const gray = g => [g, g, g].map(x => Math.round(Math.max(0, Math.min(1, x)) * 255));
 const cmyk = ([c, m, y, k]) => [c, m, y].map(v => Math.round(255 * (1 - Math.min(1, v + k))));
 function visibleOC(props, groups) {
@@ -3003,8 +3332,26 @@ async function interpretOperators(operatorList, options = {}) {
             case 'paintImageMaskXObjectRepeat':
             case 'paintImageMaskXObjectGroup':
             case 'paintSolidColorImageMask': {
-                scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof a[0] === 'string' ? a[0] : null, transform: [...state.ctm], width: a[1] || a[0]?.width, height: a[2] || a[0]?.height, ...metadata() });
-                report('RASTER_CONTENT', 'Raster/image-mask content is detected but never OCR-processed or vector-traced.', 'warning');
+                const emit = (matrix = geometry_1.I, image = a[0]) => scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof image === 'string' ? image : null, transform: (0, geometry_1.compose)(state.ctm, matrix), width: image?.width, height: image?.height, ...metadata() });
+                if (name === 'paintImageXObjectRepeat') {
+                    for (let i = 0; i < a[3].length; i += 2)
+                        emit([a[1], 0, 0, a[2], a[3][i], a[3][i + 1]]);
+                }
+                else if (name === 'paintImageMaskXObjectRepeat') {
+                    for (let i = 0; i < a[5].length; i += 2)
+                        emit([a[1], a[2], a[3], a[4], a[5][i], a[5][i + 1]]);
+                }
+                else if (name === 'paintImageMaskXObjectGroup') {
+                    for (const image of a[0])
+                        emit(image.transform, image);
+                }
+                else if (name === 'paintInlineImageXObjectGroup') {
+                    for (const image of a[1])
+                        emit(image.transform);
+                }
+                else
+                    emit();
+                report('RASTER_CONTENT', 'Raster content has no automatic vector mapping. Enable Raster OCR for local text recovery; remaining image graphics stay in the PDF.', 'warning');
                 break;
             }
             default:
@@ -3043,6 +3390,194 @@ exports.OPS = Object.freeze({ dependency: 1, setLineWidth: 2, setLineCap: 3, set
 exports.DRAW_OPS = { moveTo: 0, lineTo: 1, curveTo: 2, quadraticCurveTo: 3, closePath: 4 };
 
 },
+"@revector/raster":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateRaster = validateRaster;
+exports.grayscale = grayscale;
+exports.otsu = otsu;
+exports.binarize = binarize;
+exports.binaryRgba = binaryRgba;
+exports.rasterRegions = rasterRegions;
+exports.rasterMaskPaths = rasterMaskPaths;
+exports.detectRasterLines = detectRasterLines;
+const geometry_1 = require("@revector/geometry");
+const model_1 = require("@revector/model");
+function validateRaster(raster, maxPixels = 24_000_000) {
+    const { width: w, height: h, data } = raster;
+    if (!Number.isInteger(w) || !Number.isInteger(h) || w <= 0 || h <= 0 || w * h > maxPixels || !data || data.length !== w * h * 4)
+        throw new RangeError('Invalid raster dimensions or pixel budget exceeded');
+    return raster;
+}
+/** Alpha is composited onto paper before thresholding; transparent black is not ink. */
+function grayscale(raster, maxPixels = 24_000_000) {
+    validateRaster(raster, maxPixels);
+    const out = new Uint8Array(raster.width * raster.height);
+    for (let i = 0; i < out.length; i++) {
+        const j = i * 4, a = raster.data[j + 3] / 255;
+        out[i] = Math.round(255 * (1 - a) + a * (.2126 * raster.data[j] + .7152 * raster.data[j + 1] + .0722 * raster.data[j + 2]));
+    }
+    return out;
+}
+function otsu(gray) {
+    const histogram = new Uint32Array(256);
+    let sum = 0;
+    for (const v of gray) {
+        histogram[v]++;
+        sum += v;
+    }
+    let below = 0, moment = 0, best = -1, threshold = 127;
+    for (let t = 0; t < 255; t++) {
+        below += histogram[t];
+        moment += t * histogram[t];
+        const above = gray.length - below;
+        if (!below || !above)
+            continue;
+        const d = moment / below - (sum - moment) / above, v = below * above * d * d;
+        if (v > best) {
+            best = v;
+            threshold = t;
+        }
+    }
+    return threshold;
+}
+/** O(pixels) local Sauvola threshold using two integral images. 1 denotes ink. */
+function binarize(raster, { method = 'otsu', window = 31, k = .2, invert = false, maxPixels = 24_000_000, signal } = {}) {
+    validateRaster(raster, maxPixels);
+    (0, model_1.checkAbort)(signal);
+    let g = grayscale(raster, maxPixels);
+    if (invert)
+        g = g.map(v => 255 - v);
+    const w = raster.width, h = raster.height, out = new Uint8Array(w * h);
+    if (method === 'otsu') {
+        const t = otsu(g);
+        for (let i = 0; i < g.length; i++)
+            out[i] = g[i] <= t ? 1 : 0;
+        return out;
+    }
+    if (method !== 'sauvola')
+        throw new RangeError('Unknown binarization method');
+    if (w * h > 8_000_000)
+        throw new RangeError('Sauvola integral images exceed the 8 megapixel budget; select Otsu or a smaller region');
+    if (!Number.isInteger(window) || window < 3 || window > 201 || !Number.isFinite(k) || k < 0 || k > 1)
+        throw new RangeError('Invalid Sauvola settings');
+    const stride = w + 1, sum = new Float64Array(stride * (h + 1)), squares = new Float64Array(sum.length), r = window >> 1;
+    for (let y = 0; y < h; y++) {
+        (0, model_1.checkAbort)(signal);
+        let s = 0, q = 0;
+        for (let x = 0; x < w; x++) {
+            const v = g[y * w + x];
+            s += v;
+            q += v * v;
+            const p = (y + 1) * stride + x + 1;
+            sum[p] = sum[p - stride] + s;
+            squares[p] = squares[p - stride] + q;
+        }
+    }
+    for (let y = 0; y < h; y++) {
+        (0, model_1.checkAbort)(signal);
+        for (let x = 0; x < w; x++) {
+            const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1), n = (x1 - x0) * (y1 - y0), a = y0 * stride + x0, b = y0 * stride + x1, c = y1 * stride + x0, d = y1 * stride + x1, m = (sum[d] - sum[b] - sum[c] + sum[a]) / n, variance = (squares[d] - squares[b] - squares[c] + squares[a]) / n - m * m;
+            out[y * w + x] = g[y * w + x] < m * (1 + k * (Math.sqrt(Math.max(0, variance)) / 128 - 1)) ? 1 : 0;
+        }
+    }
+    return out;
+}
+function binaryRgba(binary, width, height) { if (binary.length !== width * height)
+    throw new RangeError('Binary size mismatch'); const data = new Uint8ClampedArray(binary.length * 4); for (let i = 0; i < binary.length; i++) {
+    const v = binary[i] ? 0 : 255;
+    data.set([v, v, v, 255], i * 4);
+} return { data, width, height }; }
+/** Plan disjoint rectangular crops around visible raster marks in displayed-page coordinates.
+ * Shape/clip masks are applied later, not approximated by these bounding boxes. */
+function rasterRegions(scene, { scope = 'raster', padding = 2, maxRegions = 256 } = {}) {
+    const box = [0, 0, ...scene.pageSize];
+    if (scope === 'page')
+        return [{ box, items: [], wholePage: true }];
+    if (scope !== 'raster')
+        throw new RangeError('Invalid OCR scope');
+    const regions = [];
+    for (const item of scene.items) {
+        if (item.kind !== 'image' || item.visible === false)
+            continue;
+        const m = (0, geometry_1.compose)(scene.pageTransform || geometry_1.I, item.transform), b = (0, geometry_1.transformBox)([0, 0, 1, 1], m);
+        b[0] = Math.max(0, b[0] - padding);
+        b[1] = Math.max(0, b[1] - padding);
+        b[2] = Math.min(box[2], b[2] + padding);
+        b[3] = Math.min(box[3], b[3] + padding);
+        if (b[2] <= b[0] || b[3] <= b[1])
+            continue;
+        let region = { box: b, items: [item] };
+        for (let i = regions.length - 1; i >= 0; i--)
+            if ((0, geometry_1.intersects)(regions[i].box, region.box)) {
+                (0, geometry_1.union)(region.box, regions[i].box);
+                region.items.push(...regions[i].items);
+                regions.splice(i, 1);
+                i = regions.length;
+            }
+        regions.push(region);
+        if (regions.length > maxRegions)
+            throw new RangeError('Raster region budget exceeded');
+    }
+    return regions.sort((a, b) => b.box[3] - a.box[3] || a.box[0] - b.box[0]);
+}
+function rasterMaskPaths(scene, region) {
+    return region.items.map(item => ({ outline: (0, geometry_1.mapPaths)([(0, geometry_1.rectPath)([0, 0, 1, 1])], (0, geometry_1.compose)(scene.pageTransform || geometry_1.I, item.transform)), clips: (item.clips || []).filter(c => !c.text).map(c => ({ paths: (0, geometry_1.mapPaths)(c.paths || [], scene.pageTransform || geometry_1.I), rule: c.rule })) }));
+}
+/** Non-destructive detection of axis-aligned ruled lines. OCR glyph boxes should be masked first.
+ * These are hypotheses, not general-purpose illustration tracing. */
+function detectRasterLines(binary, width, height, { minLength = 60, maxThickness = 12, maxGap = 2, maxLines = 4096, signal } = {}) {
+    if (binary.length !== width * height || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0)
+        throw new RangeError('Binary dimensions mismatch');
+    if (minLength < 2 || maxThickness < 1 || maxGap < 0)
+        throw new RangeError('Invalid line detector options');
+    const result = [];
+    for (const vertical of [false, true]) {
+        let active = [];
+        const across = vertical ? width : height, along = vertical ? height : width;
+        const finish = track => { if (track.last - track.first + 1 <= maxThickness) {
+            const mid = (track.first + track.last) / 2;
+            result.push({ start: vertical ? [mid, track.lo] : [track.lo, mid], end: vertical ? [mid, track.hi] : [track.hi, mid], thickness: track.last - track.first + 1, confidence: .80 });
+            if (result.length > maxLines)
+                throw new RangeError('Raster line budget exceeded');
+        } };
+        for (let row = 0; row <= across; row++) {
+            (0, model_1.checkAbort)(signal);
+            const runs = [];
+            if (row < across) {
+                let start = -1, last = -1;
+                for (let col = 0; col <= along; col++) {
+                    const ink = col < along && binary[vertical ? col * width + row : row * width + col];
+                    if (ink) {
+                        if (start < 0)
+                            start = col;
+                        last = col;
+                    }
+                    if (start >= 0 && (!ink && col - last > maxGap || col === along)) {
+                        if (last - start + 1 >= minLength)
+                            runs.push([start, last]);
+                        start = -1;
+                    }
+                }
+            }
+            const next = [];
+            for (const [lo, hi] of runs) {
+                const i = active.findIndex(t => Math.abs(t.lo - lo) <= maxThickness && Math.abs(t.hi - hi) <= maxThickness);
+                const t = i < 0 ? { lo, hi, first: row, last: row } : active.splice(i, 1)[0];
+                t.last = row;
+                t.lo = Math.min(t.lo, lo);
+                t.hi = Math.max(t.hi, hi);
+                next.push(t);
+            }
+            for (const t of active)
+                finish(t);
+            active = next;
+        }
+    }
+    return result;
+}
+
+},
 "@revector/renderer":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -3052,6 +3587,7 @@ exports.linkViewports = linkViewports;
 const geometry_1 = require("@revector/geometry");
 const model_1 = require("@revector/model");
 const topology_1 = require("@revector/topology");
+const color_1 = require("@revector/color");
 const TAU = Math.PI * 2;
 class Camera {
     constructor() { this.center = [0, 0]; this.scale = 1; this.width = 1; this.height = 1; this.changed = new model_1.Signal(); }
@@ -3152,12 +3688,6 @@ function makePath(e) {
     }
     return path2d((0, model_1.entityPaths)(e));
 }
-function cssColor(rgb, dark) {
-    const c = rgb || [0, 0, 0];
-    if (dark && c.reduce((s, v) => s + v, 0) < 420)
-        return `rgb(${c.map(v => Math.round(135 + v * .65)).join(' ')})`;
-    return `rgb(${c.join(' ')})`;
-}
 function fontFamily(name) {
     if (/cour|mono/i.test(name))
         return '"Courier New", monospace';
@@ -3167,7 +3697,7 @@ function fontFamily(name) {
 }
 /** Retained command renderer; BVH culls offscreen roots, draw order is never sorted by style. */
 class CadRenderer {
-    constructor() { this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new topology_1.SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.weights = true; this.drawn = 0; }
+    constructor() { this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new topology_1.SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.colorMode = 'faithful'; this.weights = true; this.drawn = 0; }
     setDocument(doc) {
         this.doc = doc;
         this.paths = new WeakMap();
@@ -3225,7 +3755,7 @@ class CadRenderer {
         const { e, m } = cmd, scale = Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
         ctx.save();
         ctx.transform(...m);
-        const color = selected ? '#58d9ec' : cssColor(e.color, this.dark);
+        const color = selected ? '#58d9ec' : (0, color_1.displayColor)(e.color, this.dark ? this.colorMode : 'faithful');
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.globalAlpha = ghost ? .2 : (e.opacity ?? 1);
@@ -3367,7 +3897,7 @@ class CanvasViewport {
             this.frame = requestAnimationFrame(() => { this.frame = 0; this.render(); });
     }
     render() {
-        const start = performance.now(), ctx = this.canvas.getContext('2d', { alpha: false }), cam = this.camera, w = cam.width, h = cam.height, dpr = this.dpr;
+        const start = performance.now(), ctx = this.canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' }), cam = this.camera, w = cam.width, h = cam.height, dpr = this.dpr;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = this.kind === 'pdf' ? '#202731' : this.paper ? '#e9edf0' : '#101720';
         ctx.fillRect(0, 0, w, h);
@@ -3746,6 +4276,276 @@ class VectorTemplateLibrary {
     }
 }
 exports.VectorTemplateLibrary = VectorTemplateLibrary;
+
+},
+"@revector/rules-document":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.documentRules = void 0;
+exports.detectTables = detectTables;
+exports.detectTextFlows = detectTextFlows;
+exports.classifyTechnicalText = classifyTechnicalText;
+exports.detectTechnicalText = detectTechnicalText;
+exports.detectFields = detectFields;
+exports.detectDiagram = detectDiagram;
+exports.detectParallelBoundaries = detectParallelBoundaries;
+exports.detectConcentric = detectConcentric;
+exports.detectLeaders = detectLeaders;
+const model_1 = require("@revector/model");
+const geometry_1 = require("@revector/geometry");
+const topology_1 = require("@revector/topology");
+const textTypes = new Set(['TEXT', 'MTEXT', 'ATTRIB']);
+const median = a => a.length ? [...a].sort((a, b) => a - b)[a.length >> 1] : 1;
+const expand = (b, d) => [b[0] - d, b[1] - d, b[2] + d, b[3] + d];
+const center = b => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+const unique = es => [...new Map(es.map(e => [e.id, e])).values()];
+function context(document, options = {}) {
+    if (document.entities.length > (options.maxAnalysisEntities ?? 150000))
+        throw new RangeError('Document analysis entity budget exceeded');
+    const texts = document.entities.filter(e => textTypes.has(e.type) && String(e.text || '').trim()), h = median(texts.map(e => e.height).filter(h => h > 0));
+    const span = Math.hypot(document.pageBox[2] - document.pageBox[0], document.pageBox[3] - document.pageBox[1]);
+    const tolerance = options.semanticTolerance ?? Math.max(1e-7, span * 1e-6);
+    if (!Number.isFinite(tolerance) || tolerance <= 0)
+        throw new RangeError('Invalid semantic tolerance');
+    const index = new topology_1.SpatialIndex(texts, e => (0, model_1.entityBox)(e, document));
+    return { document, texts, h, tolerance, index };
+}
+function proposal(kind, title, entities, metadata, confidence = .9, evidence = []) {
+    const members = unique(entities).map(e => e.id);
+    if (!members.length)
+        return null;
+    const name = kind + '_' + (0, geometry_1.stableHash)(members);
+    return { title, members, confidence, exact: true, evidence: [{ kind, ...metadata }, ...evidence], proposal: { groups: [{ name, description: title, members, semantic: { class: kind, confidence, geometryPreserved: true, ...metadata } }] } };
+}
+function bounded(out, value, max = 5000) { if (value)
+    out.push(value); if (out.length > max)
+    throw new RangeError('Document feature budget exceeded'); }
+function segments(document) { const out = []; for (const e of document.entities) {
+    if (!['LINE', 'LWPOLYLINE'].includes(e.type) || e.bulges?.some(Boolean))
+        continue;
+    for (const p of (0, model_1.entityPaths)(e))
+        for (const edge of (0, geometry_1.pathEdges)(p))
+            if (edge.kind === 'L' && (0, geometry_1.distance)(...edge.points) > 1e-9)
+                out.push({ e, a: edge.points[0], b: edge.points[1], box: [Math.min(edge.points[0][0], edge.points[1][0]), Math.min(edge.points[0][1], edge.points[1][1]), Math.max(edge.points[0][0], edge.points[1][0]), Math.max(edge.points[0][1], edge.points[1][1])] });
+} return out; }
+function cluster(values, tolerance) { const result = []; for (const value of [...values].sort((a, b) => a - b))
+    if (!result.length || value - result.at(-1) > tolerance)
+        result.push(value); return result; }
+/** Connected, closed rectangular grids: actual line coverage is required at every border.
+ * This deliberately does not call unrelated page-wide horizontal rules a table. */
+function detectTables(document, options = {}) {
+    const c = context(document, options), tol = c.tolerance, out = [], lines = segments(document), axis = lines.filter(s => Math.abs(s.a[0] - s.b[0]) <= tol || Math.abs(s.a[1] - s.b[1]) <= tol);
+    const index = new topology_1.SpatialIndex(axis, s => expand(s.box, tol)), seen = new Set();
+    let checks = 0;
+    for (const seed of axis) {
+        if (seen.has(seed))
+            continue;
+        const queue = [seed], component = [];
+        seen.add(seed);
+        while (queue.length) {
+            const s = queue.pop();
+            component.push(s);
+            if (component.length > 1024)
+                break;
+            for (const t of index.search(expand(s.box, tol))) {
+                if (++checks > 2_000_000)
+                    throw new RangeError('Table intersection budget exceeded');
+                if (!seen.has(t)) {
+                    seen.add(t);
+                    queue.push(t);
+                }
+            }
+        }
+        if (component.length > 1024 || component.length < 6)
+            continue;
+        const hs = component.filter(s => Math.abs(s.a[1] - s.b[1]) <= tol), vs = component.filter(s => Math.abs(s.a[0] - s.b[0]) <= tol), xs = cluster(vs.map(s => s.a[0]), tol), ys = cluster(hs.map(s => s.a[1]), tol);
+        if (xs.length < 2 || ys.length < 2 || xs.length * ys.length > 4096)
+            continue;
+        const covers = (ss, coord, lo, hi, horizontal) => { const ranges = ss.filter(s => Math.abs(s.a[horizontal ? 1 : 0] - coord) <= tol).map(s => [Math.min(s.a[horizontal ? 0 : 1], s.b[horizontal ? 0 : 1]), Math.max(s.a[horizontal ? 0 : 1], s.b[horizontal ? 0 : 1])]).sort((a, b) => a[0] - b[0]); let end = lo; for (const [a, b] of ranges) {
+            if (a > end + tol)
+                break;
+            if (b > end)
+                end = b;
+        } return end >= hi - tol; };
+        if (!xs.every(x => covers(vs, x, ys[0], ys.at(-1), false)) || !ys.every(y => covers(hs, y, xs[0], xs.at(-1), true)))
+            continue;
+        const box = [xs[0], ys[0], xs.at(-1), ys.at(-1)];
+        if (component.some(s => !(0, geometry_1.containsBox)(box, s.box, tol)))
+            continue;
+        const inside = c.index.search(box).filter(e => (0, geometry_1.containsBox)(box, (0, model_1.entityBox)(e, document), tol));
+        if (!inside.length)
+            continue;
+        const cells = [];
+        for (let y = ys.length - 2; y >= 0; y--)
+            for (let x = 0; x < xs.length - 1; x++) {
+                const b = [xs[x], ys[y], xs[x + 1], ys[y + 1]], texts = inside.filter(e => { const p = center((0, model_1.entityBox)(e, document)); return p[0] >= b[0] && p[0] < b[2] && p[1] >= b[1] && p[1] < b[3]; }).sort((a, b) => b.position[1] - a.position[1] || a.position[0] - b.position[0]);
+                cells.push({ row: ys.length - 2 - y, column: x, bounds: b, text: texts.map(e => e.text).join(' '), entities: texts.map(e => e.id) });
+            }
+        bounded(out, proposal('table-grid', `Table grid · ${ys.length - 1} rows × ${xs.length - 1} columns`, [...component.map(s => s.e), ...inside], { bounds: box, rows: ys.length - 1, columns: xs.length - 1, cells }, .94));
+    }
+    return out;
+}
+/** Baseline bucketing with spatial neighborhood queries; preserve every original text run. */
+function detectTextFlows(document, options = {}) {
+    const c = context(document, options), out = [], visited = new Set();
+    for (const seed of c.texts) {
+        if (visited.has(seed.id))
+            continue;
+        const angle = (seed.rotation || 0) * Math.PI / 180, u = [Math.cos(angle), Math.sin(angle)], n = [-u[1], u[0]], height = seed.height || c.h, items = [seed], queue = [seed];
+        visited.add(seed.id);
+        while (queue.length && items.length <= 256) {
+            const e = queue.pop(), b = (0, model_1.entityBox)(e, document);
+            for (const next of c.index.search(expand(b, height * 1.6))) {
+                if (visited.has(next.id) || Math.abs(Math.sin(((next.rotation || 0) - (seed.rotation || 0)) * Math.PI / 180)) > .025 || Math.abs(next.height - height) > height * .3)
+                    continue;
+                const delta = (0, geometry_1.sub)(next.position, seed.position);
+                if (Math.abs((0, geometry_1.dot)(delta, n)) > height * .25)
+                    continue;
+                visited.add(next.id);
+                items.push(next);
+                queue.push(next);
+            }
+        }
+        if (items.length < 2 || items.length > 256)
+            continue;
+        items.sort((a, b) => (0, geometry_1.dot)(a.position, u) - (0, geometry_1.dot)(b.position, u));
+        bounded(out, proposal('text-flow', `Text flow · ${items.length} runs`, items, { rotation: seed.rotation || 0, text: items.map(e => e.text).join(' '), readingOrder: items.map(e => e.id) }, .96));
+    }
+    return out;
+}
+const quantities = [
+    ['diameter', /^(?:[⌀Øø]|DIA\.?\s*)\s*\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|in))?$/i],
+    ['radius', /^R\s*\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|in))?$/i],
+    ['thread', /^M\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?)?(?:\s*-\s*\d[HhGg])?$/],
+    ['tolerance', /^[±]\s*\d+(?:[.,]\d+)?(?:\s*(?:mm|cm|in|°))?$/],
+    ['quantity', /^[+-]?\d+(?:[.,]\d+)?\s*(?:mm|cm|m|in|ft|°|kPa|MPa|bar|psi|V|mV|kV|A|mA|Hz|kHz|MHz|Ω|kΩ|MΩ|W|kW|rpm|kg|N|Nm|°C|°F)$/],
+    ['scale', /^(?:SCALE\s*)?1\s*:\s*\d+(?:[.,]\d+)?$/i],
+    ['reference-designator', /^(?:R|C|L|D|Q|U|J|P|TB|FU|K|SW)\d{1,5}[A-Z]?$/],
+    ['instrument-tag', /^(?:P|T|F|L|A)(?:I|T|C|S|V|D|R){1,3}[- ]?\d{2,6}[A-Z]?$/],
+];
+function classifyTechnicalText(text) { const s = String(text).trim(); if (s.length > 160)
+    return []; return quantities.filter(([, re]) => re.test(s)).map(([kind]) => kind); }
+function detectTechnicalText(document, options = {}) { const c = context(document, options), out = []; for (const e of c.texts) {
+    const classes = classifyTechnicalText(e.text);
+    if (classes.length)
+        bounded(out, proposal('technical-notation', `${classes.join(' / ')} · ${e.text}`, [e], { classes, text: e.text, interpretation: 'lexical candidate, not verified engineering meaning' }, .9));
+} return out; }
+function detectFields(document, options = {}) {
+    const c = context(document, options), out = [];
+    const vocabulary = /^(?:DATE|DRAWN|CHECKED|APPROVED|REV(?:ISION)?|TITLE|SHEET|DWG|DRAWING|PART|ITEM|QTY|QUANTITY|MATERIAL|NAME|ADDRESS|TOTAL|DESCRIPTION|PROJECT|NUMER|DATA|TYTUŁ)\s*[:#.]?$/i;
+    for (const e of c.texts) {
+        if (!vocabulary.test(String(e.text).trim()))
+            continue;
+        const b = (0, model_1.entityBox)(e, document), h = e.height || c.h, candidates = c.index.search([b[2] - h * .2, b[1] - h * .5, b[2] + h * 18, b[3] + h * .5]).filter(t => t.id !== e.id && !vocabulary.test(t.text)).sort((a, b) => (0, geometry_1.distance)(e.position, a.position) - (0, geometry_1.distance)(e.position, b.position));
+        const value = candidates[0];
+        if (value)
+            bounded(out, proposal('labeled-field', `${e.text} → ${value.text}`, [e, value], { label: e.text, value: value.text, relation: 'nearest right-hand baseline field' }, .86));
+    }
+    return out;
+}
+function shapes(document, tolerance) { return document.entities.filter(e => e.type === 'CIRCLE' || e.type === 'ELLIPSE' || e.type === 'LWPOLYLINE' && e.closed && e.points.length >= 3 && e.points.length <= 8).map(e => ({ e, box: (0, model_1.entityBox)(e, document) })).filter(s => s.box[2] - s.box[0] > tolerance && s.box[3] - s.box[1] > tolerance); }
+function detectDiagram(document, options = {}) {
+    const c = context(document, options), nodes = shapes(document, c.tolerance), out = [], index = new topology_1.SpatialIndex(nodes, n => n.box), links = [];
+    const classified = new Set();
+    for (const n of nodes) {
+        const texts = c.index.search(n.box).filter(e => (0, geometry_1.containsBox)(n.box, (0, model_1.entityBox)(e, document), c.tolerance));
+        if (texts.length && texts.length < 64) {
+            classified.add(n.e.id);
+            bounded(out, proposal('diagram-node', `Labeled ${n.e.type.toLowerCase()}`, [n.e, ...texts], { label: texts.map(e => e.text).join(' '), bounds: n.box }, .90));
+        }
+    }
+    const endpoints = e => e.type === 'LINE' ? [e.start, e.end] : e.type === 'LWPOLYLINE' && !e.closed ? [e.points[0], e.points.at(-1)] : null;
+    for (const e of document.entities) {
+        const ends = endpoints(e);
+        if (!ends)
+            continue;
+        const match = p => index.search(expand([...p, ...p], Math.max(c.tolerance, c.h * .12))).filter(n => n.e.id !== e.id && classified.has(n.e.id)).sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]))[0];
+        const a = match(ends[0]), b = match(ends[1]);
+        if (a && b && a.e.id !== b.e.id) {
+            links.push({ from: a.e.id, to: b.e.id, connector: e.id });
+            bounded(out, proposal('diagram-connection', 'Diagram connection', [a.e, b.e, e], { from: a.e.id, to: b.e.id, connector: e.id, directed: false }, .91));
+        }
+    }
+    if (links.length && links.length <= 512)
+        bounded(out, proposal('diagram-graph', `Diagram graph · ${classified.size} labeled nodes`, document.entities.filter(e => classified.has(e.id) || links.some(l => l.connector === e.id)), { nodes: [...classified], edges: links }, .90));
+    return out;
+}
+function detectParallelBoundaries(document, options = {}) {
+    const c = context(document, options), ss = segments(document), index = new topology_1.SpatialIndex(ss, s => s.box), out = [], visited = new Set();
+    let work = 0;
+    for (const s of ss) {
+        const v = (0, geometry_1.sub)(s.b, s.a), len = (0, geometry_1.length)(v);
+        if (len < c.h * 4)
+            continue;
+        const u = v.map(x => x / len), n = [-u[1], u[0]];
+        for (const t of index.search(expand(s.box, Math.min(len * .15, c.h * 5)))) {
+            if (++work > 1_000_000)
+                throw new RangeError('Parallel boundary budget exceeded');
+            if (s.e.id === t.e.id || s.e.layer !== t.e.layer)
+                continue;
+            const key = [s.e.id, t.e.id].sort().join('|');
+            if (visited.has(key))
+                continue;
+            const tv = (0, geometry_1.sub)(t.b, t.a), tl = (0, geometry_1.length)(tv);
+            if (tl < 1e-9 || Math.abs((u[0] * tv[1] - u[1] * tv[0]) / tl) > .005)
+                continue;
+            const d = Math.abs((0, geometry_1.dot)((0, geometry_1.sub)(t.a, s.a), n));
+            if (d <= c.tolerance || d > Math.min(len * .15, c.h * 5))
+                continue;
+            const ts = [(0, geometry_1.dot)((0, geometry_1.sub)(t.a, s.a), u), (0, geometry_1.dot)((0, geometry_1.sub)(t.b, s.a), u)].sort((a, b) => a - b), overlap = Math.max(0, Math.min(len, ts[1]) - Math.max(0, ts[0]));
+            if (overlap / Math.max(len, tl) < .85)
+                continue;
+            visited.add(key);
+            bounded(out, proposal('parallel-boundaries', 'Parallel wall / pipe / border candidate', [s.e, t.e], { separation: d, overlap, orientation: Math.atan2(u[1], u[0]) * 180 / Math.PI, alternatives: ['wall', 'pipe', 'border', 'dimension-extension'] }, .83));
+        }
+    }
+    return out;
+}
+function detectConcentric(document, options = {}) {
+    const c = context(document, options), circles = document.entities.filter(e => e.type === 'CIRCLE'), index = new topology_1.SpatialIndex(circles, e => [...e.center, ...e.center]), seen = new Set(), out = [];
+    for (const e of circles) {
+        if (seen.has(e.id))
+            continue;
+        const tolerance = Math.max(c.tolerance, e.radius * 1e-4), group = index.search(expand([...e.center, ...e.center], tolerance)).filter(t => (0, geometry_1.distance)(e.center, t.center) <= tolerance);
+        group.forEach(t => seen.add(t.id));
+        if (group.length >= 2 && group.length <= 64)
+            bounded(out, proposal('concentric-feature', 'Concentric hole / ring candidate', group, { center: e.center, radii: group.map(e => e.radius).sort((a, b) => a - b), alternatives: ['hole', 'ring', 'bearing', 'target'] }, .95));
+    }
+    return out;
+}
+function detectLeaders(document, options = {}) {
+    const c = context(document, options), ss = segments(document), index = new topology_1.SpatialIndex(ss, s => s.box), out = [], seen = new Set();
+    let work = 0;
+    for (const s of ss) {
+        if ((0, geometry_1.distance)(s.a, s.b) < c.h * 2)
+            continue;
+        for (const tip of [s.a, s.b]) {
+            const tail = tip === s.a ? s.b : s.a, shaft = (0, geometry_1.sub)(tail, tip), sl = (0, geometry_1.length)(shaft), nearby = index.search(expand([...tip, ...tip], c.tolerance * 4)).filter(t => t.e.id !== s.e.id && ((0, geometry_1.near)(t.a, tip, c.tolerance * 4) || (0, geometry_1.near)(t.b, tip, c.tolerance * 4)));
+            const wings = [];
+            for (const t of nearby) {
+                if (++work > 1_000_000)
+                    throw new RangeError('Leader budget exceeded');
+                const p = (0, geometry_1.near)(t.a, tip, c.tolerance * 4) ? t.b : t.a, v = (0, geometry_1.sub)(p, tip), vl = (0, geometry_1.length)(v), cos = (0, geometry_1.dot)(v, shaft) / (vl * sl);
+                if (vl < sl * .4 && vl > c.tolerance && cos > .5 && cos < .98)
+                    wings.push({ t, sign: Math.sign(v[0] * shaft[1] - v[1] * shaft[0]), len: vl });
+            }
+            const a = wings.find(w => w.sign > 0), b = wings.find(w => w.sign < 0);
+            if (!a || !b || a.len / b.len < .6 || a.len / b.len > 1.67)
+                continue;
+            const texts = c.index.search(expand([...tail, ...tail], c.h * 3)), label = texts.sort((a, b) => (0, geometry_1.distance)(center((0, model_1.entityBox)(a, document)), tail) - (0, geometry_1.distance)(center((0, model_1.entityBox)(b, document)), tail))[0];
+            if (!label)
+                continue;
+            const key = [s.e.id, a.t.e.id, b.t.e.id, label.id].sort().join('|');
+            if (seen.has(key))
+                continue;
+            seen.add(key);
+            bounded(out, proposal('leader-callout', `Leader → ${label.text}`, [s.e, a.t.e, b.t.e, label], { tip, tail, text: label.text }, .91));
+        }
+    }
+    return out;
+}
+const definitions = [['table-grids', 'Tables and schedules', detectTables], ['text-flows', 'Text reading flows', detectTextFlows], ['notations', 'Engineering and electrical notation', detectTechnicalText], ['fields', 'Labeled document fields', detectFields], ['diagram', 'Diagram nodes and connectivity', detectDiagram], ['parallel', 'Parallel boundaries', detectParallelBoundaries], ['concentric', 'Concentric mechanical features', detectConcentric], ['leaders', 'Leader callouts', detectLeaders]];
+exports.documentRules = definitions.map(([id, title, detect], i) => ({ id: 'document.' + id, title, version: '1.0.0', stage: 60 + i, description: 'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.', run: ({ document, options, checkAbort }) => { checkAbort(); return options.profile === 'exact' ? [] : detect(document, options); } }));
 
 },
 "@revector/semantics":(require,module,exports)=>{
@@ -4276,6 +5076,8 @@ function zipFiles(files) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Workbench = void 0;
 exports.mountWorkbench = mountWorkbench;
+const ocr_1 = require("@revector/ocr");
+const rules_document_1 = require("@revector/rules-document");
 const pdf_1 = require("@revector/pdf");
 const engine_1 = require("@revector/engine");
 const renderer_1 = require("@revector/renderer");
@@ -4292,7 +5094,7 @@ const select = (id, values, value) => (0, ui_1.element)('select', { id, value },
 const iconButton = (label, fn, title) => (0, ui_1.button)(label, fn, { className: 'icon-button', title });
 /** Owns UI state only; every conversion runs through reusable packages and exported-DXF reparse. */
 class Workbench {
-    constructor(root, config = {}) { this.root = root; this.config = config; this.engine = new engine_1.ConversionEngine(); this.worker = config.conversionWorkerUrl ? new engine_1.ConversionWorker(config.conversionWorkerUrl) : null; this.disposables = new ui_1.DisposableStore(); this.abort = new AbortController(); this.source = null; this.bytes = null; this.scene = null; this.result = null; this.page = 1; this.fileName = 'Untitled.pdf'; this.decisions = {}; this.undo = []; this.redo = []; this.disabledRules = []; this.ruleSet = null; this.tab = 'recovery'; this.selected = null; this.job = 0; this.running = false; this.linked = true; this.build(); this.bind(); this.showOverview(); }
+    constructor(root, config = {}) { this.root = root; this.config = config; this.engine = new engine_1.ConversionEngine(); this.worker = config.conversionWorkerUrl ? new engine_1.ConversionWorker(config.conversionWorkerUrl) : null; this.disposables = new ui_1.DisposableStore(); this.abort = new AbortController(); this.source = null; this.bytes = null; this.scene = null; this.result = null; this.page = 1; this.fileName = 'Untitled.pdf'; this.decisions = {}; this.undo = []; this.redo = []; this.disabledRules = []; this.ruleSet = null; this.tab = 'recovery'; this.selected = null; this.job = 0; this.running = false; this.linked = true; this.ocrSettings = null; this.build(); this.bind(); this.showOverview(); }
     build() {
         const shell = (0, ui_1.element)('div', { class: 'rv-shell' });
         this.root.replaceChildren(shell);
@@ -4309,7 +5111,7 @@ class Workbench {
         this.convertButton = (0, ui_1.button)('Convert', () => this.run(true), { className: 'primary', id: 'convert', title: 'Convert page · Ctrl/Cmd+Enter' });
         this.exportButton = (0, ui_1.button)('Export DXF ↗', () => this.exportDxf(), { className: 'primary', id: 'export-dxf', disabled: true });
         const top = (0, ui_1.element)('header', { class: 'rv-top' }, (0, ui_1.element)('div', { class: 'brand' }, (0, ui_1.element)('span', { class: 'brand-mark', text: 'R' }), (0, ui_1.element)('b', { text: 'revector' }), (0, ui_1.element)('span', { class: 'brand-edition', text: 'STUDIO' })), (0, ui_1.element)('span', { class: 'top-separator' }), this.title, (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.element)('span', { class: 'local-badge', text: '● Local workspace' }), (0, ui_1.button)('Guide', () => this.help()), (0, ui_1.button)('Project', () => this.projectMenu()), this.exportButton);
-        const toolbar = (0, ui_1.element)('div', { class: 'rv-toolbar' }, (0, ui_1.button)('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), (0, ui_1.button)('Sample drawing', () => this.demo(), { id: 'demo' }), (0, ui_1.element)('i', { class: 'separator' }), this.pageSelect, field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), (0, ui_1.element)('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
+        const toolbar = (0, ui_1.element)('div', { class: 'rv-toolbar' }, (0, ui_1.button)('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), (0, ui_1.button)('Sample drawing', () => this.demo(), { id: 'demo' }), (0, ui_1.button)('Raster OCR', () => this.configureOcr(), { id: 'configure-ocr', title: 'Opt-in local raster text recognition' }), (0, ui_1.element)('i', { class: 'separator' }), this.pageSelect, field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), (0, ui_1.element)('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
         this.explorer = (0, ui_1.element)('aside', { class: 'rv-explorer' }, (0, ui_1.element)('div', { class: 'section-label', text: 'DOCUMENT EXPLORER' }));
         const rail = (0, ui_1.element)('nav', { class: 'rv-rail', 'aria-label': 'Workspace panels' }, iconButton('▤', () => this.explorer.classList.toggle('collapsed'), 'Toggle document explorer'), iconButton('⌘', () => this.setTab('recovery'), 'Semantic recovery'), iconButton('⚙', () => this.setTab('rules'), 'Rule engine'), iconButton('!', () => this.setTab('diagnostics'), 'Conversion diagnostics'), (0, ui_1.element)('div', { class: 'top-spacer' }), iconButton('?', () => this.help(), 'Guide'));
         this.pdfCanvas = (0, ui_1.element)('canvas', { id: 'pdf-canvas', 'aria-label': 'Source PDF drawing viewport' });
@@ -4318,11 +5120,13 @@ class Workbench {
         this.cadInfo = (0, ui_1.element)('span', { class: 'panel-meta', text: 'Serialized DXF · round-trip preview' });
         const sourcePane = (0, ui_1.element)('section', { class: 'viewport-pane' }, (0, ui_1.element)('header', { class: 'pane-heading' }, (0, ui_1.element)('span', { class: 'pane-indicator pdf' }), (0, ui_1.element)('b', { text: 'SOURCE PDF' }), this.pdfInfo, (0, ui_1.element)('div', { class: 'top-spacer' }), iconButton('⊡', () => this.pdfView.fit(), 'Fit source page')), (0, ui_1.element)('div', { class: 'canvas-host' }, this.pdfCanvas, (0, ui_1.element)('span', { class: 'canvas-caption', text: 'Original appearance' })));
         this.gridButton = iconButton('⌗', () => { this.cadView.grid = !this.cadView.grid; this.cadView.invalidate(); this.gridButton.classList.toggle('active', this.cadView.grid); }, 'Toggle drafting grid');
+        this.colorMode = select('color-mode', [['faithful', 'Original colors'], ['contrast', 'CAD contrast']], 'faithful');
+        this.colorMode.addEventListener('change', () => { this.cadView.renderer.colorMode = this.colorMode.value; this.cadView.invalidate(); });
         this.themeButton = iconButton('◐', () => { this.cadView.paper = !this.cadView.paper; this.cadView.invalidate(); }, 'Switch paper / dark CAD view');
         this.linkButton = iconButton('↔', () => this.toggleLink(), 'Link viewport cameras');
         this.linkButton.classList.add('active');
         this.measureButton = iconButton('⌁', () => { this.cadView.measureMode = !this.cadView.measureMode; this.measureButton.classList.toggle('active', this.cadView.measureMode); this.setStatus(this.cadView.measureMode ? 'Measure: click two points in the DXF viewport.' : 'Selection mode'); }, 'Two-point measurement');
-        const targetPane = (0, ui_1.element)('section', { class: 'viewport-pane' }, (0, ui_1.element)('header', { class: 'pane-heading' }, (0, ui_1.element)('span', { class: 'pane-indicator' }), (0, ui_1.element)('b', { text: 'RECOVERED DXF' }), this.cadInfo, (0, ui_1.element)('div', { class: 'top-spacer' }), this.linkButton, this.gridButton, this.themeButton, this.measureButton, iconButton('⊡', () => this.fit(), 'Fit both pages')), (0, ui_1.element)('div', { class: 'canvas-host' }, this.cadCanvas, (0, ui_1.element)('span', { class: 'canvas-caption', text: 'Editable entities · select to inspect' })));
+        const targetPane = (0, ui_1.element)('section', { class: 'viewport-pane' }, (0, ui_1.element)('header', { class: 'pane-heading' }, (0, ui_1.element)('span', { class: 'pane-indicator' }), (0, ui_1.element)('b', { text: 'RECOVERED DXF' }), this.cadInfo, (0, ui_1.element)('div', { class: 'top-spacer' }), this.linkButton, this.gridButton, this.themeButton, this.colorMode, this.measureButton, iconButton('⊡', () => this.fit(), 'Fit both pages')), (0, ui_1.element)('div', { class: 'canvas-host' }, this.cadCanvas, (0, ui_1.element)('span', { class: 'canvas-caption', text: 'Editable entities · select to inspect' })));
         this.panes = (0, ui_1.element)('div', { class: 'rv-panes' }, sourcePane, targetPane);
         this.inspector = (0, ui_1.element)('aside', { class: 'rv-inspector' });
         this.tabs = (0, ui_1.element)('div', { class: 'bottom-tabs' });
@@ -4343,6 +5147,7 @@ class Workbench {
         shell.append(top, toolbar, body, (0, ui_1.element)('footer', { class: 'rv-status' }, (0, ui_1.element)('span', { class: 'status-dot' }), this.status, (0, ui_1.element)('div', { class: 'top-spacer' }), this.coords, (0, ui_1.element)('span', { class: 'status-divider' }), this.performance, (0, ui_1.element)('span', { class: 'status-divider' }), this.zoom), this.fileInput);
         this.pdfView = new renderer_1.CanvasViewport(this.pdfCanvas, { kind: 'pdf' });
         this.cadView = new renderer_1.CanvasViewport(this.cadCanvas, { kind: 'cad' });
+        this.cadView.paper = true;
         this.unlink = (0, renderer_1.linkViewports)(this.pdfView, this.cadView);
         this.disposables.add(this.cadView.selectionChanged.subscribe(hit => this.inspect(hit?.entity || null)));
         this.disposables.add(this.cadView.pointerMoved.subscribe(p => this.coords.textContent = `X ${fmt(p[0])}  Y ${fmt(p[1])} ${this.units.value}`));
@@ -4407,7 +5212,7 @@ class Workbench {
         const scale = Number(this.scale.value);
         if (!Number.isFinite(scale) || scale <= 0)
             throw Error('Drawing scale must be a positive number.');
-        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet };
+        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet, ocr: this.ocrSettings };
     }
     pdfOptions(name) { const base = this.config.assetBase || './vendor/pdfjs/'; return { name, moduleUrl: this.config.pdfjsModuleUrl || base + 'legacy/build/pdf.mjs', workerUrl: this.config.pdfjsWorkerUrl || base + 'legacy/build/pdf.worker.mjs', pdfOptions: { cMapUrl: base + 'cmaps/', cMapPacked: true, wasmUrl: base + 'wasm/', iccUrl: base + 'iccs/', ...this.config.pdfOptions }, onPassword: reason => (0, ui_1.askValue)(reason === 2 ? 'Incorrect PDF password' : 'Encrypted PDF', 'Enter the password to open this PDF', '', { type: 'password' }) }; }
     async openFile(file) {
@@ -4450,6 +5255,7 @@ class Workbench {
         this.redo = [];
         this.disabledRules = project?.disabledRules || [];
         this.ruleSet = project?.ruleSet || null;
+        this.ocrSettings = project?.settings?.ocr || null;
         this.exportButton.disabled = true;
         this.setStatus('Opening PDF locally…');
         try {
@@ -4489,8 +5295,14 @@ class Workbench {
                 if (id === this.job)
                     this.setStatus(`${p.phase}${p.rule ? ' · ' + p.rule : ''}${p.total ? ' · ' + Math.round(p.done / p.total * 100) + '%' : ''}`);
             };
-            if (extract || !this.scene)
-                this.scene = await this.source.extract(this.page, { signal: controller.signal, onProgress: progress });
+            if (extract || !this.scene) {
+                let next = await this.source.extract(this.page, { signal: controller.signal, onProgress: progress });
+                if (this.ocrSettings)
+                    next = await (0, ocr_1.recoverPdfRaster)(this.source, next, { ...this.ocrSettings, assetBase: this.config.ocrAssetBase || './vendor/ocr/', signal: controller.signal, onProgress: progress });
+                if (id !== this.job)
+                    return;
+                this.scene = next;
+            }
             if (id !== this.job)
                 return;
             const scene = this.scene;
@@ -4661,7 +5473,7 @@ class Workbench {
         const bar = (0, ui_1.element)('div', { class: 'recovery-bar' }, (0, ui_1.element)('b', { text: 'Deterministic, replayable rule pipeline' }), (0, ui_1.element)('span', { class: 'muted', text: 'Exact structures auto-apply. Inferences stay reviewable.' }), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Edit JSON rules', () => this.editRules()), (0, ui_1.button)('Apply changes', () => this.run(false)));
         this.bottomContent.append(bar);
         const grid = (0, ui_1.element)('div', { class: 'rules-grid' });
-        for (const r of rules_cad_1.cadRules) {
+        for (const r of [...rules_cad_1.cadRules, ...rules_document_1.documentRules]) {
             const input = (0, ui_1.element)('input', { type: 'checkbox', checked: !this.disabledRules.includes(r.id) });
             input.addEventListener('change', () => {
                 this.disabledRules = this.disabledRules.filter(x => x !== r.id);
@@ -4674,7 +5486,7 @@ class Workbench {
         if (this.ruleSet)
             this.bottomContent.append((0, ui_1.element)('div', { class: 'rule-custom', text: `Custom rules loaded: ${this.ruleSet.rules.length}` }));
     }
-    renderSource() { const r = this.result.report; this.bottomContent.append((0, ui_1.element)('div', { class: 'recovery-bar' }, (0, ui_1.element)('b', { text: 'Conversion provenance' }), (0, ui_1.element)('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Save report', () => (0, ui_1.download)(enc(r), this.baseName() + '.report.json', 'application/json')), (0, ui_1.button)('Save intermediate model', () => (0, ui_1.download)(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), (0, ui_1.element)('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, timings: r.timings, validation: r.validation }) })); }
+    renderSource() { const r = this.result.report; this.bottomContent.append((0, ui_1.element)('div', { class: 'recovery-bar' }, (0, ui_1.element)('b', { text: 'Conversion provenance' }), (0, ui_1.element)('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Save report', () => (0, ui_1.download)(enc(r), this.baseName() + '.report.json', 'application/json')), (0, ui_1.button)('Save intermediate model', () => (0, ui_1.download)(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), (0, ui_1.element)('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, color: r.color, ocr: r.ocr, timings: r.timings, validation: r.validation }) })); }
     showOverview() {
         this.inspector.replaceChildren((0, ui_1.element)('div', { class: 'section-label', text: 'CONVERSION INSPECTOR' }), (0, ui_1.element)('div', { class: 'inspector-intro' }, (0, ui_1.element)('span', { class: 'eyebrow', text: 'FROM PLOT TO MODEL' }), (0, ui_1.element)('h2', { text: 'Structure,\nnot just strokes.' }), (0, ui_1.element)('p', { class: 'muted', text: 'Review recovered entities alongside the original PDF. Every semantic proposal keeps its evidence.' })));
         if (this.result) {
@@ -4771,7 +5583,9 @@ class Workbench {
             const options = this.options(), files = [];
             for (let p = 1; p <= this.source.numPages; p++) {
                 this.setStatus(`Batch conversion · page ${p} / ${this.source.numPages}`);
-                const scene = p === this.page && this.scene ? this.scene : await this.source.extract(p, { signal: controller.signal });
+                let scene = p === this.page && this.scene ? this.scene : await this.source.extract(p, { signal: controller.signal });
+                if (this.ocrSettings && !scene.ocr)
+                    scene = await (0, ocr_1.recoverPdfRaster)(this.source, scene, { ...this.ocrSettings, assetBase: this.config.ocrAssetBase || './vendor/ocr/', signal: controller.signal });
                 const config = { ...options, decisions: this.decisions[p] || {} };
                 const r = this.worker ? await this.worker.convert(scene, config, { signal: controller.signal }) : await this.engine.convertScene(scene, { ...config, signal: controller.signal });
                 files.push({ name: `page-${p}.R${options.version}.dxf`, data: r.dxf.text }, { name: `page-${p}.report.json`, data: enc(r.report) });
@@ -4788,7 +5602,12 @@ class Workbench {
             this.convertButton.disabled = false;
         }
     }
-    help() { (0, ui_1.dialog)({ title: 'Revector Studio · vector-first CAD recovery', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('h3', { text: 'A local, inspectable conversion workflow' }), (0, ui_1.element)('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), (0, ui_1.element)('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), (0, ui_1.element)('h3', { text: 'Meaning is recovered, not assumed' }), (0, ui_1.element)('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), (0, ui_1.element)('h3', { text: 'Explicit format boundaries' }), (0, ui_1.element)('p', { text: 'No OCR, raster tracing, or fabricated image geometry. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), (0, ui_1.element)('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), (0, ui_1.element)('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
+    configureOcr() {
+        const settings = this.ocrSettings || ocr_1.DEFAULT_OCR_OPTIONS;
+        const enabled = (0, ui_1.element)('input', { id: 'ocr-enabled', type: 'checkbox', checked: !!this.ocrSettings }), scope = select('ocr-scope', [['raster', 'Visible raster regions'], ['page', 'Whole page (scanned documents)']], settings.scope), languages = (0, ui_1.element)('input', { id: 'ocr-languages', value: settings.languages, title: 'Bundled eng, deu, pol. Combine with +, e.g. eng+pol.' }), dpi = (0, ui_1.element)('input', { id: 'ocr-dpi', type: 'number', min: 72, max: 600, value: settings.dpi }), confidence = (0, ui_1.element)('input', { id: 'ocr-confidence', type: 'number', min: 0, max: 100, value: settings.minConfidence }), preprocess = select('ocr-preprocess', ['none', 'otsu', 'sauvola'], settings.preprocess), rotation = select('ocr-rotation', ['0', '90', '180', '270'], String(settings.rotation)), trace = (0, ui_1.element)('input', { id: 'ocr-lines', type: 'checkbox', checked: settings.traceLines });
+        (0, ui_1.dialog)({ title: 'Raster OCR · local recognition', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('p', { text: 'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.' }), field('Enable OCR', enabled), field('Scope', scope), field('Languages', languages), field('Resolution (DPI)', dpi), field('Minimum confidence (%)', confidence), field('Preprocessing', preprocess), field('Recognition rotation', rotation), field('Estimate horizontal / vertical raster lines', trace)), actions: [{ label: 'Cancel', run: d => d.close() }, { label: 'Apply and convert', primary: true, run: d => { this.ocrSettings = enabled.checked ? { scope: scope.value, languages: languages.value, dpi: Number(dpi.value), minConfidence: Number(confidence.value), preprocess: preprocess.value, rotation: Number(rotation.value), traceLines: trace.checked } : null; d.close(); void this.run(true); } }] });
+    }
+    help() { (0, ui_1.dialog)({ title: 'Revector Studio · vector-first CAD recovery', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('h3', { text: 'A local, inspectable conversion workflow' }), (0, ui_1.element)('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), (0, ui_1.element)('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), (0, ui_1.element)('h3', { text: 'Meaning is recovered, not assumed' }), (0, ui_1.element)('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), (0, ui_1.element)('h3', { text: 'Explicit format boundaries' }), (0, ui_1.element)('p', { text: 'Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), (0, ui_1.element)('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), (0, ui_1.element)('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
     setStatus(text) {
         if (this.status)
             this.status.textContent = text;

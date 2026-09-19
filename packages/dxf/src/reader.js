@@ -329,6 +329,6 @@ export function readDxf(text, { maxPairs = 10000000 } = {}) {
     const handles = new Map([...doc.entities, ...doc.blocks.flatMap(b => b.entities)].map(e => [e.handle, e.id]));
     for (const r of records(sections.get('OBJECTS') || []))
         if (r.type === 'GROUP')
-            doc.groups.push({ name: get(r, 5, ''), description: decodeDxfString(get(r, 300, '')), members: r.tags.filter(t => t[0] === 340).map(t => handles.get(t[1])).filter(Boolean) });
+            doc.groups.push({ name: parseXdata(r)?.id || get(r, 5, ''), semantic: parseXdata(r)?.semantic || {}, description: decodeDxfString(get(r, 300, '')), members: r.tags.filter(t => t[0] === 340).map(t => handles.get(t[1])).filter(Boolean) });
     return doc;
 }

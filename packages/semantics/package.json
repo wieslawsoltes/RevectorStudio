@@ -1,6 +1,6 @@
 {
   "name": "@revector/semantics",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Transactional semantic rule engine for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -23,9 +23,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/model": "0.1.0",
-    "@revector/geometry": "0.1.0",
-    "@revector/topology": "0.1.0",
-    "@revector/pdf": "0.1.0"
+    "@revector/model": "0.2.0",
+    "@revector/geometry": "0.2.0",
+    "@revector/topology": "0.2.0",
+    "@revector/pdf": "0.2.0"
   }
 }

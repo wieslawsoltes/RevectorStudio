@@ -17,3 +17,10 @@ PDF.js includes runtime code and data derived from other projects as documented 
 ## Development tools
 
 TypeScript is a build/type-check dependency, not vendored in the release source. Python ezdxf, Playwright, PyMuPDF and the system browser are used for validation; their packages and font installations are not included. Original screenshots are generated from the application and project-owned fixture.
+
+
+## Raster OCR (0.2.0)
+
+Tesseract.js 7.0.0 and tesseract.js-core 7.0.0: Apache-2.0, https://github.com/naptha/tesseract.js and https://github.com/naptha/tesseract.js-core.
+The eng/deu/pol npm wrappers (1.0.0) declare MIT. Underlying trained data is from the Tesseract project (Apache-2.0): https://github.com/tesseract-ocr/tessdata and https://github.com/tesseract-ocr/tessdata_best.
+`scripts/vendor-ocr.mjs` retains runtime license files and generated bundle dependency notices, copies the Apache-2.0 license for trained data, and records versions and SHA-256 hashes. The vendored data is unmodified. OCR model/runtime assets, not document contents, are loaded from the application's own origin.

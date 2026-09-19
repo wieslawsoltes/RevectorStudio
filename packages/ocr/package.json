@@ -1,0 +1,31 @@
+{
+  "name": "@revector/ocr",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Local Tesseract.js OCR and PDF raster-region recovery",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./*": "./src/*"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@revector/geometry": "0.2.0",
+    "@revector/model": "0.2.0",
+    "@revector/raster": "0.2.0",
+    "@revector/topology": "0.2.0"
+  }
+}

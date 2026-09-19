@@ -1,0 +1,79 @@
+[
+  {
+    "name": "near-black",
+    "point": [
+      52,
+      55
+    ]
+  },
+  {
+    "name": "navy",
+    "point": [
+      137,
+      55
+    ]
+  },
+  {
+    "name": "RGB",
+    "point": [
+      222,
+      55
+    ]
+  },
+  {
+    "name": "gray",
+    "point": [
+      307,
+      55
+    ]
+  },
+  {
+    "name": "CMYK cyan",
+    "point": [
+      52,
+      130
+    ]
+  },
+  {
+    "name": "CMYK composite",
+    "point": [
+      137,
+      130
+    ]
+  },
+  {
+    "name": "ICC RGB",
+    "point": [
+      222,
+      130
+    ]
+  },
+  {
+    "name": "CalRGB",
+    "point": [
+      307,
+      130
+    ]
+  },
+  {
+    "name": "Lab",
+    "point": [
+      52,
+      205
+    ]
+  },
+  {
+    "name": "Separation",
+    "point": [
+      137,
+      205
+    ]
+  },
+  {
+    "name": "Normal alpha",
+    "point": [
+      222,
+      205
+    ]
+  }
+]

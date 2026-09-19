@@ -1,0 +1,149 @@
+{
+  "engine": "tesseract.js",
+  "version": "7.0.0",
+  "languages": [
+    "eng",
+    "deu",
+    "pol"
+  ],
+  "files": {
+    "tesseract.esm.min.js": {
+      "size": 63220,
+      "sha256": "64871d76c75609fd5413b88a8171e2ef40deedd77d5875ba23df104b2d05eb29"
+    },
+    "tesseract.min.js": {
+      "size": 62961,
+      "sha256": "000c27d9cd0def655f77b36c72a389c0ab13793aa31cb4d7aab56d09c0afbc7e"
+    },
+    "worker.min.js": {
+      "size": 111307,
+      "sha256": "576b7df7e3393e137e51849357c9adb53fe7ac1bb69bfa06cf3d61520f182c6d"
+    },
+    "core/tesseract-core-lstm.js": {
+      "size": 89261,
+      "sha256": "6510efc4e8b45c5465df30679b9911ffe0071cd2ee982fa064e6f5136ef2de85"
+    },
+    "core/tesseract-core-lstm.wasm": {
+      "size": 2855361,
+      "sha256": "66b17df6e20c5329a17ffa9c202a47eaa3e32500b253d4c7f38e7f2bc01457c3"
+    },
+    "core/tesseract-core-lstm.wasm.js": {
+      "size": 3896484,
+      "sha256": "eef5f8b2f8e20e150680b20adaec4a60babafee3adbe8a94583c81fee46e8680"
+    },
+    "core/tesseract-core-relaxedsimd-lstm.js": {
+      "size": 89360,
+      "sha256": "a37ac78b707e8d5d3d2e532cc3c4e69b04d127ea44a608f1e7de17640402aa5c"
+    },
+    "core/tesseract-core-relaxedsimd-lstm.wasm": {
+      "size": 2862266,
+      "sha256": "7985c92d4c64e7267d24cadffe1b2a1da6bf8aa55fdcaf953fe94fe122a24545"
+    },
+    "core/tesseract-core-relaxedsimd-lstm.wasm.js": {
+      "size": 3905767,
+      "sha256": "861a536cf9ef8e63cb644d57bab39c388f37f7d6b6f60024b741c5f6b39a59b3"
+    },
+    "core/tesseract-core-relaxedsimd.js": {
+      "size": 89066,
+      "sha256": "716be037611f21b568347421f582f1e1a6456b6d5c3a7c2406c8a2a6c0136427"
+    },
+    "core/tesseract-core-relaxedsimd.wasm": {
+      "size": 3456075,
+      "sha256": "45f8c9b516df326b6ae6b493ed3a6289df5cbd10490e7b6ff8bf5b12ea42d1da"
+    },
+    "core/tesseract-core-relaxedsimd.wasm.js": {
+      "size": 4697227,
+      "sha256": "843074aa5bad1cc6421b74a86201768ced9f244795e4d81435435a61a40ce535"
+    },
+    "core/tesseract-core-simd-lstm.js": {
+      "size": 89271,
+      "sha256": "e48e2f02ddae3716c8dd24bf41cd290d4efa96892d689cdc4013c2545d63f469"
+    },
+    "core/tesseract-core-simd-lstm.wasm": {
+      "size": 2857601,
+      "sha256": "34e8d50cac216427d86bf397d610fdd9f49492539bbcdfbfccc4eda20c810bea"
+    },
+    "core/tesseract-core-simd-lstm.wasm.js": {
+      "size": 3899472,
+      "sha256": "c58b46a4c796c0b8afccf77591d5b875b6896b45d402bbce8caa6f5362447b38"
+    },
+    "core/tesseract-core-simd.js": {
+      "size": 88977,
+      "sha256": "da428fd7989ba749855ea16718a83b23e7ce04016fe31866ad2735813efc7133"
+    },
+    "core/tesseract-core-simd.wasm": {
+      "size": 3451410,
+      "sha256": "7d237a13edfeb0fa2f104744fccde0a00e0c076c3e23b7a8fc7af75ec9af2c3e"
+    },
+    "core/tesseract-core-simd.wasm.js": {
+      "size": 4690932,
+      "sha256": "6b61ef4e911b5cf57e656bbfe983d6e2b3711a02dd164154ddda064566e8e09d"
+    },
+    "core/tesseract-core.js": {
+      "size": 88967,
+      "sha256": "a824c1b99a19e122d87e4467fe16aabb56c495d6cc9a08bc58cb8a7342636b43"
+    },
+    "core/tesseract-core.wasm": {
+      "size": 3449168,
+      "sha256": "c7f5ace62ac0ad065e71e9c6725f1d7cdf82e7eda8fba532cbb9563964da7098"
+    },
+    "core/tesseract-core.wasm.js": {
+      "size": 4687944,
+      "sha256": "0bc6ce3e5fbbd0cd89706cf2fd70960e3372f4f01ee24265b26990808aaeb286"
+    },
+    "licenses/tesseract-LICENSE.md": {
+      "size": 11357,
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+    },
+    "licenses/core-LICENSE": {
+      "size": 11358,
+      "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+    },
+    "tesseract.min.js.LICENSE.txt": {
+      "size": 149,
+      "sha256": "cdf963ced7d25a0f98901a547647b4d6e2dbe0197fd78c87a059a87b0e542fe2"
+    },
+    "worker.min.js.LICENSE.txt": {
+      "size": 466,
+      "sha256": "45f54171aeaa1d10c0c1a66f374b7bba1f02472b1487fbe892eec04f840002ac"
+    },
+    "licenses/tessdata-Apache-2.0.txt": {
+      "size": 11357,
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+    },
+    "lang/eng.traineddata.gz": {
+      "size": 2952873,
+      "sha256": "45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91"
+    },
+    "lang/deu.traineddata.gz": {
+      "size": 1333102,
+      "sha256": "306c4280d0cbed46fbff727486bd43b92730181bae80f56941a091f363bdf28b"
+    },
+    "lang/pol.traineddata.gz": {
+      "size": 2642356,
+      "sha256": "a20fdec4ff99d8f8e84c708da3e42a4e935c26863055a0ed88aef5c66a59b91b"
+    }
+  },
+  "packages": {
+    "tesseract.js": {
+      "version": "7.0.0",
+      "license": "Apache-2.0"
+    },
+    "tesseract.js-core": {
+      "version": "7.0.0",
+      "license": "Apache-2.0"
+    },
+    "@tesseract.js-data/eng": {
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    "@tesseract.js-data/deu": {
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    "@tesseract.js-data/pol": {
+      "version": "1.0.0",
+      "license": "MIT"
+    }
+  }
+}

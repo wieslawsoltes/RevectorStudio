@@ -1,6 +1,7 @@
 import { I, compose, insertMatrix, inverse, transform, transformBox, validBox, contains, distance, flattenPath, pointSegmentDistance, union, emptyBox } from '@revector/geometry';
 import { Signal, entityBox, entityPaths, documentBox } from '@revector/model';
 import { SpatialIndex } from '@revector/topology';
+import { displayColor } from '@revector/color';
 const TAU = Math.PI * 2;
 export class Camera {
     constructor() { this.center = [0, 0]; this.scale = 1; this.width = 1; this.height = 1; this.changed = new Signal(); }
@@ -100,12 +101,6 @@ function makePath(e) {
     }
     return path2d(entityPaths(e));
 }
-function cssColor(rgb, dark) {
-    const c = rgb || [0, 0, 0];
-    if (dark && c.reduce((s, v) => s + v, 0) < 420)
-        return `rgb(${c.map(v => Math.round(135 + v * .65)).join(' ')})`;
-    return `rgb(${c.join(' ')})`;
-}
 function fontFamily(name) {
     if (/cour|mono/i.test(name))
         return '"Courier New", monospace';
@@ -115,7 +110,7 @@ function fontFamily(name) {
 }
 /** Retained command renderer; BVH culls offscreen roots, draw order is never sorted by style. */
 export class CadRenderer {
-    constructor() { this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.weights = true; this.drawn = 0; }
+    constructor() { this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.colorMode = 'faithful'; this.weights = true; this.drawn = 0; }
     setDocument(doc) {
         this.doc = doc;
         this.paths = new WeakMap();
@@ -173,7 +168,7 @@ export class CadRenderer {
         const { e, m } = cmd, scale = Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
         ctx.save();
         ctx.transform(...m);
-        const color = selected ? '#58d9ec' : cssColor(e.color, this.dark);
+        const color = selected ? '#58d9ec' : displayColor(e.color, this.dark ? this.colorMode : 'faithful');
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.globalAlpha = ghost ? .2 : (e.opacity ?? 1);
@@ -314,7 +309,7 @@ export class CanvasViewport {
             this.frame = requestAnimationFrame(() => { this.frame = 0; this.render(); });
     }
     render() {
-        const start = performance.now(), ctx = this.canvas.getContext('2d', { alpha: false }), cam = this.camera, w = cam.width, h = cam.height, dpr = this.dpr;
+        const start = performance.now(), ctx = this.canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' }), cam = this.camera, w = cam.width, h = cam.height, dpr = this.dpr;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = this.kind === 'pdf' ? '#202731' : this.paper ? '#e9edf0' : '#101720';
         ctx.fillRect(0, 0, w, h);

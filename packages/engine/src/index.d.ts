@@ -1,3 +1,4 @@
+import type { OcrOptions } from '@revector/ocr';
 import type { CadDocument, PdfScene, Diagnostic, DxfVersion } from '@revector/model';
 import type { PdfOptions } from '@revector/pdf';
 import type { ConversionOptions } from '@revector/cad';
@@ -7,12 +8,17 @@ export { CAD_PROFILES } from '@revector/rules-cad';
 export { DEFAULT_CONVERSION_OPTIONS } from '@revector/cad';
 export interface EngineOptions extends ConversionOptions, RuleOptions {
     version?: DxfVersion;
+    ocr?: OcrOptions;
+    semanticTolerance?: number;
+    maxAnalysisEntities?: number;
     profile?: 'exact' | 'cad' | 'inferred' | 'pid';
     ruleSet?: JsonRuleSet;
 }
 export interface ConversionReport {
     schema: 'revector.report/1';
     version: string;
+    color: ReturnType<typeof import('@revector/color').auditColors>;
+    ocr: unknown;
     source: Record<string, unknown>;
     target: {
         version: DxfVersion;

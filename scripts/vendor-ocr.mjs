@@ -12,6 +12,8 @@ const js=await packageRoot('tesseract.js'),core=await packageRoot('tesseract.js-
 for(const name of ['tesseract.esm.min.js','tesseract.min.js','worker.min.js'])await put(path.join(js,'dist',name),name);
 for(const name of await readdir(core))if(/^tesseract-core.*\.(wasm|js)$/.test(name))await put(path.join(core,name),path.join('core',name));
 await notices(js,'tesseract');await notices(core,'core');
+for(const name of await readdir(path.join(js,'dist')))if(name.endsWith('.LICENSE.txt'))await put(path.join(js,'dist',name),name);
+await put(path.join(js,'LICENSE.md'),'licenses/tessdata-Apache-2.0.txt');
 async function find(dir,file){for(const entry of await readdir(dir,{withFileTypes:true}).catch(e=>e.code==='ENOENT'?[]:Promise.reject(e))){const p=path.join(dir,entry.name);if(entry.isFile()&&entry.name===file)return p;if(entry.isDirectory()){const found=await find(p,file);if(found)return found;}}}
 for(const lang of manifest.languages){const dir=await packageRoot('@tesseract.js-data/'+lang),file=await find(path.join(dir,'4.0.0_best_int'),lang+'.traineddata.gz')||await find(dir,lang+'.traineddata.gz');if(!file)throw Error('Missing language data: '+lang);await put(file,'lang/'+lang+'.traineddata.gz');await notices(dir,lang);}
 await writeFile(path.join(target,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');console.log('Vendored Tesseract.js 7.0.0 and eng/deu/pol language data with SHA-256 inventory.');

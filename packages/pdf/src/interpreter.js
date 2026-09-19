@@ -1,22 +1,9 @@
+import { normalizeRgb } from '@revector/color';
 import { I, compose, transform, vector, mapPaths, rectPath, pathBox, emptyBox, extend, near, stableHash, similarity } from '@revector/geometry';
 import { SCENE_SCHEMA, diagnostic, checkAbort, yieldTask } from '@revector/model';
 import { OPS as DEFAULT_OPS } from './ops.js';
 const clone = x => structuredClone(x);
-function rgb(args) {
-    const a = args.length === 1 ? args[0] : args;
-    if (typeof a === 'string') {
-        const v = a.startsWith('#') ? a.slice(1) : '';
-        if (v.length === 6)
-            return [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16));
-        const m = a.match(/[\d.]+/g);
-        return m?.length >= 3 ? m.slice(0, 3).map(Number) : [0, 0, 0];
-    }
-    if (ArrayBuffer.isView(a) || Array.isArray(a)) {
-        const v = Array.from(a).slice(0, 3);
-        return v.map(x => Math.max(0, Math.min(255, Number(x))));
-    }
-    return [0, 0, 0];
-}
+function rgb(args) { return normalizeRgb(args.length === 1 ? args[0] : args); }
 const gray = g => [g, g, g].map(x => Math.round(Math.max(0, Math.min(1, x)) * 255));
 const cmyk = ([c, m, y, k]) => [c, m, y].map(v => Math.round(255 * (1 - Math.min(1, v + k))));
 function visibleOC(props, groups) {
@@ -575,8 +562,17 @@ export async function interpretOperators(operatorList, options = {}) {
             case 'paintImageMaskXObjectRepeat':
             case 'paintImageMaskXObjectGroup':
             case 'paintSolidColorImageMask': {
-                scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof a[0] === 'string' ? a[0] : null, transform: [...state.ctm], width: a[1] || a[0]?.width, height: a[2] || a[0]?.height, ...metadata() });
-                report('RASTER_CONTENT', 'Raster/image-mask content is detected but never OCR-processed or vector-traced.', 'warning');
+                const emit = (matrix = I, image = a[0]) => scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof image === 'string' ? image : null, transform: compose(state.ctm, matrix), width: image?.width, height: image?.height, ...metadata() });
+                if (name === 'paintImageXObjectRepeat') {
+                    for (let i=0;i<a[3].length;i+=2) emit([a[1],0,0,a[2],a[3][i],a[3][i+1]]);
+                } else if (name === 'paintImageMaskXObjectRepeat') {
+                    for (let i=0;i<a[5].length;i+=2) emit([a[1],a[2],a[3],a[4],a[5][i],a[5][i+1]]);
+                } else if (name === 'paintImageMaskXObjectGroup') {
+                    for (const image of a[0]) emit(image.transform, image);
+                } else if (name === 'paintInlineImageXObjectGroup') {
+                    for (const image of a[1]) emit(image.transform);
+                } else emit();
+                report('RASTER_CONTENT', 'Raster content has no automatic vector mapping. Enable Raster OCR for local text recovery; remaining image graphics stay in the PDF.', 'warning');
                 break;
             }
             default:

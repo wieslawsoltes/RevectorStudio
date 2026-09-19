@@ -25,6 +25,7 @@ export class CadRenderer {
     doc: CadDocument | null;
     hiddenLayers: Set<string>;
     dark: boolean;
+    colorMode: 'faithful'|'contrast';
     weights: boolean;
     drawn: number;
     setDocument(doc: CadDocument): void;

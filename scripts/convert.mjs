@@ -2,9 +2,10 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { recoverPdfRaster, TesseractOcr } from '@revector/ocr';
 import { PdfSource } from '@revector/pdf';
 import { ConversionEngine } from '@revector/engine';
-const usage = `Revector Studio — PDF vectors to semantic DXF (no OCR)
+const usage = `Revector Studio — PDF vectors to semantic DXF (optional local raster OCR)
 Usage: npm run convert -- --input drawing.pdf --output drawing.dxf [options]
   --version 2000|2004|2007|2010|2013|2018   Default: 2018
   --page N|all                             Default: 1; all outputs to a directory
@@ -19,11 +20,16 @@ Usage: npm run convert -- --input drawing.pdf --output drawing.dxf [options]
   --no-forms                              Keep form primitives expanded
   --report report.json                    Default: adjacent .report.json
   --scene scene.json                      Save immutable PDF paint intermediate
+  --ocr                                   Enable raster-region OCR
+  --ocr-language eng|deu|pol|eng+pol        Recognition languages
+  --ocr-scope raster|page                  Region or whole-page OCR
+  --ocr-dpi NUMBER                        Default: 300
+  --ocr-confidence NUMBER                 Default: 65
   --help
 `;
 const args = {};
-const boolean = new Set(['strict', 'include-hidden', 'no-forms', 'help']);
-const allowed = new Set(['input', 'output', 'version', 'page', 'units', 'scale', 'profile', 'rules', 'decisions', 'password-env', 'report', 'scene', ...boolean]);
+const boolean = new Set(['strict', 'include-hidden', 'no-forms', 'help', 'ocr']);
+const allowed = new Set(['ocr-language','ocr-scope','ocr-dpi','ocr-confidence','input', 'output', 'version', 'page', 'units', 'scale', 'profile', 'rules', 'decisions', 'password-env', 'report', 'scene', ...boolean]);
 try {
     for (let i = 2; i < process.argv.length; i++) {
         const arg = process.argv[i];
@@ -48,6 +54,11 @@ try {
     if (args['password-env'])
         pdfOptions.onPassword = () => process.env[args['password-env']] ?? null;
     const source = await PdfSource.open(data, pdfOptions);
+    let ocr;
+    if (args.ocr) {
+        const provider = await import('tesseract.js'), {createCanvas} = await import('@napi-rs/canvas');
+        ocr = {languages:args['ocr-language']||'eng',scope:args['ocr-scope']||'raster',dpi:Number(args['ocr-dpi']||300),minConfidence:Number(args['ocr-confidence']||65),canvasFactory:createCanvas,session:new TesseractOcr({provider,node:true,languages:args['ocr-language']||'eng',langPath:root+'/vendor/ocr/lang'})};
+    }
     try {
         const engine = new ConversionEngine(), options = { version: args.version || '2018', units: args.units || 'mm', drawingScale: Number(args.scale || 1), profile: args.profile || 'cad', strict: !!args.strict, includeHidden: !!args['include-hidden'], preserveForms: !args['no-forms'], signal: controller.signal };
         if (args.rules)
@@ -59,7 +70,9 @@ try {
         if (batch)
             await mkdir(args.output, { recursive: true });
         for (const page of pages) {
-            const scene = await source.extract(page, { signal: controller.signal }), result = await engine.convertScene(scene, options), output = batch ? path.join(args.output, `page-${page}.dxf`) : args.output;
+            let scene = await source.extract(page, { signal: controller.signal });
+            if (ocr) scene = await recoverPdfRaster(source,scene,{...ocr,signal:controller.signal});
+            const result = await engine.convertScene(scene, options), output = batch ? path.join(args.output, `page-${page}.dxf`) : args.output;
             await mkdir(path.dirname(path.resolve(output)), { recursive: true });
             await writeFile(output, result.dxf.text);
             await writeFile(pages.length === 1 && args.report ? args.report : output.replace(/\.dxf$/i, '') + '.report.json', JSON.stringify(result.report, null, 2) + '\n');
@@ -71,6 +84,7 @@ try {
         }
     }
     finally {
+        await ocr?.session.dispose();
         await source.dispose();
     }
 }

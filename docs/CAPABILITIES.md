@@ -1,3 +1,5 @@
+> Version 0.2.0 adds opt-in raster OCR, document rule families and color auditing. See [Extensions](EXTENSIONS.md) for the updated scope; the matrix below describes the original vector exporter.
+
 # Capability matrix — version 0.1.0
 
 This matrix describes **conversion**, not just the PDF.js source viewer. “Implemented” means a real code path exists and is covered by the provided fixtures or unit tests; it does not imply an exhaustive third-party PDF corpus.

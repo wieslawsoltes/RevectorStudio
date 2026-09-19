@@ -150,7 +150,11 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
     function provenance(e) {
         if (!xdata)
             return;
-        const value = JSON.stringify({ id: e.id, source: { ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: stableHash(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
+        let value = JSON.stringify({ id: e.id, source: { kind: e.source?.kind, ocr: e.source?.ocr, rasterInference: e.source?.rasterInference, ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: stableHash(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
+        if (dxfString(value).length > 14000) {
+            diagnostics.push(diagnostic('XDATA_DETAIL_LIMIT', 'Semantic detail exceeds the portable XDATA budget; full detail remains in the CAD model/report.', 'warning', {id:e.id}));
+            value = JSON.stringify({id:e.id,source:{ref:stableHash(e.source||{})},semantic:{class:e.semantic?.class,confidence:e.semantic?.confidence,detailHash:stableHash(e.semantic||{}),truncated:true}});
+        }
         tag(1001, 'REVECTOR');
         let chunk = '';
         for (const c of value) {
@@ -550,6 +554,7 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
         for (const id of g.members)
             if (handles.has(id))
                 tag(340, handles.get(id));
+        provenance({id:g.name,semantic:g.semantic||{},source:g.source||{}});
     }
     tag(0, 'ENDSEC');
     tag(0, 'EOF');

@@ -1,3 +1,6 @@
+import { documentRules } from '@revector/rules-document';
+import { auditColors } from '@revector/color';
+import { recoverPdfRaster } from '@revector/ocr';
 import { PdfSource } from '@revector/pdf';
 import { lowerScene, DEFAULT_CONVERSION_OPTIONS } from '@revector/cad';
 import { RuleEngine, compileRuleSet } from '@revector/semantics';
@@ -7,7 +10,7 @@ import { checkAbort, validateDocument, summary } from '@revector/model';
 export { CAD_PROFILES, DEFAULT_CONVERSION_OPTIONS };
 /** No browser, renderer, persistence, or framework dependency in the conversion core. */
 export class ConversionEngine {
-    constructor({ rules = cadRules } = {}) { this.rules = [...rules]; }
+    constructor({ rules = [...cadRules, ...documentRules] } = {}) { this.rules = [...rules]; }
     register(rule) {
         if (this.rules.some(r => r.id === rule.id))
             throw Error(`Duplicate rule ${rule.id}`);
@@ -47,14 +50,15 @@ export class ConversionEngine {
         if (!roundtripValidation.valid)
             throw new Error('Serialized DXF failed round-trip validation: ' + roundtripValidation.errors.join('; '));
         checkpoint('roundtripMs');
-        const report = { schema: 'revector.report/1', version: '0.1.0', source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: summary(document), producer: detectProducerProfile(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const report = { schema: 'revector.report/1', version: '0.2.0', color: {...auditColors(document, preview), source: scene.colorManagement || null}, ocr: scene.ocr || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: summary(document), producer: detectProducerProfile(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
     }
     async convertPdf(bytes, options = {}) {
         const source = await PdfSource.open(bytes, options);
         try {
-            const scene = await source.extract(options.page || 1, options);
+            let scene = await source.extract(options.page || 1, options);
+            if (options.ocr) scene = await recoverPdfRaster(source, scene, {...options.ocr, signal: options.signal, onProgress: options.onProgress});
             return { ...await this.convertScene(scene, options), scene };
         }
         finally {

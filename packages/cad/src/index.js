@@ -70,7 +70,7 @@ export async function lowerScene(scene, userOptions = {}) {
         }
         return name;
     }
-    function common(item, paint = 'stroke') { const style = item.style || {}, color = style[paint] || [0, 0, 0], opacity = style[paint + 'Alpha'] ?? 1; return { id: makeId(), layer: layerFor(item, color), color: [...color], lineweight: (style.lineWidth || 0) * 25.4 / 72 * (scene.userUnit || 1), opacity, dash: (style.dash || []).map(v => v * scale), dashPhase: (style.dashPhase || 0) * scale, source: { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], markedContent: item.markedContent || [], kind: item.kind }, semantic: { class: item.annotation ? 'annotation' : null, confidence: 1, method: 'source' } }; }
+    function common(item, paint = 'stroke') { const style = item.style || {}, color = style[paint] || [0, 0, 0], opacity = style[paint + 'Alpha'] ?? 1; return { id: makeId(), layer: layerFor(item, color), color: [...color], lineweight: (style.lineWidth || 0) * 25.4 / 72 * (scene.userUnit || 1), opacity, dash: (style.dash || []).map(v => v * scale), dashPhase: (style.dashPhase || 0) * scale, source: { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], markedContent: item.markedContent || [], kind: item.ocr ? 'ocr' : item.kind, ...(item.ocr ? {ocr:item.ocr} : {}), ...(item.rasterInference ? {rasterInference:item.rasterInference} : {}) }, semantic: { class: item.ocr ? 'ocr-text' : item.rasterInference ? 'raster-line' : item.annotation ? 'annotation' : null, confidence: item.ocr?.confidence ?? item.rasterInference?.confidence ?? 1, method: item.ocr ? 'ocr' : item.rasterInference ? 'raster-inference' : 'source' } }; }
     function append(e, item) {
         doc.entities.push(e);
         if (!sourceEntities.has(item.id))
@@ -271,7 +271,7 @@ export async function lowerScene(scene, userOptions = {}) {
                 append(e, item);
         }
     }
-    function commonSource(item) { return { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], kind: item.kind }; }
+    function commonSource(item) { return { ids: [item.id], page: scene.pageNumber, operator: item.operator, formPath: item.formPath || [], kind: item.ocr ? 'ocr' : item.kind, ...(item.ocr ? {ocr: item.ocr} : {}), ...(item.rasterInference ? {rasterInference: item.rasterInference} : {}) }; }
     for (let i = 0; i < scene.items.length; i++) {
         if ((i & 127) === 0) {
             checkAbort(options.signal);

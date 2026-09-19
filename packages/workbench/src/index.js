@@ -1,3 +1,5 @@
+import { recoverPdfRaster, DEFAULT_OCR_OPTIONS } from '@revector/ocr';
+import { documentRules } from '@revector/rules-document';
 import { PdfSource, PDFJS_VERSION } from '@revector/pdf';
 import { ConversionEngine, ConversionWorker, CAD_PROFILES } from '@revector/engine';
 import { CanvasViewport, linkViewports } from '@revector/renderer';
@@ -14,7 +16,7 @@ const select = (id, values, value) => el('select', { id, value }, values.map(v =
 const iconButton = (label, fn, title) => button(label, fn, { className: 'icon-button', title });
 /** Owns UI state only; every conversion runs through reusable packages and exported-DXF reparse. */
 export class Workbench {
-    constructor(root, config = {}) { this.root = root; this.config = config; this.engine = new ConversionEngine(); this.worker = config.conversionWorkerUrl ? new ConversionWorker(config.conversionWorkerUrl) : null; this.disposables = new DisposableStore(); this.abort = new AbortController(); this.source = null; this.bytes = null; this.scene = null; this.result = null; this.page = 1; this.fileName = 'Untitled.pdf'; this.decisions = {}; this.undo = []; this.redo = []; this.disabledRules = []; this.ruleSet = null; this.tab = 'recovery'; this.selected = null; this.job = 0; this.running = false; this.linked = true; this.build(); this.bind(); this.showOverview(); }
+    constructor(root, config = {}) { this.root = root; this.config = config; this.engine = new ConversionEngine(); this.worker = config.conversionWorkerUrl ? new ConversionWorker(config.conversionWorkerUrl) : null; this.disposables = new DisposableStore(); this.abort = new AbortController(); this.source = null; this.bytes = null; this.scene = null; this.result = null; this.page = 1; this.fileName = 'Untitled.pdf'; this.decisions = {}; this.undo = []; this.redo = []; this.disabledRules = []; this.ruleSet = null; this.tab = 'recovery'; this.selected = null; this.job = 0; this.running = false; this.linked = true; this.ocrSettings = null; this.build(); this.bind(); this.showOverview(); }
     build() {
         const shell = el('div', { class: 'rv-shell' });
         this.root.replaceChildren(shell);
@@ -31,7 +33,7 @@ export class Workbench {
         this.convertButton = button('Convert', () => this.run(true), { className: 'primary', id: 'convert', title: 'Convert page · Ctrl/Cmd+Enter' });
         this.exportButton = button('Export DXF ↗', () => this.exportDxf(), { className: 'primary', id: 'export-dxf', disabled: true });
         const top = el('header', { class: 'rv-top' }, el('div', { class: 'brand' }, el('span', { class: 'brand-mark', text: 'R' }), el('b', { text: 'revector' }), el('span', { class: 'brand-edition', text: 'STUDIO' })), el('span', { class: 'top-separator' }), this.title, el('div', { class: 'top-spacer' }), el('span', { class: 'local-badge', text: '● Local workspace' }), button('Guide', () => this.help()), button('Project', () => this.projectMenu()), this.exportButton);
-        const toolbar = el('div', { class: 'rv-toolbar' }, button('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), button('Sample drawing', () => this.demo(), { id: 'demo' }), el('i', { class: 'separator' }), this.pageSelect, field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), el('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), el('div', { class: 'top-spacer' }), button('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
+        const toolbar = el('div', { class: 'rv-toolbar' }, button('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), button('Sample drawing', () => this.demo(), { id: 'demo' }), button('Raster OCR', () => this.configureOcr(), {id:'configure-ocr', title:'Opt-in local raster text recognition'}), el('i', { class: 'separator' }), this.pageSelect, field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), el('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), el('div', { class: 'top-spacer' }), button('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
         this.explorer = el('aside', { class: 'rv-explorer' }, el('div', { class: 'section-label', text: 'DOCUMENT EXPLORER' }));
         const rail = el('nav', { class: 'rv-rail', 'aria-label': 'Workspace panels' }, iconButton('▤', () => this.explorer.classList.toggle('collapsed'), 'Toggle document explorer'), iconButton('⌘', () => this.setTab('recovery'), 'Semantic recovery'), iconButton('⚙', () => this.setTab('rules'), 'Rule engine'), iconButton('!', () => this.setTab('diagnostics'), 'Conversion diagnostics'), el('div', { class: 'top-spacer' }), iconButton('?', () => this.help(), 'Guide'));
         this.pdfCanvas = el('canvas', { id: 'pdf-canvas', 'aria-label': 'Source PDF drawing viewport' });
@@ -40,11 +42,13 @@ export class Workbench {
         this.cadInfo = el('span', { class: 'panel-meta', text: 'Serialized DXF · round-trip preview' });
         const sourcePane = el('section', { class: 'viewport-pane' }, el('header', { class: 'pane-heading' }, el('span', { class: 'pane-indicator pdf' }), el('b', { text: 'SOURCE PDF' }), this.pdfInfo, el('div', { class: 'top-spacer' }), iconButton('⊡', () => this.pdfView.fit(), 'Fit source page')), el('div', { class: 'canvas-host' }, this.pdfCanvas, el('span', { class: 'canvas-caption', text: 'Original appearance' })));
         this.gridButton = iconButton('⌗', () => { this.cadView.grid = !this.cadView.grid; this.cadView.invalidate(); this.gridButton.classList.toggle('active', this.cadView.grid); }, 'Toggle drafting grid');
+        this.colorMode = select('color-mode', [['faithful','Original colors'],['contrast','CAD contrast']], 'faithful');
+        this.colorMode.addEventListener('change', () => { this.cadView.renderer.colorMode = this.colorMode.value; this.cadView.invalidate(); });
         this.themeButton = iconButton('◐', () => { this.cadView.paper = !this.cadView.paper; this.cadView.invalidate(); }, 'Switch paper / dark CAD view');
         this.linkButton = iconButton('↔', () => this.toggleLink(), 'Link viewport cameras');
         this.linkButton.classList.add('active');
         this.measureButton = iconButton('⌁', () => { this.cadView.measureMode = !this.cadView.measureMode; this.measureButton.classList.toggle('active', this.cadView.measureMode); this.setStatus(this.cadView.measureMode ? 'Measure: click two points in the DXF viewport.' : 'Selection mode'); }, 'Two-point measurement');
-        const targetPane = el('section', { class: 'viewport-pane' }, el('header', { class: 'pane-heading' }, el('span', { class: 'pane-indicator' }), el('b', { text: 'RECOVERED DXF' }), this.cadInfo, el('div', { class: 'top-spacer' }), this.linkButton, this.gridButton, this.themeButton, this.measureButton, iconButton('⊡', () => this.fit(), 'Fit both pages')), el('div', { class: 'canvas-host' }, this.cadCanvas, el('span', { class: 'canvas-caption', text: 'Editable entities · select to inspect' })));
+        const targetPane = el('section', { class: 'viewport-pane' }, el('header', { class: 'pane-heading' }, el('span', { class: 'pane-indicator' }), el('b', { text: 'RECOVERED DXF' }), this.cadInfo, el('div', { class: 'top-spacer' }), this.linkButton, this.gridButton, this.themeButton, this.colorMode, this.measureButton, iconButton('⊡', () => this.fit(), 'Fit both pages')), el('div', { class: 'canvas-host' }, this.cadCanvas, el('span', { class: 'canvas-caption', text: 'Editable entities · select to inspect' })));
         this.panes = el('div', { class: 'rv-panes' }, sourcePane, targetPane);
         this.inspector = el('aside', { class: 'rv-inspector' });
         this.tabs = el('div', { class: 'bottom-tabs' });
@@ -65,6 +69,7 @@ export class Workbench {
         shell.append(top, toolbar, body, el('footer', { class: 'rv-status' }, el('span', { class: 'status-dot' }), this.status, el('div', { class: 'top-spacer' }), this.coords, el('span', { class: 'status-divider' }), this.performance, el('span', { class: 'status-divider' }), this.zoom), this.fileInput);
         this.pdfView = new CanvasViewport(this.pdfCanvas, { kind: 'pdf' });
         this.cadView = new CanvasViewport(this.cadCanvas, { kind: 'cad' });
+        this.cadView.paper = true;
         this.unlink = linkViewports(this.pdfView, this.cadView);
         this.disposables.add(this.cadView.selectionChanged.subscribe(hit => this.inspect(hit?.entity || null)));
         this.disposables.add(this.cadView.pointerMoved.subscribe(p => this.coords.textContent = `X ${fmt(p[0])}  Y ${fmt(p[1])} ${this.units.value}`));
@@ -129,7 +134,7 @@ export class Workbench {
         const scale = Number(this.scale.value);
         if (!Number.isFinite(scale) || scale <= 0)
             throw Error('Drawing scale must be a positive number.');
-        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet };
+        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet, ocr: this.ocrSettings };
     }
     pdfOptions(name) { const base = this.config.assetBase || './vendor/pdfjs/'; return { name, moduleUrl: this.config.pdfjsModuleUrl || base + 'legacy/build/pdf.mjs', workerUrl: this.config.pdfjsWorkerUrl || base + 'legacy/build/pdf.worker.mjs', pdfOptions: { cMapUrl: base + 'cmaps/', cMapPacked: true, wasmUrl: base + 'wasm/', iccUrl: base + 'iccs/', ...this.config.pdfOptions }, onPassword: reason => askValue(reason === 2 ? 'Incorrect PDF password' : 'Encrypted PDF', 'Enter the password to open this PDF', '', { type: 'password' }) }; }
     async openFile(file) {
@@ -172,6 +177,7 @@ export class Workbench {
         this.redo = [];
         this.disabledRules = project?.disabledRules || [];
         this.ruleSet = project?.ruleSet || null;
+        this.ocrSettings = project?.settings?.ocr || null;
         this.exportButton.disabled = true;
         this.setStatus('Opening PDF locally…');
         try {
@@ -211,8 +217,12 @@ export class Workbench {
                 if (id === this.job)
                     this.setStatus(`${p.phase}${p.rule ? ' · ' + p.rule : ''}${p.total ? ' · ' + Math.round(p.done / p.total * 100) + '%' : ''}`);
             };
-            if (extract || !this.scene)
-                this.scene = await this.source.extract(this.page, { signal: controller.signal, onProgress: progress });
+            if (extract || !this.scene) {
+                let next = await this.source.extract(this.page, { signal: controller.signal, onProgress: progress });
+                if (this.ocrSettings) next = await recoverPdfRaster(this.source, next, {...this.ocrSettings, assetBase:this.config.ocrAssetBase || './vendor/ocr/', signal:controller.signal, onProgress:progress});
+                if (id !== this.job) return;
+                this.scene = next;
+            }
             if (id !== this.job)
                 return;
             const scene = this.scene;
@@ -383,7 +393,7 @@ export class Workbench {
         const bar = el('div', { class: 'recovery-bar' }, el('b', { text: 'Deterministic, replayable rule pipeline' }), el('span', { class: 'muted', text: 'Exact structures auto-apply. Inferences stay reviewable.' }), el('div', { class: 'top-spacer' }), button('Edit JSON rules', () => this.editRules()), button('Apply changes', () => this.run(false)));
         this.bottomContent.append(bar);
         const grid = el('div', { class: 'rules-grid' });
-        for (const r of cadRules) {
+        for (const r of [...cadRules, ...documentRules]) {
             const input = el('input', { type: 'checkbox', checked: !this.disabledRules.includes(r.id) });
             input.addEventListener('change', () => {
                 this.disabledRules = this.disabledRules.filter(x => x !== r.id);
@@ -396,7 +406,7 @@ export class Workbench {
         if (this.ruleSet)
             this.bottomContent.append(el('div', { class: 'rule-custom', text: `Custom rules loaded: ${this.ruleSet.rules.length}` }));
     }
-    renderSource() { const r = this.result.report; this.bottomContent.append(el('div', { class: 'recovery-bar' }, el('b', { text: 'Conversion provenance' }), el('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), el('div', { class: 'top-spacer' }), button('Save report', () => download(enc(r), this.baseName() + '.report.json', 'application/json')), button('Save intermediate model', () => download(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), el('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, timings: r.timings, validation: r.validation }) })); }
+    renderSource() { const r = this.result.report; this.bottomContent.append(el('div', { class: 'recovery-bar' }, el('b', { text: 'Conversion provenance' }), el('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), el('div', { class: 'top-spacer' }), button('Save report', () => download(enc(r), this.baseName() + '.report.json', 'application/json')), button('Save intermediate model', () => download(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), el('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, color: r.color, ocr: r.ocr, timings: r.timings, validation: r.validation }) })); }
     showOverview() {
         this.inspector.replaceChildren(el('div', { class: 'section-label', text: 'CONVERSION INSPECTOR' }), el('div', { class: 'inspector-intro' }, el('span', { class: 'eyebrow', text: 'FROM PLOT TO MODEL' }), el('h2', { text: 'Structure,\nnot just strokes.' }), el('p', { class: 'muted', text: 'Review recovered entities alongside the original PDF. Every semantic proposal keeps its evidence.' })));
         if (this.result) {
@@ -493,7 +503,8 @@ export class Workbench {
             const options = this.options(), files = [];
             for (let p = 1; p <= this.source.numPages; p++) {
                 this.setStatus(`Batch conversion · page ${p} / ${this.source.numPages}`);
-                const scene = p === this.page && this.scene ? this.scene : await this.source.extract(p, { signal: controller.signal });
+                let scene = p === this.page && this.scene ? this.scene : await this.source.extract(p, { signal: controller.signal });
+                if (this.ocrSettings && !scene.ocr) scene = await recoverPdfRaster(this.source, scene, {...this.ocrSettings,assetBase:this.config.ocrAssetBase || './vendor/ocr/',signal:controller.signal});
                 const config = { ...options, decisions: this.decisions[p] || {} };
                 const r = this.worker ? await this.worker.convert(scene, config, { signal: controller.signal }) : await this.engine.convertScene(scene, { ...config, signal: controller.signal });
                 files.push({ name: `page-${p}.R${options.version}.dxf`, data: r.dxf.text }, { name: `page-${p}.report.json`, data: enc(r.report) });
@@ -510,7 +521,12 @@ export class Workbench {
             this.convertButton.disabled = false;
         }
     }
-    help() { dialog({ title: 'Revector Studio · vector-first CAD recovery', content: el('div', { class: 'guide' }, el('h3', { text: 'A local, inspectable conversion workflow' }), el('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), el('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), el('h3', { text: 'Meaning is recovered, not assumed' }), el('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), el('h3', { text: 'Explicit format boundaries' }), el('p', { text: 'No OCR, raster tracing, or fabricated image geometry. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), el('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), el('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
+    configureOcr() {
+        const settings=this.ocrSettings || DEFAULT_OCR_OPTIONS;
+        const enabled=el('input',{id:'ocr-enabled',type:'checkbox',checked:!!this.ocrSettings}), scope=select('ocr-scope',[['raster','Visible raster regions'],['page','Whole page (scanned documents)']],settings.scope), languages=el('input',{id:'ocr-languages',value:settings.languages,title:'Bundled eng, deu, pol. Combine with +, e.g. eng+pol.'}), dpi=el('input',{id:'ocr-dpi',type:'number',min:72,max:600,value:settings.dpi}), confidence=el('input',{id:'ocr-confidence',type:'number',min:0,max:100,value:settings.minConfidence}), preprocess=select('ocr-preprocess',['none','otsu','sauvola'],settings.preprocess), rotation=select('ocr-rotation',['0','90','180','270'],String(settings.rotation)), trace=el('input',{id:'ocr-lines',type:'checkbox',checked:settings.traceLines});
+        dialog({title:'Raster OCR · local recognition',content:el('div',{class:'guide'},el('p',{text:'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.'}),field('Enable OCR',enabled),field('Scope',scope),field('Languages',languages),field('Resolution (DPI)',dpi),field('Minimum confidence (%)',confidence),field('Preprocessing',preprocess),field('Recognition rotation',rotation),field('Estimate horizontal / vertical raster lines',trace)),actions:[{label:'Cancel',run:d=>d.close()},{label:'Apply and convert',primary:true,run:d=>{this.ocrSettings=enabled.checked?{scope:scope.value,languages:languages.value,dpi:Number(dpi.value),minConfidence:Number(confidence.value),preprocess:preprocess.value,rotation:Number(rotation.value),traceLines:trace.checked}:null;d.close();void this.run(true);}}]});
+    }
+    help() { dialog({ title: 'Revector Studio · vector-first CAD recovery', content: el('div', { class: 'guide' }, el('h3', { text: 'A local, inspectable conversion workflow' }), el('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), el('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), el('h3', { text: 'Meaning is recovered, not assumed' }), el('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), el('h3', { text: 'Explicit format boundaries' }), el('p', { text: 'Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), el('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), el('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
     setStatus(text) {
         if (this.status)
             this.status.textContent = text;
