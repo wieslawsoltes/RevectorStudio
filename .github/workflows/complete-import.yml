@@ -1,0 +1,96 @@
+name: Finalize source import
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/complete-import.yml]
+permissions:
+  contents: write
+concurrency:
+  group: source-archive-import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore verified source and byte-identical distribution bundles
+        run: |
+          python -m pip install PyYAML==6.0.2 --quiet
+          python - <<'PY'
+          import pathlib,subprocess,yaml
+          workflow=yaml.safe_load(pathlib.Path('.github/workflows/import-source.yml').read_text())
+          names={'Repair transfer headers and verify complete source payload','Rebuild exact runtime bundles and package archives'}
+          executed=0
+          for step in workflow['jobs']['import']['steps']:
+              if step.get('name') in names:
+                  subprocess.run(['bash','-e','-o','pipefail','-c',step['run']],check=True)
+                  executed+=1
+          assert executed==2
+          PY
+      - name: Install isolated browser validation dependencies
+        run: |
+          python -m pip install -r tests/requirements.txt --quiet
+          python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
+      - name: Validate without modifying the imported source or recorded reports
+        run: |
+          npm run test:types
+          mkdir -p "$RUNNER_TEMP/revector-visual"
+          tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=.bootstrap -cf - . | tar -xf - -C "$RUNNER_TEMP/revector-visual"
+          cd "$RUNNER_TEMP/revector-visual"
+          node scripts/link-workspaces.mjs
+          npm test
+          python - <<'PY'
+          import pymupdf
+          with pymupdf.open('assets/cooling-water.pdf') as doc:
+              for i,page in enumerate(doc):
+                  page.get_pixmap(matrix=pymupdf.Matrix(1.6,1.6)).save(f'artifacts/source-page-{i+1}.png')
+          PY
+          python tests/offline_browser.py
+          python tests/browser.py
+          cp artifacts/*.png "$GITHUB_WORKSPACE/artifacts/"
+      - name: Verify and commit the entire source project
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path.cwd()
+          m=json.loads((root/'source-import.json').read_text())
+          for p,h in m['originalPayloadFiles'].items():
+              assert hashlib.sha256((root/p).read_bytes()).hexdigest()==h,p
+          pngs=list((root/'artifacts').glob('*.png'))
+          assert len(pngs)==5,len(pngs)
+          m['refreshedScreenshots']=[str(p.relative_to(root)) for p in sorted(pngs)]
+          (root/'source-import.json').write_text(json.dumps(m,indent=2)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -- . ':!.git' ':!node_modules' ':!dist' ':!package-lock.json' ':!.github/workflows' ':!.bootstrap'
+          git commit -m 'Import complete Revector Studio source, twelve npm packages and validation artifacts [import-complete]'
+          git push origin HEAD:main
+      - name: Record repository inventory
+        if: always()
+        run: |
+          python - <<'PY'
+          import pathlib,hashlib,json
+          root=pathlib.Path.cwd()
+          files={str(p.relative_to(root)):{'size':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in root.rglob('*') if p.is_file() and not {'.git','node_modules','dist','.bootstrap'}.intersection(p.relative_to(root).parts)}
+          (root/'repository-inventory.json').write_text(json.dumps(files,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-import-evidence
+          path: |
+            source-import.json
+            repository-inventory.json
+            artifacts/*.png
+          retention-days: 14
