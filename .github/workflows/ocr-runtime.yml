@@ -1,0 +1,27 @@
+name: Validate OCR runtime
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/ocr-runtime.yml, scripts/vendor-ocr.mjs]
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install pinned OCR and canvas engines
+        run: npm install --ignore-scripts --no-save --omit=optional tesseract.js@7.0.0 tesseract.js-core@7.0.0 @tesseract.js-data/eng@1.0.0 @tesseract.js-data/deu@1.0.0 @tesseract.js-data/pol@1.0.0
+      - run: node scripts/vendor-ocr.mjs
+      - name: Archive runtime for offline validation
+        run: tar -czf ocr-runtime.tar.gz vendor/ocr node_modules/tesseract.js node_modules/tesseract.js-core node_modules/@tesseract.js-data node_modules/bmp-js node_modules/idb-keyval node_modules/is-url node_modules/node-fetch node_modules/wasm-feature-detect node_modules/zlibjs node_modules/whatwg-url node_modules/tr46 node_modules/webidl-conversions
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ocr-runtime
+          path: ocr-runtime.tar.gz
+          retention-days: 7
