@@ -1,0 +1,1 @@
+{"schema":"revector.rules/1","rules":[{"id":"plant.pressure-tags","version":"1.0.0","title":"Pressure instrument tags","confidence":0.99,"when":{"all":[{"field":"type","op":"eq","value":"TEXT"},{"field":"text","op":"prefix","value":"PT-"}]},"then":{"layer":"INSTRUMENT_TAGS","semantic":{"class":"pressure-instrument","convention":"plant-tagging-v1"}}}]}

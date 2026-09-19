@@ -1,0 +1,30 @@
+{
+  "name": "@revector/dxf",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DXF 2000\u20132018 writer and reader for vector-first PDF to semantic DXF conversion",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./*": "./src/*"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "LICENSE.ezdxf"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@revector/geometry": "0.1.0",
+    "@revector/model": "0.1.0"
+  }
+}

@@ -1,0 +1,211 @@
+{
+  "schema": "revector.report/1",
+  "version": "0.1.0",
+  "source": {
+    "name": "Real PDF regression",
+    "fingerprints": [
+      "befc25fdabde58a067af720ceefd9beb",
+      null
+    ],
+    "producer": "",
+    "creator": "",
+    "pdfVersion": "1.7",
+    "PDFFormatVersion": "1.7",
+    "Language": null,
+    "EncryptFilterName": null,
+    "IsLinearized": false,
+    "IsAcroFormPresent": false,
+    "IsXFAPresent": false,
+    "IsCollectionPresent": false,
+    "IsSignaturesPresent": false,
+    "page": 1,
+    "coordinateTransform": [
+      0.35277777777777775,
+      0,
+      0,
+      0.35277777777777775,
+      0,
+      0
+    ],
+    "options": {
+      "units": "mm",
+      "drawingScale": 1,
+      "includeHidden": false,
+      "clip": true,
+      "preserveForms": true,
+      "textMode": "adaptive",
+      "styleLayers": true,
+      "strict": false,
+      "precision": 10,
+      "patternLimit": 2500,
+      "booleanTolerance": 1e-8,
+      "name": "CAD print recovery",
+      "description": "Conservative source recovery; review conics, dimensions and attributes.",
+      "fidelity": "inferred",
+      "minConfidence": 0,
+      "version": "2018"
+    },
+    "irSchema": "revector.pdf/1",
+    "operatorCount": 372,
+    "paintItems": 128,
+    "rasterItems": 0
+  },
+  "target": {
+    "version": "2018",
+    "acadVersion": "AC1032",
+    "units": "mm"
+  },
+  "summary": {
+    "entities": 107,
+    "blockDefinitions": 3,
+    "layers": 7,
+    "types": {
+      "LWPOLYLINE": 9,
+      "LINE": 44,
+      "TEXT": 34,
+      "SPLINE": 3,
+      "CIRCLE": 6,
+      "INSERT": 6,
+      "HATCH": 3,
+      "DIMENSION": 2
+    },
+    "diagnostics": 7,
+    "accepted": 24,
+    "pending": 0
+  },
+  "producer": {
+    "family": "Generic vector PDF",
+    "confidence": 1
+  },
+  "diagnostics": [
+    {
+      "code": "FONT_SUBSTITUTION",
+      "message": "DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.",
+      "severity": "warning",
+      "page": 1
+    },
+    {
+      "code": "SEMANTIC_GEOMETRY_CHANGE",
+      "message": "Accepted inference: Recover a native CIRCLE from a printed cubic circle. Original primitives are retained in the conversion history.",
+      "severity": "warning",
+      "rule": "cad.conic-recovery",
+      "candidate": "cad.conic-recovery:77f09224",
+      "errorBound": 0.0020160683283281244
+    },
+    {
+      "code": "SEMANTIC_GEOMETRY_CHANGE",
+      "message": "Accepted inference: Recover a native CIRCLE from a printed cubic circle. Original primitives are retained in the conversion history.",
+      "severity": "warning",
+      "rule": "cad.conic-recovery",
+      "candidate": "cad.conic-recovery:d0e3b858",
+      "errorBound": 0.0020155014048386377
+    },
+    {
+      "code": "SEMANTIC_GEOMETRY_CHANGE",
+      "message": "Accepted inference: Recover a native CIRCLE from a printed cubic circle. Original primitives are retained in the conversion history.",
+      "severity": "warning",
+      "rule": "cad.conic-recovery",
+      "candidate": "cad.conic-recovery:07d2fb39",
+      "errorBound": 0.0020149344819140325
+    },
+    {
+      "code": "SEMANTIC_GEOMETRY_CHANGE",
+      "message": "Accepted inference: Recover a native CIRCLE from a printed cubic circle. Original primitives are retained in the conversion history.",
+      "severity": "warning",
+      "rule": "cad.conic-recovery",
+      "candidate": "cad.conic-recovery:438efa38",
+      "errorBound": 0.0012469147762415034
+    },
+    {
+      "code": "SEMANTIC_GEOMETRY_CHANGE",
+      "message": "Accepted inference: Recover a native CIRCLE from a printed cubic circle. Original primitives are retained in the conversion history.",
+      "severity": "warning",
+      "rule": "cad.conic-recovery",
+      "candidate": "cad.conic-recovery:dc25d66c",
+      "errorBound": 0.0012461736358346798
+    },
+    {
+      "code": "SEMANTIC_GEOMETRY_CHANGE",
+      "message": "Accepted inference: Recover a native CIRCLE from a printed cubic circle. Original primitives are retained in the conversion history.",
+      "severity": "warning",
+      "rule": "cad.conic-recovery",
+      "candidate": "cad.conic-recovery:f7cbdbe8",
+      "errorBound": 0.0012461736355184883
+    }
+  ],
+  "rules": [
+    {
+      "rule": "geometry.join-chains",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 1.2663289999999279
+    },
+    {
+      "rule": "cad.conic-recovery",
+      "proposed": 6,
+      "accepted": 6,
+      "elapsedMs": 13.467925000000037
+    },
+    {
+      "rule": "cad.repeated-symbols",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 1.6866229999999405
+    },
+    {
+      "rule": "cad.tag-attributes",
+      "proposed": 6,
+      "accepted": 6,
+      "elapsedMs": 11.535922000000028
+    },
+    {
+      "rule": "cad.dimensions",
+      "proposed": 2,
+      "accepted": 2,
+      "elapsedMs": 5.006106999999929
+    },
+    {
+      "rule": "cad.centerlines",
+      "proposed": 2,
+      "accepted": 2,
+      "elapsedMs": 5.21327000000008
+    },
+    {
+      "rule": "cad.hatch-families",
+      "proposed": 1,
+      "accepted": 1,
+      "elapsedMs": 3.450431999999978
+    },
+    {
+      "rule": "cad.title-block",
+      "proposed": 1,
+      "accepted": 1,
+      "elapsedMs": 3.2614079999999603
+    }
+  ],
+  "timings": {
+    "geometryMs": 2.2092010000000073,
+    "semanticsMs": 54.915784999999914,
+    "serializeMs": 4.591863000000103,
+    "roundtripMs": 2.9865219999999226,
+    "totalMs": 64.75739299999998
+  },
+  "coverage": {
+    "paintItems": 128,
+    "vectorPaths": 86,
+    "textRuns": 42,
+    "forms": 6,
+    "rasterItems": 0,
+    "shadings": 0
+  },
+  "validation": {
+    "model": {
+      "valid": true,
+      "errors": []
+    },
+    "roundtrip": {
+      "valid": true,
+      "errors": []
+    }
+  }
+}

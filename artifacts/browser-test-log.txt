@@ -1,0 +1,36 @@
+PASS Real PDF.js document decodes two pages
+PASS Actual exported DXF is parsed for the right viewport
+PASS Native text survives extraction
+PASS Six forms become six INSERTs of one shared block
+PASS Seven named layers including zero
+PASS Pending semantic proposals are visible
+PASS Both views have actual rendered pixels
+PASS Accepting a circle emits native CIRCLE
+PASS Inferred replacement is explicitly diagnosed
+PASS Undo replays original exact spline geometry
+PASS Redo restores the accepted hypothesis
+PASS Version selection 2000
+PASS Version selection 2004
+PASS Version selection 2007
+PASS Version selection 2010
+PASS Version selection 2013
+PASS Version selection 2018
+PASS Export button downloads real DXF text
+PASS Layer visibility changes retained renderer
+PASS Zoom is pointer-anchored and linked between views
+PASS Two-point measurement returns world distance
+PASS Recovery inspector shows rule evidence
+PASS All eight built-in rules have toggles
+PASS JSON rule extension creates classified target layer
+PASS Page navigation performs a new real PDF extraction
+PASS Rotated form reuse on page two remains one block
+PASS Page two contains native cubic HATCH boundary
+PASS Paper comparison mode works
+PASS Drawing scale actually rescales geometry
+PASS Batch export packages DXF and manifests for each page
+PASS Project preserves original PDF and custom rules
+PASS Saved project reopens with settings and rules
+PASS Guide documents strict conversion boundaries
+PASS Compact IDE remains within viewport
+PASS No uncaught browser exceptions
+BROWSER CHECKS 35

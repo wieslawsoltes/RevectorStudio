@@ -1,0 +1,321 @@
+TAP version 13
+# Subtest: Affine inverse randomized round-trip and composition
+ok 1 - Affine inverse randomized round-trip and composition
+  ---
+  duration_ms: 5.260911
+  type: 'test'
+  ...
+# Subtest: INSERT decomposition preserves reflections and rejects shear
+ok 2 - INSERT decomposition preserves reflections and rejects shear
+  ---
+  duration_ms: 0.724302
+  type: 'test'
+  ...
+# Subtest: Cubic subdivision preserves the exact polynomial curve
+ok 3 - Cubic subdivision preserves the exact polynomial curve
+  ---
+  duration_ms: 0.94848
+  type: 'test'
+  ...
+# Subtest: Cubic subinterval matches the parent parameterization
+ok 4 - Cubic subinterval matches the parent parameterization
+  ---
+  duration_ms: 0.214944
+  type: 'test'
+  ...
+# Subtest: Analytic cubic bounds include interior extrema
+ok 5 - Analytic cubic bounds include interior extrema
+  ---
+  duration_ms: 0.504531
+  type: 'test'
+  ...
+# Subtest: Polynomial root isolation finds repeated and ordinary roots
+ok 6 - Polynomial root isolation finds repeated and ordinary roots
+  ---
+  duration_ms: 0.244448
+  type: 'test'
+  ...
+# Subtest: Curve arrangement intersection
+ok 7 - Curve arrangement intersection
+  ---
+  duration_ms: 2.048248
+  type: 'test'
+  ...
+# Subtest: Curve arrangement union
+ok 8 - Curve arrangement union
+  ---
+  duration_ms: 0.426423
+  type: 'test'
+  ...
+# Subtest: Curve arrangement difference
+ok 9 - Curve arrangement difference
+  ---
+  duration_ms: 0.55711
+  type: 'test'
+  ...
+# Subtest: Curve arrangement xor
+ok 10 - Curve arrangement xor
+  ---
+  duration_ms: 0.63016
+  type: 'test'
+  ...
+# Subtest: Even-odd versus nonzero winding retains hole semantics
+ok 11 - Even-odd versus nonzero winding retains hole semantics
+  ---
+  duration_ms: 0.170937
+  type: 'test'
+  ...
+# Subtest: Cubic clipping splits Béziers, never tessellates them
+ok 12 - Cubic clipping splits Béziers, never tessellates them
+  ---
+  duration_ms: 0.501265
+  type: 'test'
+  ...
+# Subtest: Line/cubic intersection parameters are consistent
+ok 13 - Line/cubic intersection parameters are consistent
+  ---
+  duration_ms: 0.141183
+  type: 'test'
+  ...
+# Subtest: Spatial index agrees with brute-force intersections
+ok 14 - Spatial index agrees with brute-force intersections
+  ---
+  duration_ms: 2.817393
+  type: 'test'
+  ...
+# Subtest: Line chains do not merge through T-junctions
+ok 15 - Line chains do not merge through T-junctions
+  ---
+  duration_ms: 0.280162
+  type: 'test'
+  ...
+# Subtest: PDF constructPath modern packed buffers use the real paint opcode
+ok 16 - PDF constructPath modern packed buffers use the real paint opcode
+  ---
+  duration_ms: 1.311578
+  type: 'test'
+  ...
+# Subtest: PDF legacy constructPath remains supported
+ok 17 - PDF legacy constructPath remains supported
+  ---
+  duration_ms: 0.355246
+  type: 'test'
+  ...
+# Subtest: PDF clip applies after painting the current path
+ok 18 - PDF clip applies after painting the current path
+  ---
+  duration_ms: 1.89084
+  type: 'test'
+  ...
+# Subtest: PDF save/restore isolates graphics state and transforms
+ok 19 - PDF save/restore isolates graphics state and transforms
+  ---
+  duration_ms: 0.257628
+  type: 'test'
+  ...
+# Subtest: PDF nested text-matrix contract and TJ spacing keep finite glyph origins
+ok 20 - PDF nested text-matrix contract and TJ spacing keep finite glyph origins
+  ---
+  duration_ms: 1.215723
+  type: 'test'
+  ...
+# Subtest: PDF invisible text does not become geometry when hidden layers are included
+ok 21 - PDF invisible text does not become geometry when hidden layers are included
+  ---
+  duration_ms: 0.213963
+  type: 'test'
+  ...
+# Subtest: PDF optional content visibility and named layers survive extraction
+ok 22 - PDF optional content visibility and named layers survive extraction
+  ---
+  duration_ms: 0.77616
+  type: 'test'
+  ...
+# Subtest: PDF group matrix affects the group clip without double-transforming children
+ok 23 - PDF group matrix affects the group clip without double-transforming children
+  ---
+  duration_ms: 0.547385
+  type: 'test'
+  ...
+# Subtest: PDF images and shading produce diagnostics, never traced entities
+ok 24 - PDF images and shading produce diagnostics, never traced entities
+  ---
+  duration_ms: 1.230926
+  type: 'test'
+  ...
+# Subtest: Operator budget and abort are enforced
+ok 25 - Operator budget and abort are enforced
+  ---
+  duration_ms: 0.72255
+  type: 'test'
+  ...
+# Subtest: Unit conversion and model drawing scale are independent and exact
+ok 26 - Unit conversion and model drawing scale are independent and exact
+  ---
+  duration_ms: 0.478181
+  type: 'test'
+  ...
+# Subtest: Failed semantic transaction leaves the original model unchanged
+ok 27 - Failed semantic transaction leaves the original model unchanged
+  ---
+  duration_ms: 0.490179
+  type: 'test'
+  ...
+# Subtest: Semantic dependency cycle is rejected
+ok 28 - Semantic dependency cycle is rejected
+  ---
+  duration_ms: 6.425018
+  type: 'test'
+  ...
+# Subtest: Safe declarative rule classifies a tag and creates its layer
+ok 29 - Safe declarative rule classifies a tag and creates its layer
+  ---
+  duration_ms: 11.124762
+  type: 'test'
+  ...
+# Subtest: Declarative regex rejects backtracking and grouping constructs
+ok 30 - Declarative regex rejects backtracking and grouping constructs
+  ---
+  duration_ms: 0.632513
+  type: 'test'
+  ...
+# Subtest: Attribute append proposals preserve previously accepted attributes
+ok 31 - Attribute append proposals preserve previously accepted attributes
+  ---
+  duration_ms: 1.389095
+  type: 'test'
+  ...
+# Subtest: Explicit placements keep repeated block instances at source paint positions
+ok 32 - Explicit placements keep repeated block instances at source paint positions
+  ---
+  duration_ms: 0.546815
+  type: 'test'
+  ...
+# Subtest: Block origin is accounted for in world bounds
+ok 33 - Block origin is accounted for in world bounds
+  ---
+  duration_ms: 0.164919
+  type: 'test'
+  ...
+# Subtest: Validation detects duplicate attribute IDs and missing GROUP members
+ok 34 - Validation detects duplicate attribute IDs and missing GROUP members
+  ---
+  duration_ms: 0.266892
+  type: 'test'
+  ...
+# Subtest: DXF 2000: entity, block, attribute, cubic hatch and provenance round-trip
+ok 35 - DXF 2000: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 11.696183
+  type: 'test'
+  ...
+# Subtest: DXF 2004: entity, block, attribute, cubic hatch and provenance round-trip
+ok 36 - DXF 2004: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 3.229799
+  type: 'test'
+  ...
+# Subtest: DXF 2007: entity, block, attribute, cubic hatch and provenance round-trip
+ok 37 - DXF 2007: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 2.239797
+  type: 'test'
+  ...
+# Subtest: DXF 2010: entity, block, attribute, cubic hatch and provenance round-trip
+ok 38 - DXF 2010: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 2.770157
+  type: 'test'
+  ...
+# Subtest: DXF 2013: entity, block, attribute, cubic hatch and provenance round-trip
+ok 39 - DXF 2013: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 2.233658
+  type: 'test'
+  ...
+# Subtest: DXF 2018: entity, block, attribute, cubic hatch and provenance round-trip
+ok 40 - DXF 2018: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 1.547794
+  type: 'test'
+  ...
+# Subtest: DXF long Unicode XDATA chunks never exceed 255 bytes and retain JSON
+ok 41 - DXF long Unicode XDATA chunks never exceed 255 bytes and retain JSON
+  ---
+  duration_ms: 2.046596
+  type: 'test'
+  ...
+# Subtest: DXF name collisions are blocked rather than silently merging layers
+ok 42 - DXF name collisions are blocked rather than silently merging layers
+  ---
+  duration_ms: 0.250137
+  type: 'test'
+  ...
+# Subtest: DXF 2000 transparency is explicitly unsupported in strict mode
+ok 43 - DXF 2000 transparency is explicitly unsupported in strict mode
+  ---
+  duration_ms: 0.641006
+  type: 'test'
+  ...
+# Subtest: DXF polyline bulges are retained by the round-trip reader
+ok 44 - DXF polyline bulges are retained by the round-trip reader
+  ---
+  duration_ms: 0.637531
+  type: 'test'
+  ...
+# Subtest: DXF unsupported versions, nonfinite coordinates and truncated streams are rejected
+ok 45 - DXF unsupported versions, nonfinite coordinates and truncated streams are rejected
+  ---
+  duration_ms: 0.261274
+  type: 'test'
+  ...
+# Subtest: Vector template matching is geometry-only and translation-invariant
+ok 46 - Vector template matching is geometry-only and translation-invariant
+  ---
+  duration_ms: 0.328976
+  type: 'test'
+  ...
+# Subtest: ZIP32 produces valid local, central-directory and EOF signatures
+ok 47 - ZIP32 produces valid local, central-directory and EOF signatures
+  ---
+  duration_ms: 4.09249
+  type: 'test'
+  ...
+# Subtest: Conversion engine previews parsed serialized DXF, with separate measured timings
+ok 48 - Conversion engine previews parsed serialized DXF, with separate measured timings
+  ---
+  duration_ms: 13.332921
+  type: 'test'
+  ...
+# Subtest: Generated worker bundle executes the same kernel in an isolated Node worker
+ok 49 - Generated worker bundle executes the same kernel in an isolated Node worker
+  ---
+  duration_ms: 72.543757
+  type: 'test'
+  ...
+# Warning: Cannot load "@napi-rs/canvas" package: "Error: Cannot find module '@napi-rs/canvas'
+# Require stack:
+# - /mnt/data/revector-studio/vendor/pdfjs/legacy/build/pdf.mjs".
+# Warning: Cannot polyfill `DOMMatrix`, rendering may be broken.
+# Warning: Cannot polyfill `Path2D`, rendering may be broken.
+# Subtest: Real PDF.js: two authored pages, all six DXF versions, controls and layer/block recovery
+ok 50 - Real PDF.js: two authored pages, all six DXF versions, controls and layer/block recovery
+  ---
+  duration_ms: 593.113121
+  type: 'test'
+  ...
+# Subtest: Full semantic acceptance produces attributes, dimensions and groups with valid ownership
+ok 51 - Full semantic acceptance produces attributes, dimensions and groups with valid ownership
+  ---
+  duration_ms: 85.661109
+  type: 'test'
+  ...
+1..51
+# tests 51
+# suites 0
+# pass 51
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 750.826687

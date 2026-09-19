@@ -1,0 +1,31 @@
+{
+  "name": "@revector/rules-cad",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CAD-print recovery rules for vector-first PDF to semantic DXF conversion",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./*": "./src/*"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@revector/geometry": "0.1.0",
+    "@revector/model": "0.1.0",
+    "@revector/topology": "0.1.0",
+    "@revector/semantics": "0.1.0"
+  }
+}

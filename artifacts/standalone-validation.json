@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "result": {
+    "entities": 137,
+    "version": "AC1032",
+    "pages": 2,
+    "styledShellHeight": 1040,
+    "licenses": true
+  },
+  "uncaughtErrors": [],
+  "transport": "Actual standalone HTML through Chromium set_content; direct file navigation blocked by host policy."
+}

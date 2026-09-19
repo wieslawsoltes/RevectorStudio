@@ -1,0 +1,162 @@
+{
+  "schema": "revector.report/1",
+  "version": "0.1.0",
+  "source": {
+    "name": "cooling-water.pdf",
+    "fingerprints": [
+      "befc25fdabde58a067af720ceefd9beb",
+      null
+    ],
+    "producer": "",
+    "creator": "",
+    "pdfVersion": "1.7",
+    "PDFFormatVersion": "1.7",
+    "Language": null,
+    "EncryptFilterName": null,
+    "IsLinearized": false,
+    "IsAcroFormPresent": false,
+    "IsXFAPresent": false,
+    "IsCollectionPresent": false,
+    "IsSignaturesPresent": false,
+    "page": 1,
+    "coordinateTransform": [
+      0.35277777777777775,
+      0,
+      0,
+      0.35277777777777775,
+      0,
+      0
+    ],
+    "options": {
+      "units": "mm",
+      "drawingScale": 1,
+      "includeHidden": false,
+      "clip": true,
+      "preserveForms": true,
+      "textMode": "adaptive",
+      "styleLayers": true,
+      "strict": false,
+      "precision": 10,
+      "patternLimit": 2500,
+      "booleanTolerance": 1e-8,
+      "name": "CAD print recovery",
+      "description": "Conservative source recovery; review conics, dimensions and attributes.",
+      "fidelity": "exact",
+      "minConfidence": 0.98,
+      "version": "2018",
+      "profile": "cad"
+    },
+    "irSchema": "revector.pdf/1",
+    "operatorCount": 372,
+    "paintItems": 128,
+    "rasterItems": 0
+  },
+  "target": {
+    "version": "2018",
+    "acadVersion": "AC1032",
+    "units": "mm"
+  },
+  "summary": {
+    "entities": 137,
+    "blockDefinitions": 1,
+    "layers": 7,
+    "types": {
+      "LWPOLYLINE": 9,
+      "LINE": 46,
+      "TEXT": 42,
+      "SPLINE": 27,
+      "INSERT": 6,
+      "HATCH": 7
+    },
+    "diagnostics": 1,
+    "accepted": 6,
+    "pending": 18
+  },
+  "producer": {
+    "family": "Generic vector PDF",
+    "confidence": 1
+  },
+  "diagnostics": [
+    {
+      "code": "FONT_SUBSTITUTION",
+      "message": "DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.",
+      "severity": "warning",
+      "page": 1
+    }
+  ],
+  "rules": [
+    {
+      "rule": "geometry.join-chains",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 2.468128000000007
+    },
+    {
+      "rule": "cad.conic-recovery",
+      "proposed": 6,
+      "accepted": 0,
+      "elapsedMs": 2.4497010000000046
+    },
+    {
+      "rule": "cad.repeated-symbols",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 5.793419
+    },
+    {
+      "rule": "cad.tag-attributes",
+      "proposed": 6,
+      "accepted": 0,
+      "elapsedMs": 3.835298000000023
+    },
+    {
+      "rule": "cad.dimensions",
+      "proposed": 2,
+      "accepted": 0,
+      "elapsedMs": 3.2952439999999967
+    },
+    {
+      "rule": "cad.centerlines",
+      "proposed": 2,
+      "accepted": 0,
+      "elapsedMs": 1.309252000000015
+    },
+    {
+      "rule": "cad.hatch-families",
+      "proposed": 1,
+      "accepted": 0,
+      "elapsedMs": 1.7246080000000177
+    },
+    {
+      "rule": "cad.title-block",
+      "proposed": 1,
+      "accepted": 0,
+      "elapsedMs": 1.475022999999993
+    }
+  ],
+  "timings": {
+    "geometryMs": 11.182468999999998,
+    "semanticsMs": 32.713347999999996,
+    "serializeMs": 16.57910000000001,
+    "roundtripMs": 6.215184000000022,
+    "totalMs": 66.99406900000002
+  },
+  "coverage": {
+    "paintItems": 128,
+    "vectorPaths": 86,
+    "textRuns": 42,
+    "forms": 6,
+    "rasterItems": 0,
+    "shadings": 0
+  },
+  "validation": {
+    "model": {
+      "valid": true,
+      "errors": []
+    },
+    "roundtrip": {
+      "valid": true,
+      "errors": []
+    }
+  }
+}

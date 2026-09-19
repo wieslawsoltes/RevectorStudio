@@ -1,0 +1,33 @@
+{
+  "name": "@revector/engine",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Conversion orchestration and worker client for vector-first PDF to semantic DXF conversion",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./*": "./src/*"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@revector/pdf": "0.1.0",
+    "@revector/cad": "0.1.0",
+    "@revector/semantics": "0.1.0",
+    "@revector/rules-cad": "0.1.0",
+    "@revector/dxf": "0.1.0",
+    "@revector/model": "0.1.0"
+  }
+}

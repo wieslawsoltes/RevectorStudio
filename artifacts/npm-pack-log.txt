@@ -1,0 +1,17 @@
+
+> revector-studio@0.1.0 pack:all
+> node scripts/pack.mjs
+
+@revector/cad: revector-cad-0.1.0.tgz (8612 bytes)
+@revector/dxf: revector-dxf-0.1.0.tgz (13375 bytes)
+@revector/engine: revector-engine-0.1.0.tgz (4497 bytes)
+@revector/geometry: revector-geometry-0.1.0.tgz (10391 bytes)
+@revector/model: revector-model-0.1.0.tgz (5975 bytes)
+@revector/pdf: revector-pdf-0.1.0.tgz (13377 bytes)
+@revector/renderer: revector-renderer-0.1.0.tgz (8804 bytes)
+@revector/rules-cad: revector-rules-cad-0.1.0.tgz (7618 bytes)
+@revector/semantics: revector-semantics-0.1.0.tgz (6481 bytes)
+@revector/topology: revector-topology-0.1.0.tgz (3639 bytes)
+@revector/ui: revector-ui-0.1.0.tgz (4074 bytes)
+@revector/workbench: revector-workbench-0.1.0.tgz (18259 bytes)
+Packed 12 independent npm packages. No packages were published.

@@ -1,0 +1,8 @@
+warning Warning: Setting up fake worker.
+{'version': '6.4.172', 'pages': 2}
+PAGE 1 items 128 entities 137 blocks 1 layers 7
+diagnostics: [{'code': 'FONT_SUBSTITUTION', 'message': 'DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.', 'severity': 'warning', 'sourceId': None, 'page': 1}]
+candidates: [('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('cad.conic-recovery', 'pending'), ('cad.conic-recovery', 'pending'), ('cad.conic-recovery', 'pending'), ('cad.conic-recovery', 'pending'), ('cad.conic-recovery', 'pending'), ('cad.conic-recovery', 'pending'), ('cad.tag-attributes', 'pending'), ('cad.tag-attributes', 'pending'), ('cad.tag-attributes', 'pending'), ('cad.tag-attributes', 'pending'), ('cad.tag-attributes', 'pending'), ('cad.tag-attributes', 'pending'), ('cad.dimensions', 'pending'), ('cad.dimensions', 'pending'), ('cad.centerlines', 'pending'), ('cad.centerlines', 'pending'), ('cad.hatch-families', 'pending'), ('cad.title-block', 'pending')]
+PAGE 2 items 44 entities 37 blocks 1 layers 4
+diagnostics: [{'code': 'FONT_SUBSTITUTION', 'message': 'DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.', 'severity': 'warning', 'sourceId': None, 'page': 2}]
+candidates: [('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('pdf.forms', 'accepted'), ('cad.conic-recovery', 'pending'), ('cad.conic-recovery', 'pending'), ('cad.conic-recovery', 'pending')]

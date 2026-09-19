@@ -1,0 +1,37 @@
+{
+  "name": "@revector/pdf",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PDF.js vector adapter for vector-first PDF to semantic DXF conversion",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./*": "./src/*"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@revector/geometry": "0.1.0",
+    "@revector/model": "0.1.0"
+  },
+  "peerDependencies": {
+    "pdfjs-dist": "6.3.289"
+  },
+  "peerDependenciesMeta": {
+    "pdfjs-dist": {
+      "optional": true
+    }
+  }
+}

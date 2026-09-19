@@ -1,0 +1,39 @@
+import { PdfSource } from '@revector/pdf';
+import { ConversionEngine } from '@revector/engine';
+import type { Rule } from '@revector/semantics';
+import type { Entity } from '@revector/model';
+import { mountWorkbench } from '@revector/workbench';
+/** Typed, trusted plugin: no UI dependency or source-model mutation. */
+const instrumentRule: Rule = {
+    id: 'plant.pressure-tags', version: '1.0.0', stage: 70, title: 'Pressure tag classification',
+    run({ document, checkAbort }) {
+        checkAbort();
+        return document.entities.filter((e): e is Extract<Entity, {
+            type: 'TEXT' | 'MTEXT';
+        }> => e.type === 'TEXT' && e.text.startsWith('PT-')).map(e => ({
+            title: `Classify ${e.text}`, members: [e.id], confidence: .99, exact: true,
+            evidence: [{ kind: 'plant-naming-convention', prefix: 'PT-' }],
+            proposal: { layers: [{ name: 'INSTRUMENT_TAGS', color: [40, 150, 190] as [
+                            number,
+                            number,
+                            number
+                        ], visible: true }], update: [{ id: e.id, patch: { layer: 'INSTRUMENT_TAGS', semantic: { ...e.semantic, class: 'pressure-instrument' } } }] }
+        }));
+    }
+};
+export async function convert(bytes: Uint8Array) {
+    const source = await PdfSource.open(bytes, {
+        moduleUrl: '/vendor/pdfjs/legacy/build/pdf.mjs', workerUrl: '/vendor/pdfjs/legacy/build/pdf.worker.mjs',
+        pdfOptions: { cMapUrl: '/vendor/pdfjs/cmaps/', cMapPacked: true, wasmUrl: '/vendor/pdfjs/wasm/', iccUrl: '/vendor/pdfjs/iccs/' }
+    });
+    try {
+        const scene = await source.extract(1);
+        const engine = new ConversionEngine().register(instrumentRule);
+        const result = await engine.convertScene(scene, { version: '2018', units: 'mm', drawingScale: 100, profile: 'cad', strict: true });
+        return { dxf: result.dxf.text, report: result.report, model: result.document };
+    }
+    finally {
+        await source.dispose();
+    }
+}
+export function mount(root: HTMLElement) { return mountWorkbench(root, { pdfjsModuleUrl: '/vendor/pdfjs/legacy/build/pdf.mjs', pdfjsWorkerUrl: '/vendor/pdfjs/legacy/build/pdf.worker.mjs', conversionWorkerUrl: '/apps/studio/conversion-worker.js', assetBase: '/vendor/pdfjs/' }); }

@@ -1,0 +1,82 @@
+{
+  "installation": "Clean consumer; npm install --offline --ignore-scripts --no-audit --no-fund <all 12 local tgz files>",
+  "packages": [
+    {
+      "name": "@revector/cad",
+      "exports": 3,
+      "imported": true,
+      "tarballSha256": "65c622edb5e5d9c8fea5888704ff96ad113e1526c09439b912c89833745eb94e"
+    },
+    {
+      "name": "@revector/dxf",
+      "exports": 6,
+      "imported": true,
+      "tarballSha256": "21d05cbae76f8fa27addce45233cc18e4acad29e4e428df9dc6b6067cf11e3de"
+    },
+    {
+      "name": "@revector/engine",
+      "exports": 6,
+      "imported": true,
+      "tarballSha256": "922b0f089bde641bf598e71b356440dbb5fd0681cdf23903e214ccbf884aa1e7"
+    },
+    {
+      "name": "@revector/geometry",
+      "exports": 54,
+      "imported": true,
+      "tarballSha256": "9b9972ec716a1cf6b061547dc6f1046095340a2dc3d30e5b13e19eed8cd20b0f"
+    },
+    {
+      "name": "@revector/model",
+      "exports": 17,
+      "imported": true,
+      "tarballSha256": "681562492636e143fb38674e4d619abfe3f9bd673a28b47aa6f1daf7d0f54663"
+    },
+    {
+      "name": "@revector/pdf",
+      "exports": 7,
+      "imported": true,
+      "tarballSha256": "e1a8ef33f766de085dc4cd5d63a35f9c980b73d3ed0990c8b969aa252bf74e6b"
+    },
+    {
+      "name": "@revector/renderer",
+      "exports": 5,
+      "imported": true,
+      "tarballSha256": "9a6e6d60737006149d2d6cd445e33bc35c614b73314d5e54547aef735a3e6e95"
+    },
+    {
+      "name": "@revector/rules-cad",
+      "exports": 4,
+      "imported": true,
+      "tarballSha256": "67241e268a15054cba10f873cdecbfe84b744673357c3dc86fd9ef1eb78b782c"
+    },
+    {
+      "name": "@revector/semantics",
+      "exports": 4,
+      "imported": true,
+      "tarballSha256": "007f99c457d0a42eaa4954dc735d2bd0e928572ef316b28c06a056525c5648a4"
+    },
+    {
+      "name": "@revector/topology",
+      "exports": 5,
+      "imported": true,
+      "tarballSha256": "1b43f90e4bece10bf603208b5c41b5cebf5613754059f724d60db5d05c2cf201"
+    },
+    {
+      "name": "@revector/ui",
+      "exports": 9,
+      "imported": true,
+      "tarballSha256": "e545f4e60587f7df44aa9ef4ea5b88fec80e29e4943ce36663e90ed152c6ae60"
+    },
+    {
+      "name": "@revector/workbench",
+      "exports": 2,
+      "imported": true,
+      "tarballSha256": "56b87459b2909c842cfdbdcfe0aca5b9bad1d0a4f4f202226866b88f4c1752cd"
+    }
+  ],
+  "roundtrip": {
+    "version": "AC1032",
+    "entities": 1
+  },
+  "passed": true
+}

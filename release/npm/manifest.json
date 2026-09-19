@@ -1,0 +1,191 @@
+[
+  {
+    "name": "@revector/cad",
+    "version": "0.1.0",
+    "file": "revector-cad-0.1.0.tgz",
+    "bytes": 8612,
+    "sha256": "65c622edb5e5d9c8fea5888704ff96ad113e1526c09439b912c89833745eb94e",
+    "integrity": "sha512-1sdRvaLr2OaI5EbEWHZIIesMDwlx9ANqg9X2LPwNNvkehNxlLVJPVUkR2Sr+1heNRTP3iXlCqL7xLOt90Tl0sg==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/dxf",
+    "version": "0.1.0",
+    "file": "revector-dxf-0.1.0.tgz",
+    "bytes": 13375,
+    "sha256": "21d05cbae76f8fa27addce45233cc18e4acad29e4e428df9dc6b6067cf11e3de",
+    "integrity": "sha512-uFSBFwDlzsFAWNHTbGMhNMpJGah0YW2IqQH9pYTlyqrBu/4Qw1L+rUaBi0nxq1KMBqXLX9WkQ9m6jMZjBsMqmg==",
+    "files": [
+      "LICENSE",
+      "LICENSE.ezdxf",
+      "README.md",
+      "package.json",
+      "src/aci.js",
+      "src/index.d.ts",
+      "src/index.js",
+      "src/reader.js",
+      "src/writer.js"
+    ]
+  },
+  {
+    "name": "@revector/engine",
+    "version": "0.1.0",
+    "file": "revector-engine-0.1.0.tgz",
+    "bytes": 4497,
+    "sha256": "922b0f089bde641bf598e71b356440dbb5fd0681cdf23903e214ccbf884aa1e7",
+    "integrity": "sha512-02THSKzq7dSVk32WGGlM+n42EgaJ/yFD/TSxig+PV5beeS5QYgUNCELZdTPz29dVMg/A/IDH02FBo6Xs844/6w==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js",
+      "src/worker.js"
+    ]
+  },
+  {
+    "name": "@revector/geometry",
+    "version": "0.1.0",
+    "file": "revector-geometry-0.1.0.tgz",
+    "bytes": 10391,
+    "sha256": "9b9972ec716a1cf6b061547dc6f1046095340a2dc3d30e5b13e19eed8cd20b0f",
+    "integrity": "sha512-EwsXiMys7L+ktH6IejWITQLsQw0CzJW4rccqgYP8bp3AOSyra4budt8xgWzwbvTpTNoUZRsxZxi9B1ye6MaYjg==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/boolean.js",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/model",
+    "version": "0.1.0",
+    "file": "revector-model-0.1.0.tgz",
+    "bytes": 5975,
+    "sha256": "681562492636e143fb38674e4d619abfe3f9bd673a28b47aa6f1daf7d0f54663",
+    "integrity": "sha512-uEjfiFuKS1NLNStaUYpbzy6iSCGv7eM8As5daKuYEKD8e/ULdqweK/LZ0AAOW5fEIjxhvY9okmjqlEfLKS6FZA==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/pdf",
+    "version": "0.1.0",
+    "file": "revector-pdf-0.1.0.tgz",
+    "bytes": 13377,
+    "sha256": "e1a8ef33f766de085dc4cd5d63a35f9c980b73d3ed0990c8b969aa252bf74e6b",
+    "integrity": "sha512-uNQAZzacQ67p4e7sDhzeshuESn5opsdwEMysG9AbGRZU5uU4SbbSTGXN5/sDtyuV330fUt/OB5d/wPIRg0WstA==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js",
+      "src/interpreter.js",
+      "src/ops.js"
+    ]
+  },
+  {
+    "name": "@revector/renderer",
+    "version": "0.1.0",
+    "file": "revector-renderer-0.1.0.tgz",
+    "bytes": 8804,
+    "sha256": "9a6e6d60737006149d2d6cd445e33bc35c614b73314d5e54547aef735a3e6e95",
+    "integrity": "sha512-ZJM2IrPvUi3qv7Rxm6tmZ/ZgMkf8gLR86zGuNkAv4hGYwPohcSc7TsBgpTdmyptvZ+HjOv9H3XR60PtsbgBYYw==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/rules-cad",
+    "version": "0.1.0",
+    "file": "revector-rules-cad-0.1.0.tgz",
+    "bytes": 7618,
+    "sha256": "67241e268a15054cba10f873cdecbfe84b744673357c3dc86fd9ef1eb78b782c",
+    "integrity": "sha512-hGhEGMY3LJcsWmylje7C3MF+iArDIy5+eiNVUZx7oVrwImd774BcFjqbDz6BJgK+JIuN+j4JK3hj1J485O5+gg==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/semantics",
+    "version": "0.1.0",
+    "file": "revector-semantics-0.1.0.tgz",
+    "bytes": 6481,
+    "sha256": "007f99c457d0a42eaa4954dc735d2bd0e928572ef316b28c06a056525c5648a4",
+    "integrity": "sha512-F7LcKcnBH2edv8SeDT2sgi7K33w7n2Ll5wA47vUGO4tmLG+cNe80JJmErB7cOOobODjJjKnuqWuBa/EAMoLDYg==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/topology",
+    "version": "0.1.0",
+    "file": "revector-topology-0.1.0.tgz",
+    "bytes": 3639,
+    "sha256": "1b43f90e4bece10bf603208b5c41b5cebf5613754059f724d60db5d05c2cf201",
+    "integrity": "sha512-HOGTWE2/ttMq2ppUYq08nBVqfLYVt5ti1DgcHmy6Nm8v3i4lK2c/vJr4S+CBAZZfHTodK4wMmJixWaXkjk+FYw==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/ui",
+    "version": "0.1.0",
+    "file": "revector-ui-0.1.0.tgz",
+    "bytes": 4074,
+    "sha256": "e545f4e60587f7df44aa9ef4ea5b88fec80e29e4943ce36663e90ed152c6ae60",
+    "integrity": "sha512-91jvIXdlCOMWEZpCk2XDWn9qnY8ImWvdRBSbl0vXckOKWDosUHynts79VZwGcwIQfUVCGZDN/37wZ9kr6+bqcg==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js"
+    ]
+  },
+  {
+    "name": "@revector/workbench",
+    "version": "0.1.0",
+    "file": "revector-workbench-0.1.0.tgz",
+    "bytes": 18259,
+    "sha256": "56b87459b2909c842cfdbdcfe0aca5b9bad1d0a4f4f202226866b88f4c1752cd",
+    "integrity": "sha512-z59Owq6FSQwRllg/noeaF77SNtIvCirU4wQVcI6hMDzjFKgAJbHxBMVWAE8G2NJo4KnXoJoX62QfkyIl/5dDYg==",
+    "files": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/index.d.ts",
+      "src/index.js",
+      "src/styles.css"
+    ]
+  }
+]

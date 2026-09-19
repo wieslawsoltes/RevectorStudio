@@ -1,0 +1,38 @@
+PASS actual-page-1.dxf AC1032 137 errors=0 fixes=0
+PASS actual-page-2.dxf AC1032 37 errors=0 fixes=0
+PASS actual-page1-2000.dxf AC1015 137 errors=0 fixes=0
+PASS actual-page1-2004.dxf AC1018 137 errors=0 fixes=0
+PASS actual-page1-2007.dxf AC1021 137 errors=0 fixes=0
+PASS actual-page1-2010.dxf AC1024 137 errors=0 fixes=0
+PASS actual-page1-2013.dxf AC1027 137 errors=0 fixes=0
+PASS actual-page1-2018.dxf AC1032 137 errors=0 fixes=0
+PASS actual-page2-2000.dxf AC1015 37 errors=0 fixes=0
+PASS actual-page2-2004.dxf AC1018 37 errors=0 fixes=0
+PASS actual-page2-2007.dxf AC1021 37 errors=0 fixes=0
+PASS actual-page2-2010.dxf AC1024 37 errors=0 fixes=0
+PASS actual-page2-2013.dxf AC1027 37 errors=0 fixes=0
+PASS actual-page2-2018.dxf AC1032 37 errors=0 fixes=0
+PASS browser-export.dxf AC1032 134 errors=0 fixes=0
+PASS browser-page1-2000.dxf AC1015 134 errors=0 fixes=0
+PASS browser-page1-2004.dxf AC1018 134 errors=0 fixes=0
+PASS browser-page1-2007.dxf AC1021 134 errors=0 fixes=0
+PASS browser-page1-2010.dxf AC1024 134 errors=0 fixes=0
+PASS browser-page1-2013.dxf AC1027 134 errors=0 fixes=0
+PASS browser-page1-2018.dxf AC1032 134 errors=0 fixes=0
+PASS cli-test.dxf AC1032 137 errors=0 fixes=0
+PASS contract-2000.dxf AC1015 5 errors=0 fixes=0
+PASS contract-2004.dxf AC1018 5 errors=0 fixes=0
+PASS contract-2007.dxf AC1021 5 errors=0 fixes=0
+PASS contract-2010.dxf AC1024 5 errors=0 fixes=0
+PASS contract-2013.dxf AC1027 5 errors=0 fixes=0
+PASS contract-2018.dxf AC1032 5 errors=0 fixes=0
+PASS semantic-accepted.dxf AC1032 107 errors=0 fixes=0
+PASS smoke-2000.dxf AC1015 6 errors=0 fixes=0
+PASS smoke-2004.dxf AC1018 6 errors=0 fixes=0
+PASS smoke-2007.dxf AC1021 6 errors=0 fixes=0
+PASS smoke-2010.dxf AC1024 6 errors=0 fixes=0
+PASS smoke-2013.dxf AC1027 6 errors=0 fixes=0
+PASS smoke-2018.dxf AC1032 6 errors=0 fixes=0
+PASS ZIP browser-batch.zip
+PASS ZIP test-archive.zip
+Independent DXF audit: 35 files, zero errors and zero fixes
