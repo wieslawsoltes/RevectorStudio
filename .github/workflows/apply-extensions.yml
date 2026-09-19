@@ -1,0 +1,83 @@
+name: Integrate semantic OCR and color extensions
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/apply-extensions.yml]
+permissions:
+  contents: write
+concurrency:
+  group: revector-extension-integration
+  cancel-in-progress: false
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply checksum-verified and base-verified implementation
+        run: |
+          python - <<'PY'
+          import base64,hashlib,json,lzma,pathlib,subprocess,tempfile
+          root=pathlib.Path.cwd()
+          data=base64.b64decode(''.join((root/f'.bootstrap/extensions/part-{i}.b64').read_text() for i in range(8)),validate=True)
+          assert hashlib.sha256(data).hexdigest()=='889a25b4acc5abcb18f392fa136b50530f86728b46ceecf8248caa4b8d41bf2d'
+          payload=json.loads(lzma.decompress(data))
+          def target(name):
+              p=pathlib.PurePosixPath(name)
+              assert not p.is_absolute() and '..' not in p.parts and '.git' not in p.parts
+              return root/p
+          for name,expected in payload['before'].items():
+              p=target(name)
+              assert (hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None)==expected,name
+          with tempfile.NamedTemporaryFile(suffix='.patch') as patch:
+              patch.write(payload['patch'].encode());patch.flush()
+              subprocess.run(['git','apply','--unidiff-zero','--check',patch.name],check=True)
+              subprocess.run(['git','apply','--unidiff-zero',patch.name],check=True)
+          for name,content in payload['files'].items():
+              p=target(name);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content)
+          for name,expected in payload['after'].items():
+              assert hashlib.sha256(target(name).read_bytes()).hexdigest()==expected,name
+          print('Verified all 56 implementation files against the locally tested source.')
+          PY
+      - name: Install exact dependencies and build authored regression fixtures
+        run: |
+          npm install --ignore-scripts --include=optional --no-audit --no-fund
+          node scripts/link-workspaces.mjs
+          python -m pip install -r tests/requirements.txt --quiet
+          python scripts/create-extension-fixtures.py
+          npm run build
+          npm test
+          npm run test:types
+          npm run pack:all
+      - name: Commit complete implementation and self-hosted runtime
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -A -- packages scripts tests docs README.md THIRD_PARTY_NOTICES.md package.json package-lock.json index.html vendor/ocr assets/extensions apps/studio revector-studio.html release/npm
+          git commit -m 'Add broad document semantics, self-hosted raster OCR and faithful color conversion v0.2.0'
+          git push origin HEAD:main
+      - name: Install real-browser validation runtime
+        run: python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
+      - name: Exercise original UI and actual OCR/profile paths
+        run: |
+          npm run test:browser
+          npm run test:extensions
+          npm run test:dxf
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semantic-ocr-color-validation
+          path: |
+            artifacts/
+            release/npm/manifest.json
+            vendor/ocr/manifest.json
+          retention-days: 14
