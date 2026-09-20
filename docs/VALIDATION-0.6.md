@@ -2,7 +2,7 @@
 
 The source update passed 209 Node unit/integration tests with zero failures/skips, strict TypeScript checking, 746 exact differential checks against v0.5.0 and thirteen correctness-hashed before/after benchmarks. Both measured processes ran without CPU-profile instrumentation; separate profiles are supplied. Median times use one excluded warmup and three measured repetitions on the same GitHub runner. Timing ratios are observations, not brittle CI gates.
 
-# Same-machine conversion performance
+## Same-machine conversion performance
 
 | Workload | Before (ms) | After (ms) | Speedup |
 |---|---:|---:|---:|
@@ -20,12 +20,16 @@ The source update passed 209 Node unit/integration tests with zero failures/skip
 | spatial-build-query | 74.1 | 22.7 | 3.27× |
 | raster-skeleton | 57.5 | 50.4 | 1.14× |
 
-Authored fixed workloads; no user-supplied slow PDFs and no OCR invoked. Full correctness hashing is inside each timing. Raw PDF SHA-256 matches across checkouts; stable per-repeat digests normalize only PDF.js per-instance source.ref hashes. RSS is cumulative per process, not per-case retained memory. Timing ratios are reported, not fragile CI assertions.
+Authored fixed workloads; no user-supplied slow PDFs and no OCR invoked. Full correctness hashing is inside each timing. The real-PDF cases require identical raw exported-DXF SHA-256 values across checkouts; stable per-repeat digests normalize only PDF.js per-instance source.ref hashes. This normalization is confined to the benchmark. RSS is cumulative per process, not per-case retained memory. Timing ratios are reported, not fragile CI assertions.
 
 ## Browser and export gates
 
-Actual HTTP browser tests passed: 35 original UI checks, 21 OCR/color checks, 14 tiled OCR checks, 23 native IMAGE checks, 14 sampled-appearance checks and 11 new worker-reuse/reference-cache/cancellation checks. The native CLI, SHA-pinned corpus and independent baseline audit passed; the latter contains 35 generated DXFs with zero errors or automatic fixes. Full tolerances, rules and validation are retained.
+The original 35-check workbench suite uses its established inline/blob transport and PDF.js fake-worker fallback. It passed, but it is not evidence of HTTP module loading or a dedicated browser worker.
+
+Separately, actual HTTP browser tests passed: 21 OCR/color checks, 14 tiled OCR checks, 23 native IMAGE checks, 14 sampled-appearance checks and 11 new worker-reuse/reference-cache/cancellation checks. The permanent Pages workflow also verifies dedicated PDF/conversion workers and repeats these suites against the deployed HTTPS application. A successful local suite is not a successful public deployment.
+
+The native CLI, SHA-pinned corpus and independent baseline audit passed; the latter contains 35 generated DXFs with zero errors or automatic fixes. Full tolerances, rules and validation are retained.
 
 All sixteen 0.6.0 package archives were verified, installed and imported in an isolated offline consumer. No npm registry publication was attempted. No customer slow PDF was supplied; the measurements cover authored representative workloads. OCR recognition throughput was not benchmarked and its model/settings remain unchanged. General structural validation and transactional shell copying remain linear per accepted candidate; degenerate geometry and very large rasters can still be expensive. See PERFORMANCE.md for ownership, cancellation, budget and timing details.
 
-Evidence: `artifacts/v0.6.0/`. Source acceptance run: https://github.com/wieslawsoltes/RevectorStudio/actions/runs/35511495428. Public HTTPS deployment is a separate gate.
+Evidence: `artifacts/v0.6.0/`. Accepted source commit: `9a84c180b8c604d7c72c09f0512308fba7eedfe6`. Source acceptance run: https://github.com/wieslawsoltes/RevectorStudio/actions/runs/35511495428. Public HTTPS deployment is a separate gate.
