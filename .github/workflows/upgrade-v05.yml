@@ -1,0 +1,128 @@
+name: Finalize recovery v0.5
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/upgrade-v05.yml]
+permissions:
+  contents: write
+concurrency:
+  group: revector-source-recovery
+  cancel-in-progress: false
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify unchanged source base and tested source payload
+        run: |
+          git diff --exit-code 6da8fa05138a531368a3d9a39f53cfbb9caf3f7d HEAD -- packages scripts tests examples docs README.md package.json package-lock.json
+          python - <<'PY'
+          import base64,hashlib,lzma,os,pathlib
+          encoded=''.join(pathlib.Path(f'.bootstrap/v05-{i}.b64').read_text().strip() for i in range(3))
+          data=base64.b64decode(encoded,validate=True)
+          actual=hashlib.sha256(data).hexdigest()
+          assert actual=='c0e46d184c7c4da6602a4e7f16aba6964e8f985ac7cb97977c2a2b4ce2767ea6',actual
+          pathlib.Path(os.environ['RUNNER_TEMP'],'recovery-v05.patch').write_bytes(lzma.decompress(data))
+          PY
+          git apply --unidiff-zero --check "$RUNNER_TEMP/recovery-v05.patch"
+          git apply --unidiff-zero "$RUNNER_TEMP/recovery-v05.patch"
+      - name: Apply independently tested floating-point precision guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('packages/geometry/src/fitting.js');s=p.read_text()
+          old='if(bound<=o.tolerance||part.length===2){';assert s.count(old)==1
+          s=s.replace(old,'if(bound<=o.tolerance){')
+          old='}else{\n            if(stack.length+result.length+2>o.maxSegments)';assert s.count(old)==1
+          s=s.replace(old,"}else{\n            if(part.length===2)throw new RangeError('Fitting tolerance is below representable coordinate precision');\n            if(stack.length+result.length+2>o.maxSegments)")
+          p.write_text(s)
+          p=Path('tests/boundaries.test.mjs');p.write_text(p.read_text()+"\ntest('Unrepresentable two-point tolerance is rejected instead of weakening the certificate',()=>{assert.throws(()=>fitCubicPolyline([[0,100000000000000],[90929742682568.17,-98999249660044.55]],{tolerance:1e-9}),/representable coordinate precision/);});\n")
+          PY
+      - name: Install locked native and browser dependencies
+        run: |
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
+          node scripts/link-workspaces.mjs
+          python -m pip install -r tests/requirements.txt --quiet
+          python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
+          python tests/appearance_fixture.py
+      - name: Build and validate source, types and established recovery behavior
+        run: |
+          npm run build
+          npm test | tee "$RUNNER_TEMP/node-tests.log"
+          npm run test:types
+          npm run test:browser
+          npm run test:extensions
+          npm run test:recovery
+          npm run test:images
+          npm run test:images:cli
+          python tests/ocr_cli.py
+      - name: Verify real HTTP appearance rendering, native CLI and pinned corpus
+        run: |
+          npm run test:appearance
+          npm run test:appearance:cli
+          npm run test:corpus
+          npm run test:dxf
+      - name: Rebuild and dry-run the sixteen publication archives
+        run: |
+          npm run pack:all
+          node scripts/publish-npm.mjs --dry-run
+      - name: Install and import every package in an isolated offline consumer
+        run: |
+          export PACKAGE_ROOT="$GITHUB_WORKSPACE/release/npm"
+          mkdir "$RUNNER_TEMP/v05-consumer"
+          cd "$RUNNER_TEMP/v05-consumer"
+          printf '{"private":true,"type":"module"}\n' > package.json
+          npm install --offline --ignore-scripts --no-audit --no-fund "$PACKAGE_ROOT"/*.tgz
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const records=JSON.parse(fs.readFileSync(process.env.PACKAGE_ROOT+'/manifest.json','utf8'));
+          if(records.length!==16)throw Error('Expected sixteen packages');
+          for(const r of records){if(r.version!=='0.5.0')throw Error('Unexpected version');await import(r.name);console.log('PASS isolated import',r.name);}
+          JS
+      - name: Record executed acceptance evidence and commit tested source
+        run: |
+          python - <<'PY'
+          import json,os,pathlib,re,shutil
+          root=pathlib.Path.cwd();out=root/'artifacts/v0.5.0';out.mkdir(parents=True,exist_ok=True)
+          node=(pathlib.Path(os.environ['RUNNER_TEMP'])/'node-tests.log').read_text()
+          tests=int(re.search(r'# tests (\d+)',node)[1]);assert '# fail 0' in node and tests>=177
+          reports={}
+          for name in ['browser-validation.json','extensions/validation.json','recovery-next/validation.json','images-browser/validation.json','images-cli/validation.json','appearance/validation.json','appearance-cli/validation.json','corpus/validation.json','npm-publication/validation.json','dxf-validation.json']:
+              source=root/'artifacts'/name;reports[name]=json.loads(source.read_text());shutil.copyfile(source,out/name.replace('/','-'))
+          a=reports['appearance/validation.json'];assert a['passed']==14 and not a['errors'] and a['transport']!='inline local'
+          cli=reports['appearance-cli/validation.json'];assert cli['passed'] and len(cli['cases'])==4 and cli['strictSemanticsRejectsUnresolvedEffects']
+          corpus=reports['corpus/validation.json'];assert corpus['passed'] and len(corpus['cases'])==5
+          dxf=reports['dxf-validation.json'];assert dxf['auditErrors']==dxf['auditFixes']==0
+          pub=reports['npm-publication/validation.json'];assert pub['complete'] and pub['mode']=='dry-run' and len(pub['packages'])==16
+          summary={'version':'0.5.0','sourceBase':'6da8fa05138a531368a3d9a39f53cfbb9caf3f7d','sourcePayloadSha256':'c0e46d184c7c4da6602a4e7f16aba6964e8f985ac7cb97977c2a2b4ce2767ea6','additionalRefinement':'Two-point fits reject unrepresentable floating-point tolerances; regression included.','workflowRun':os.environ['GITHUB_RUN_ID'],'nodeTests':tests,'nodeFailures':0,'originalBrowserChecks':35,'ocrColorChecks':21,'tiledOcrChecks':14,'imageBrowserChecks':23,'appearanceBrowserChecks':a['passed'],'appearanceTransport':a['transport'],'appearanceDxfExports':12,'appearanceCliCases':4,'pinnedCorpusCases':5,'baselineDxfFiles':dxf['files'],'isolatedNpmImports':16,'npmPublication':'dry-run-only; actual publication separately attempted','commercialCadValidation':'not-run; no licensed executable configured','qualification':'Authored regression fixtures and PDF.js sampled-reference agreement, not universal PDF semantics, printer coverage or commercial CAD certification.'}
+          (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          (root/'docs/VALIDATION-0.5.md').write_text('# Version 0.5.0 acceptance\n\nExecuted on 20 September 2026. The source build passes '+str(tests)+' Node tests with zero failures, strict TypeScript checking, 35 original workbench checks, 21 real OCR/color checks, 14 tiled OCR checks, 23 native-image checks and 14 new sampled-appearance checks.\n\nThe appearance suite uses actual HTTP navigation in GitHub Actions, not the explicitly identified local inline harness. It compares every aligned RGBA channel on two authored pages exercising masks, blends, groups, shading, stencils, text clipping and Type 3 text. Per-page maxima and error counts are recorded in `artifacts/v0.5.0/appearance-validation.json`. Twelve appearance exports (two pages, six DXF versions) pass independent structural audits. Native CLI coverage includes four appearance cases, exact original-PDF archival and rejection of unresolved strict semantic conversion.\n\nThe SHA-pinned corpus runner passed five authored cases with independently checked DXF, diagnostics and PNG assets. It did not run a licensed commercial CAD executable; its optional version-checked regeneration adapter is implemented but not represented as an executed commercial test. Curve error bounds refer to the input polyline within floating-point arithmetic, not the lost original CAD curve. Unrepresentable tolerances fail explicitly. Unmarked crossings remain alternatives unless evidence or a declared convention resolves them.\n\nAll sixteen 0.5.0 archives were dry-run validated and imported in an isolated offline consumer. That does not establish npm registry publication. The separately triggered publication workflow records actual registry responses and integrity verification.\n\nMachine-readable evidence is in `artifacts/v0.5.0/`. The source workflow is https://github.com/wieslawsoltes/RevectorStudio/actions/runs/'+os.environ['GITHUB_RUN_ID']+'. Public HTTPS deployment and registry publication are separate acceptance gates.\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- packages scripts tests examples docs README.md package.json package-lock.json assets/appearance-stress.pdf
+          git add -f -- apps/studio/conversion-worker.js apps/studio/offline-bootstrap.js revector-studio.html release/npm artifacts/v0.5.0 artifacts/appearance artifacts/appearance-cli artifacts/corpus artifacts/npm-publication
+          git commit -m 'Add sampled appearance, bounded curve recovery, junction alternatives and corpus validation (v0.5.0)'
+          git push origin HEAD:main
+          git rev-parse HEAD > "$RUNNER_TEMP/v05-revision.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revector-v05-validation
+          path: |
+            artifacts/
+            release/npm/
+            ${{ runner.temp }}/node-tests.log
+            ${{ runner.temp }}/v05-revision.txt
+          retention-days: 14
