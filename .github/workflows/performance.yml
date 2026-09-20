@@ -1,0 +1,54 @@
+name: Measure conversion performance
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'scripts/benchmark-performance.mjs'
+      - 'scripts/compare-performance.mjs'
+      - 'scripts/verify-performance-equivalence.mjs'
+      - 'assets/performance-stress.pdf'
+      - 'tests/performance*'
+      - 'package-lock.json'
+      - '.github/workflows/performance.yml'
+permissions:
+  contents: read
+concurrency:
+  group: revector-performance
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install current and isolated baseline dependencies
+        run: |
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
+          node scripts/link-workspaces.mjs
+          git worktree add --detach "$RUNNER_TEMP/revector-baseline" 3b3bf2101c92da8f50773fe62f14c092cf31b935
+          cd "$RUNNER_TEMP/revector-baseline"
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
+          node scripts/link-workspaces.mjs
+      - name: Check exact differential equivalence against the historical implementation
+        run: node scripts/verify-performance-equivalence.mjs --baseline "$RUNNER_TEMP/revector-baseline" --output "$RUNNER_TEMP/performance/equivalence.json"
+      - name: Compare same-machine unprofiled medians and output hashes
+        run: node scripts/compare-performance.mjs --baseline "$RUNNER_TEMP/revector-baseline" --output "$RUNNER_TEMP/performance" --warmups 1 --repeats 3
+      - name: Bind evidence to the exact tested revision
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/performance"
+          git rev-parse HEAD > "$RUNNER_TEMP/performance/revision.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conversion-performance
+          path: ${{ runner.temp }}/performance/
+          retention-days: 30

@@ -30,6 +30,7 @@ jobs:
       - run: npm run test:images:cli
       - run: npm run test:appearance
       - run: npm run test:appearance:cli
+      - run: npm run test:performance:browser
       - name: Validate SHA-pinned corpus without stale outputs
         run: python scripts/validate-corpus.py examples/corpus.json --output "$RUNNER_TEMP/revector-corpus"
       - run: python tests/ocr_cli.py
