@@ -1,0 +1,3 @@
+warning: RASTER_CONTENT: Raster content has no automatic vector mapping. Enable Raster OCR for local text recovery; remaining image graphics stay in the PDF.
+warning: OCR_RECOVERY: 5 OCR words added; 0 below confidence threshold; 1 native-text overlaps suppressed. OCR is inferred, not lossless.
+warning: FONT_SUBSTITUTION: DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.

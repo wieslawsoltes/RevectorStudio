@@ -2,9 +2,13 @@
 
 **Vector-first PDF → semantic DXF. Inspect the source. Recover structure. Keep the evidence.**
 
-Revector Studio 0.2.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
+Revector Studio 0.3.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
 
 The converter reads vector painting instructions and encoded text. Raster OCR is opt-in through a self-hosted Tesseract.js integration. No remote AI service receives document data. The bundled two-page P&ID/feature fixture is an actual PDF, and is processed by the same path as an opened document.
+
+## New in 0.3.0
+
+Eighteen built-in rules now include merged-cell ruled tables, unruled schedules and numbered/bullet lists. OCR adds overlapping tiles, optional small-angle deskew, explicit inversion, generation-safe cancellation and affine provenance. Color audits distinguish RGB fidelity from opacity quantization, missing entities and unresolved inherited colors. See [algorithm contracts, API/CLI options and validation](docs/RECOVERY-0.3.md).
 
 ## New in 0.2.0
 

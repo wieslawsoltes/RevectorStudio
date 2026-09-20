@@ -3,4 +3,4 @@ export function normalizeRgb(value: string | ArrayLike<number>, options?: {domai
 export function displayColor(rgb: RGB, mode?: 'faithful'|'contrast'): string;
 export function srgbToLab(rgb: RGB): [number,number,number];
 export function deltaE2000(a: readonly number[], b: readonly number[]): number;
-export function auditColors(original: CadDocument, preview: CadDocument, options?: {maxSamples?: number}): {space:string;metric:string;compared:number;changed:number;maxChannelError:number;maxDeltaE:number;samples:unknown[];exact:boolean;profilePolicy:string};
+export function auditColors(original: CadDocument, preview: CadDocument, options?: {maxSamples?: number}): {space:string;metric:string;compared:number;changed:number;missing:number;invalid:number;unresolved:number;complete:boolean;rgbExact:boolean;opacityCompared:number;opacityChanged:number;maxOpacityError:number;opacityExact:boolean;scope:string;maxChannelError:number;maxDeltaE:number;samples:unknown[];exact:boolean;profilePolicy:string};

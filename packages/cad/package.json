@@ -1,6 +1,6 @@
 {
   "name": "@revector/cad",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "PDF-to-CAD lowering for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -23,8 +23,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.2.0",
-    "@revector/model": "0.2.0",
-    "@revector/pdf": "0.2.0"
+    "@revector/geometry": "0.3.0",
+    "@revector/model": "0.3.0",
+    "@revector/pdf": "0.3.0"
   }
 }

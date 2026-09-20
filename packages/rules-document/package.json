@@ -1,6 +1,6 @@
 {
   "name": "@revector/rules-document",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Document and technical-drawing semantic recognition",
   "main": "./src/index.js",
@@ -23,9 +23,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.2.0",
-    "@revector/model": "0.2.0",
-    "@revector/topology": "0.2.0",
-    "@revector/semantics": "0.2.0"
+    "@revector/geometry": "0.3.0",
+    "@revector/model": "0.3.0",
+    "@revector/topology": "0.3.0",
+    "@revector/semantics": "0.3.0"
   }
 }

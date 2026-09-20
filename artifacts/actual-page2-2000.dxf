@@ -793,7 +793,7 @@ AcDbPolyline
 1001
 REVECTOR
 1000
-{"id":"b0_0","source":{"ids":["p2-40"],"page":2,"operator":151,"ref":"62a2ed9e"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"b0_0","source":{"kind":"path","ids":["p2-40"],"page":2,"operator":151,"ref":"62a2ed9e"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 LINE
 5
@@ -825,7 +825,7 @@ AcDbLine
 1001
 REVECTOR
 1000
-{"id":"b0_1","source":{"ids":["p2-41"],"page":2,"operator":152,"ref":"442058f0"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"b0_1","source":{"kind":"path","ids":["p2-41"],"page":2,"operator":152,"ref":"442058f0"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 LINE
 5
@@ -857,7 +857,7 @@ AcDbLine
 1001
 REVECTOR
 1000
-{"id":"b0_2","source":{"ids":["p2-42"],"page":2,"operator":153,"ref":"a1a729ae"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"b0_2","source":{"kind":"path","ids":["p2-42"],"page":2,"operator":153,"ref":"a1a729ae"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 ENDBLK
 5
@@ -915,7 +915,7 @@ AcDbPolyline
 1001
 REVECTOR
 1000
-{"id":"e1","source":{"ids":["p2-1"],"page":2,"operator":4,"ref":"d751a515"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e1","source":{"kind":"path","ids":["p2-1"],"page":2,"operator":4,"ref":"d751a515"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 TEXT
 5
@@ -965,7 +965,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e2","source":{"ids":["p2-2"],"page":2,"operator":9,"ref":"8e79aebe"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
+{"id":"e2","source":{"kind":"text","ids":["p2-2"],"page":2,"operator":9,"ref":"8e79aebe"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
 0
 TEXT
 5
@@ -1015,7 +1015,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e3","source":{"ids":["p2-3"],"page":2,"operator":15,"ref":"76367a73"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e3","source":{"kind":"text","ids":["p2-3"],"page":2,"operator":15,"ref":"76367a73"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 SPLINE
 5
@@ -1097,7 +1097,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e4","source":{"ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e4","source":{"kind":"path","ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1179,7 +1179,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e5","source":{"ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e5","source":{"kind":"path","ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1261,7 +1261,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e6","source":{"ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e6","source":{"kind":"path","ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1343,7 +1343,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e7","source":{"ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e7","source":{"kind":"path","ids":["p2-4"],"page":2,"operator":22,"ref":"b3b7c0af"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1425,7 +1425,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e8","source":{"ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e8","source":{"kind":"path","ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1507,7 +1507,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e9","source":{"ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e9","source":{"kind":"path","ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1589,7 +1589,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e10","source":{"ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e10","source":{"kind":"path","ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1671,7 +1671,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e11","source":{"ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e11","source":{"kind":"path","ids":["p2-5"],"page":2,"operator":23,"ref":"de2e3c4d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1753,7 +1753,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e12","source":{"ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e12","source":{"kind":"path","ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1835,7 +1835,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e13","source":{"ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e13","source":{"kind":"path","ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1917,7 +1917,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e14","source":{"ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e14","source":{"kind":"path","ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 SPLINE
 5
@@ -1999,7 +1999,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e15","source":{"ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e15","source":{"kind":"path","ids":["p2-6"],"page":2,"operator":24,"ref":"1ed1ff8b"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 TEXT
 5
@@ -2049,7 +2049,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e16","source":{"ids":["p2-7"],"page":2,"operator":28,"ref":"0b9140da"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e16","source":{"kind":"text","ids":["p2-7"],"page":2,"operator":28,"ref":"0b9140da"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 TEXT
 5
@@ -2099,7 +2099,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e17","source":{"ids":["p2-8"],"page":2,"operator":33,"ref":"e13770c1"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e17","source":{"kind":"text","ids":["p2-8"],"page":2,"operator":33,"ref":"e13770c1"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 TEXT
 5
@@ -2149,7 +2149,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e18","source":{"ids":["p2-9"],"page":2,"operator":38,"ref":"60feab25"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e18","source":{"kind":"text","ids":["p2-9"],"page":2,"operator":38,"ref":"60feab25"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 SPLINE
 5
@@ -2231,7 +2231,7 @@ AcDbSpline
 1001
 REVECTOR
 1000
-{"id":"e19","source":{"ids":["p2-10"],"page":2,"operator":43,"ref":"97bf9989"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e19","source":{"kind":"path","ids":["p2-10"],"page":2,"operator":43,"ref":"97bf9989"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 HATCH
 5
@@ -2329,7 +2329,7 @@ SOLID
 1001
 REVECTOR
 1000
-{"id":"e20","source":{"ids":["p2-11"],"page":2,"operator":47,"ref":"23c8d6d4"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e20","source":{"kind":"path","ids":["p2-11"],"page":2,"operator":47,"ref":"23c8d6d4"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 HATCH
 5
@@ -2565,7 +2565,7 @@ SOLID
 1001
 REVECTOR
 1000
-{"id":"e21","source":{"ids":["p2-12"],"page":2,"operator":49,"ref":"380c6f2d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
+{"id":"e21","source":{"kind":"path","ids":["p2-12"],"page":2,"operator":49,"ref":"380c6f2d"},"semantic":{"class":null,"confidence":1,"method":"source"}}
 0
 TEXT
 5
@@ -2615,7 +2615,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e22","source":{"ids":["p2-13"],"page":2,"operator":53,"ref":"eaf49e8e"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e22","source":{"kind":"text","ids":["p2-13"],"page":2,"operator":53,"ref":"eaf49e8e"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 TEXT
 5
@@ -2665,7 +2665,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e23","source":{"ids":["p2-14"],"page":2,"operator":62,"ref":"f5e2b387"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
+{"id":"e23","source":{"kind":"text","ids":["p2-14"],"page":2,"operator":62,"ref":"f5e2b387"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
 0
 TEXT
 5
@@ -2715,7 +2715,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e24","source":{"ids":["p2-15"],"page":2,"operator":67,"ref":"9ca702c2"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e24","source":{"kind":"text","ids":["p2-15"],"page":2,"operator":67,"ref":"9ca702c2"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 TEXT
 5
@@ -2765,7 +2765,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e25","source":{"ids":["p2-16"],"page":2,"operator":72,"ref":"7189a3f0"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e25","source":{"kind":"text","ids":["p2-16"],"page":2,"operator":72,"ref":"7189a3f0"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 TEXT
 5
@@ -2817,7 +2817,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e26","source":{"ids":["p2-17"],"page":2,"operator":77,"ref":"6460dfb8"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e26","source":{"kind":"text","ids":["p2-17"],"page":2,"operator":77,"ref":"6460dfb8"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 TEXT
 5
@@ -2867,7 +2867,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e27","source":{"ids":["p2-18"],"page":2,"operator":82,"ref":"981407ab"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
+{"id":"e27","source":{"kind":"text","ids":["p2-18"],"page":2,"operator":82,"ref":"981407ab"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
 0
 INSERT
 5
@@ -3205,7 +3205,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e52","source":{"ids":["p2-43"],"page":2,"operator":159,"ref":"32a2f7f9"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
+{"id":"e52","source":{"kind":"text","ids":["p2-43"],"page":2,"operator":159,"ref":"32a2f7f9"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica-Bold"}
 0
 TEXT
 5
@@ -3255,7 +3255,7 @@ AcDbText
 1001
 REVECTOR
 1000
-{"id":"e53","source":{"ids":["p2-44"],"page":2,"operator":164,"ref":"493cadce"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
+{"id":"e53","source":{"kind":"text","ids":["p2-44"],"page":2,"operator":164,"ref":"493cadce"},"semantic":{"class":null,"confidence":1,"method":"source"},"font":"Helvetica"}
 0
 ENDSEC
 0

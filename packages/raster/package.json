@@ -1,6 +1,6 @@
 {
   "name": "@revector/raster",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Bounded raster preprocessing, region planning and line extraction",
   "main": "./src/index.js",
@@ -23,7 +23,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.2.0",
-    "@revector/model": "0.2.0"
+    "@revector/geometry": "0.3.0",
+    "@revector/model": "0.3.0"
   }
 }

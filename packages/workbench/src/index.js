@@ -1,4 +1,4 @@
-import { recoverPdfRaster, DEFAULT_OCR_OPTIONS } from '@revector/ocr';
+import { recoverPdfRaster, DEFAULT_OCR_OPTIONS, normalizeOcrOptions } from '@revector/ocr';
 import { documentRules } from '@revector/rules-document';
 import { PdfSource, PDFJS_VERSION } from '@revector/pdf';
 import { ConversionEngine, ConversionWorker, CAD_PROFILES } from '@revector/engine';
@@ -522,9 +522,32 @@ export class Workbench {
         }
     }
     configureOcr() {
-        const settings=this.ocrSettings || DEFAULT_OCR_OPTIONS;
-        const enabled=el('input',{id:'ocr-enabled',type:'checkbox',checked:!!this.ocrSettings}), scope=select('ocr-scope',[['raster','Visible raster regions'],['page','Whole page (scanned documents)']],settings.scope), languages=el('input',{id:'ocr-languages',value:settings.languages,title:'Bundled eng, deu, pol. Combine with +, e.g. eng+pol.'}), dpi=el('input',{id:'ocr-dpi',type:'number',min:72,max:600,value:settings.dpi}), confidence=el('input',{id:'ocr-confidence',type:'number',min:0,max:100,value:settings.minConfidence}), preprocess=select('ocr-preprocess',['none','otsu','sauvola'],settings.preprocess), rotation=select('ocr-rotation',['0','90','180','270'],String(settings.rotation)), trace=el('input',{id:'ocr-lines',type:'checkbox',checked:settings.traceLines});
-        dialog({title:'Raster OCR · local recognition',content:el('div',{class:'guide'},el('p',{text:'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.'}),field('Enable OCR',enabled),field('Scope',scope),field('Languages',languages),field('Resolution (DPI)',dpi),field('Minimum confidence (%)',confidence),field('Preprocessing',preprocess),field('Recognition rotation',rotation),field('Estimate horizontal / vertical raster lines',trace)),actions:[{label:'Cancel',run:d=>d.close()},{label:'Apply and convert',primary:true,run:d=>{this.ocrSettings=enabled.checked?{scope:scope.value,languages:languages.value,dpi:Number(dpi.value),minConfidence:Number(confidence.value),preprocess:preprocess.value,rotation:Number(rotation.value),traceLines:trace.checked}:null;d.close();void this.run(true);}}]});
+        const settings={...DEFAULT_OCR_OPTIONS,...this.ocrSettings};
+        const enabled=el('input',{id:'ocr-enabled',type:'checkbox',checked:!!this.ocrSettings});
+        const scope=select('ocr-scope',[['raster','Raster regions only'],['page','Whole page']],settings.scope);
+        const languages=select('ocr-languages',[['eng','English'],['deu','German'],['pol','Polish'],['eng+deu','English + German'],['eng+pol','English + Polish']],settings.languages);
+        const dpi=el('input',{id:'ocr-dpi',type:'number',min:72,max:600,value:settings.dpi});
+        const confidence=el('input',{id:'ocr-confidence',type:'number',min:0,max:100,value:settings.minConfidence});
+        const preprocess=select('ocr-preprocess',['none','otsu','sauvola'],settings.preprocess);
+        const rotation=select('ocr-rotation',['0','90','180','270'],String(settings.rotation));
+        const tiles=select('ocr-tile-size',[...new Set(['512','1024','2048','4096',String(settings.tileSize)])].sort((a,b)=>Number(a)-Number(b)),String(settings.tileSize));
+        const deskew=el('input',{id:'ocr-deskew',type:'checkbox',checked:settings.deskew});
+        const invert=el('input',{id:'ocr-invert',type:'checkbox',checked:settings.invert});
+        const trace=el('input',{id:'ocr-lines',type:'checkbox',checked:settings.traceLines});
+        dialog({title:'Raster OCR · local recognition',content:el('div',{class:'guide'},
+            el('p',{text:'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.'}),
+            field('Enable OCR',enabled),field('Scope',scope),field('Languages',languages),field('Resolution (DPI)',dpi),
+            field('Minimum confidence (%)',confidence),field('Preprocessing',preprocess),field('Recognition rotation',rotation),
+            field('Correct small scan skew',deskew),field('Invert light text on dark paper',invert),field('Maximum tile side (pixels)',tiles),
+            field('Estimate horizontal / vertical raster lines',trace),
+            el('p',{text:'Tiles overlap to protect words at boundaries. Deskew estimates small angles, not arbitrary page orientation. Both preserve the inverse coordinate transform in OCR provenance.'})),
+            actions:[{label:'Cancel',run:d=>d.close()},{label:'Apply and convert',primary:true,run:d=>{
+                try {
+                    this.ocrSettings=enabled.checked?normalizeOcrOptions({...settings,scope:scope.value,languages:languages.value,dpi:Number(dpi.value),minConfidence:Number(confidence.value),
+                        preprocess:preprocess.value,rotation:Number(rotation.value),deskew:deskew.checked,invert:invert.checked,tileSize:Number(tiles.value),traceLines:trace.checked}):null;
+                    d.close();void this.run(true);
+                }catch(error){this.error(error);}
+            }}]});
     }
     help() { dialog({ title: 'Revector Studio · vector-first CAD recovery', content: el('div', { class: 'guide' }, el('h3', { text: 'A local, inspectable conversion workflow' }), el('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), el('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), el('h3', { text: 'Meaning is recovered, not assumed' }), el('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), el('h3', { text: 'Explicit format boundaries' }), el('p', { text: 'Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), el('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), el('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
     setStatus(text) {

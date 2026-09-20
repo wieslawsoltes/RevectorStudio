@@ -20,7 +20,7 @@ def run(url: str, output: Path):
         try:
             page.goto(url,wait_until='domcontentloaded',timeout=60000)
             page.wait_for_function('globalThis.workbench?.result && !workbench.running',timeout=90000)
-            check('Both original and expanded rule packs are available',page.evaluate('workbench.engine.rules.length===16'))
+            check('Both original and expanded rule packs are available',page.evaluate('workbench.engine.rules.length===18'))
             check('Faithful colors and white paper are the default',page.evaluate('workbench.cadView.paper && workbench.cadView.renderer.colorMode==="faithful"'))
             colors=page.evaluate('''async () => {
                 const {PdfSource}=await import('@revector/pdf');const {ConversionEngine}=await import('@revector/engine');
@@ -41,7 +41,7 @@ def run(url: str, output: Path):
             report['colors']=colors;print(json.dumps(colors,indent=2),flush=True)
             check('All eleven source color-space swatches match DXF preview within two channel levels',max(s['error'] for s in colors['samples'])<=2)
             check('Near-black RGB bytes are not mistaken for normalized unit components',colors['samples'][0]['dxf']==[1,0,0])
-            check('True-color DXF round trip has no quantization',colors['audit']['exact'] and colors['audit']['changed']==0)
+            check('True-color DXF round trip has no quantization',colors['audit']['rgbExact'] and colors['audit']['changed']==0)
             check('ICC resources are configured for the PDF engine',colors['policy']['iccResourcesConfigured'])
             await_ocr='''async () => {
                 await workbench.openBytes(new Uint8Array(await (await fetch('./assets/extensions/raster.pdf')).arrayBuffer()),'Mixed raster and native.pdf');

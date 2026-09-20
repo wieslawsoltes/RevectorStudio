@@ -1,6 +1,6 @@
 {
   "name": "@revector/ui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "DOM controls and local file primitives for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@revector/topology",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Spatial and connectivity algorithms for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -23,7 +23,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.2.0",
-    "@revector/model": "0.2.0"
+    "@revector/geometry": "0.3.0",
+    "@revector/model": "0.3.0"
   }
 }

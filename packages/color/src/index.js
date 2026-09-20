@@ -40,14 +40,34 @@ export function deltaE2000(a, b) {
     const rt=-2*Math.sqrt(pow(cm)/(pow(cm)+25**7))*Math.sin(60*Math.exp(-(((hm-275)/25)**2))*rad);
     const x=dl/sl,y=dc/sc,z=dH/sh;return Math.sqrt(Math.max(0,x*x+y*y+z*z+rt*y*z));
 }
+/** Audit explicit entity paint values, including missing counterparts and alpha.
+ * Quantization is reported, never repaired by altering the preview or applying ICC twice.
+ * This is not a compositing/overprint proof and does not resolve BYBLOCK inheritance. */
 export function auditColors(original, preview, { maxSamples = 32 } = {}) {
+    if(!Number.isInteger(maxSamples)||maxSamples<0||maxSamples>4096)throw new RangeError('Invalid color audit sample budget');
     const all = d => [...d.entities,...d.blocks.flatMap(b=>b.entities)].flatMap(e=>[e,...(e.attributes||[])]);
-    const targets = new Map(all(preview).map(e=>[e.id,e]));let compared=0,changed=0,maxDeltaE=0,maxChannelError=0;const samples=[];
+    const targets = new Map(all(preview).map(e=>[e.id,e]));
+    let compared=0,changed=0,missing=0,invalid=0,unresolved=0,maxDeltaE=0,maxChannelError=0,opacityCompared=0,opacityChanged=0,maxOpacityError=0;
+    const samples=[],sample=value=>{if(samples.length<maxSamples)samples.push(value);};
+    const valid=c=>(Array.isArray(c)||ArrayBuffer.isView(c))&&c.length===3&&Array.from(c).every(v=>Number.isFinite(v)&&v>=0&&v<=255);
     for (const e of all(original)) {
-        const target=targets.get(e.id);if(!e.color||!target?.color)continue;
-        const a=normalizeRgb(e.color),b=normalizeRgb(target.color),error=Math.max(...a.map((v,i)=>Math.abs(v-b[i])));compared++;
-        maxChannelError=Math.max(maxChannelError,error);
-        if(error){changed++;const deltaE=deltaE2000(srgbToLab(a),srgbToLab(b));maxDeltaE=Math.max(maxDeltaE,deltaE);if(samples.length<maxSamples)samples.push({id:e.id,source:a,exported:b,deltaE2000:deltaE});}
+        const target=targets.get(e.id);
+        if(!target){missing++;sample({id:e.id,reason:'missing-exported-entity'});continue;}
+        if(e.color==null){unresolved++;sample({id:e.id,reason:'inherited-color-not-audited'});}
+        else if(!valid(e.color)||!valid(target.color)){invalid++;sample({id:e.id,reason:'missing-or-invalid-rgb'});}
+        else{
+            const a=normalizeRgb(e.color),b=normalizeRgb(target.color),error=Math.max(...a.map((v,i)=>Math.abs(v-b[i])));compared++;
+            maxChannelError=Math.max(maxChannelError,error);
+            if(error){changed++;const deltaE=deltaE2000(srgbToLab(a),srgbToLab(b));maxDeltaE=Math.max(maxDeltaE,deltaE);sample({id:e.id,reason:'rgb-quantization-or-change',source:a,exported:b,deltaE2000:deltaE});}
+        }
+        const a=e.opacity??1,b=target.opacity??1;
+        if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||a>1||b<0||b>1){invalid++;sample({id:e.id,reason:'invalid-opacity'});continue;}
+        opacityCompared++;const error=Math.abs(a-b);maxOpacityError=Math.max(maxOpacityError,error);
+        if(error>1e-12){opacityChanged++;sample({id:e.id,reason:'opacity-quantization-or-loss',sourceOpacity:a,exportedOpacity:b,error});}
     }
-    return {space:'sRGB',metric:'CIEDE2000 / D65',compared,changed,maxChannelError,maxDeltaE,samples,exact:changed===0,profilePolicy:'PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.'};
+    const complete=missing===0&&invalid===0&&unresolved===0,rgbExact=complete&&changed===0,opacityExact=opacityChanged===0&&missing===0&&invalid===0;
+    return {space:'sRGB',metric:'CIEDE2000 / D65',compared,changed,missing,invalid,unresolved,complete,rgbExact,
+        maxChannelError,maxDeltaE,opacityCompared,opacityChanged,maxOpacityError,opacityExact,samples,exact:rgbExact&&opacityExact,
+        profilePolicy:'PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.',
+        scope:'Explicit entity RGB and opacity; not a proof of PDF blend modes, overprint, image profiles, or inherited CAD colors.'};
 }

@@ -1,14 +1,16 @@
-# Semantic, raster OCR and color recovery (0.2.0)
+# Semantic, raster OCR and color recovery (0.3.0)
 
 ## What changed
 
-The original vector-first pipeline remains the default. Eight additional rule families extend it to technical sheets and general documents. OCR is explicitly enabled by the user and adds inferred, editable text without replacing native PDF text. Four independently packaged modules provide document recognition, raster preprocessing, OCR orchestration, and color auditing.
+The original vector-first pipeline remains the default. Ten document rule families extend it to technical sheets and general documents. OCR is explicitly enabled by the user and adds inferred, editable text without replacing native PDF text. Four independently packaged modules provide document recognition, raster preprocessing, OCR orchestration, and color auditing.
 
 ### Document rule families
 
 | Rule | Algorithm and output | Important boundary |
 |---|---|---|
-| Table grids | Spatially connected orthogonal line components, complete border-coverage tests, coordinate clustering and text-to-cell assignment; rows, columns and cell contents retained in GROUP metadata. | Requires closed ruled rectangular grids; not a borderless-table or arbitrary merged-cell recognizer. |
+| Table grids | Spatially connected orthogonal line components, complete border-coverage tests, coordinate clustering and text-to-cell assignment; rows, columns and cell contents retained in GROUP metadata. | Requires complete outer bounds; rectangular merged cells are recovered, partial edges and nonrectangular unions rejected. |
+| Unruled schedules | Repeated baseline rows, aligned columns and continuous whitespace gutters. | Three rows minimum; multi-column prose remains an alternative. |
+| Lists | Consecutive numeric or aligned bullet markers with nearby bodies. | At least three items; isolated callouts rejected. |
 | Text flows | Spatial baseline neighborhoods, rotation/height compatibility, projection-based reading order. | Groups original TEXT runs; does not silently replace them with reflowed MTEXT. |
 | Technical notation | Bounded lexical grammars for diameter, radius, thread, tolerance, quantities, scale, component designators and instrument tags. | Classification candidates, not verified units or engineering meaning. |
 | Labeled fields | Label vocabulary plus spatially adjacent value association. | Proximity is evidence, not proof. |
@@ -29,7 +31,7 @@ The implementation uses **Tesseract.js 7.0.0** and its WASM LSTM engine, under A
 
 1. PDF.js decodes and renders a bounded-resolution page with its image color, masks, clipping and rotation handling.
 2. Raster marks define crops. Actual transformed image outlines and path clips mask those crops; bounding boxes are used for allocation, not as replacements for the masks. The crops contain the visible composited page appearance.
-3. Optional Otsu or integral-image Sauvola preprocessing operates on pixels composited onto white. Recognition rotation is an explicit quarter-turn control.
+3. Optional Otsu or integral-image Sauvola preprocessing operates on pixels composited onto white. Recognition rotation is an explicit quarter-turn control; optional small-angle deskew uses bounded projection profiles. Regions are processed in overlapping tiles with confidence-ordered duplicate suppression.
 4. A dedicated Tesseract worker returns word boxes, baseline evidence and confidence. Native text neighborhoods suppress overlapping OCR output; below-threshold results are counted and a bounded sample is retained.
 5. The inverse actual rendering transform maps OCR pixel geometry back to PDF coordinates, then the normal PDF→drawing transform applies units and scale. This handles page rotation without guessing from nominal DPI.
 6. Accepted words become editable TEXT on `OCR_TEXT`. Source image identifiers, confidence, pixel box, transform, substituted font and estimated metrics are retained in provenance and DXF XDATA.
@@ -38,7 +40,7 @@ Worker calls are serialized, cancellable and time-limited. Page pixel, region an
 
 Optional horizontal/vertical raster line inference masks OCR word boxes, scans runs with small gap tolerance and merges adjacent runs into estimated centerlines. The resulting entities are tagged as inferred. This is **not** general illustration tracing, arbitrary angled curve reconstruction or recovery of original CAD objects.
 
-The original raster image is not embedded in DXF by this release. OCR text is not a substitute for retaining the source PDF. Handwriting, mathematical layout, tiny scanned annotations, arbitrary skew and unusual scripts require further model/configuration work and representative validation. OCR geometry and sampled text color are estimates; engineering dimensions must be reviewed.
+The original raster image is not embedded in DXF by this release. OCR text is not a substitute for retaining the source PDF. Handwriting, mathematical layout, tiny scanned annotations, extreme skew and unusual scripts require further model/configuration work and representative validation. OCR geometry and sampled text color are estimates; engineering dimensions must be reviewed.
 
 ### Reusable API
 
@@ -51,7 +53,7 @@ const scene = await recoverPdfRaster(source, vectorScene, {
   assetBase: new URL('./vendor/ocr/', document.baseURI).href,
   scope: 'raster', languages: 'eng+pol', dpi: 300,
   minConfidence: 75, preprocess: 'otsu', rotation: 0,
-  traceLines: false, signal: abortController.signal
+  deskew: true, tileSize: 2048, tileOverlap: 96, traceLines: false, signal: abortController.signal
 });
 const result = await new ConversionEngine().convertScene(scene, {
   version: '2018', units: 'mm', profile: 'cad'
@@ -76,7 +78,7 @@ Previously, dark CAD preview mode unconditionally lightened dark entity RGB valu
 
 PDF.js normalizes supported PDF source color spaces before handing painted RGB to the adapter. The adapter now treats normalized byte components explicitly: `[1,0,0]` is near-black red, not full-intensity red. Source ICC/CMYK/CalRGB/Lab/Separation conversion is not applied a second time. Missing ICC-resource configuration is diagnosed; engine version and configured color resources are recorded. DXF stores RGB, not the original embedded ICC profile.
 
-Every conversion compares native model colors against the reparsed DXF. It reports changed entities, maximum channel error and CIEDE2000/D65 differences with bounded samples. DXF 2000 has ACI-palette quantization, which cannot preserve arbitrary RGB. Newer supported versions use true color. Alpha is supported only where the target representation permits it; PDF blending, overprint, gradients and soft masks are not generally reproduced by flat CAD entities.
+Every conversion compares native model colors against the reparsed DXF. It reports changed entities, maximum channel error and CIEDE2000/D65 differences with bounded samples. Version 0.3 also distinguishes RGB and opacity exactness, missing counterparts and unresolved inherited colors; see [the audit contract](RECOVERY-0.3.md). DXF 2000 has ACI-palette quantization, which cannot preserve arbitrary RGB. Newer supported versions use true color. Alpha is supported only where the target representation permits it; PDF blending, overprint, gradients and soft masks are not generally reproduced by flat CAD entities.
 
 The color regression authors actual DeviceRGB (including near-black), gray, CMYK, ICCBased sRGB, CalRGB, Lab, Separation and normal-opacity PDF swatches, renders the PDF, exports/reparses DXF, and samples corresponding rendered pixels. This tests agreement with the PDF.js source viewer; it is not commercial-printer soft-proof certification or exhaustive ICC-profile coverage.
 
@@ -102,3 +104,5 @@ npm run pack:all
 CAD coordinates now flip the destination canvas Y axis after applying the normal PDF.js viewport transform. Four real-PDF regressions cover rotations 0/90/180/270 with a nonzero CropBox and UserUnit=2. This fixes a previous quarter-turn orientation error affecting native text as well as OCR.
 
 Tesseract provider integration accepts a named API or an ES-module default API and supplies a no-op progress callback when none is provided. The real Node OCR regression covers the callback path in addition to browser recognition.
+
+The complete 0.3 algorithms, tile/deskew limits and cleanup contracts are documented in [RECOVERY-0.3.md](RECOVERY-0.3.md).

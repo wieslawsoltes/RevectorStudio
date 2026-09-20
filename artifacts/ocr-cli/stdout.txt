@@ -1,0 +1,1 @@
+/home/runner/work/RevectorStudio/RevectorStudio/artifacts/ocr-cli/scan.dxf: 6 entities, 0 blocks, AC1032, 55.5 ms

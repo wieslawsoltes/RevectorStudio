@@ -37,3 +37,21 @@ export async function convert(bytes: Uint8Array) {
     }
 }
 export function mount(root: HTMLElement) { return mountWorkbench(root, { pdfjsModuleUrl: '/vendor/pdfjs/legacy/build/pdf.mjs', pdfjsWorkerUrl: '/vendor/pdfjs/legacy/build/pdf.worker.mjs', conversionWorkerUrl: '/apps/studio/conversion-worker.js', assetBase: '/vendor/pdfjs/' }); }
+
+// Optional image recovery is separate from exact native vector transcription.
+import { recoverPdfRaster, normalizeOcrOptions } from '@revector/ocr';
+import { planRasterTiles, boundedRotation, estimateSkew } from '@revector/raster';
+import { detectBorderlessTables, detectLists } from '@revector/rules-document';
+import { auditColors } from '@revector/color';
+export async function recoverScan(source: PdfSource) {
+    const scene = await source.extract(1);
+    const options = normalizeOcrOptions({languages:'eng+pol', deskew:true, tileSize:2048, tileOverlap:96, maxTiles:256, assetBase:'/vendor/ocr/'});
+    const recovered = await recoverPdfRaster(source, scene, options);
+    const result = await new ConversionEngine().convertScene(recovered, {version:'2018'});
+    const color = auditColors(result.document, result.preview);
+    return {result, rgbExact:color.rgbExact, opacityExact:color.opacityExact,
+        tables:detectBorderlessTables(result.document), lists:detectLists(result.document)};
+}
+export const tilingExample = planRasterTiles(3000,2000,{tileSize:1024});
+export const affineExample = boundedRotation(-4,3000,2000,8000000);
+export const emptyScanSkew = estimateSkew(new Uint8Array(100),10,10);

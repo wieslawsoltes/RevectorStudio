@@ -1,12 +1,13 @@
-import { entityBox, entityPaths } from '@revector/model';
+import { checkAbort as abortAnalysis, entityBox, entityPaths } from '@revector/model';
 import { stableHash, distance, containsBox, intersects, dot, sub, length, near, pathEdges, emptyBox, union } from '@revector/geometry';
-import { SpatialIndex } from '@revector/topology';
+import { DisjointSet, SpatialIndex } from '@revector/topology';
 const textTypes = new Set(['TEXT','MTEXT','ATTRIB']);
 const median = a => a.length ? [...a].sort((a,b)=>a-b)[a.length>>1] : 1;
 const expand=(b,d)=>[b[0]-d,b[1]-d,b[2]+d,b[3]+d];
 const center=b=>[(b[0]+b[2])/2,(b[1]+b[3])/2];
 const unique=es=>[...new Map(es.map(e=>[e.id,e])).values()];
 function context(document,options={}) {
+    abortAnalysis(options.signal);
     if(document.entities.length>(options.maxAnalysisEntities??150000))throw new RangeError('Document analysis entity budget exceeded');
     const texts=document.entities.filter(e=>textTypes.has(e.type)&&String(e.text||'').trim()),h=median(texts.map(e=>e.height).filter(h=>h>0));
     const span=Math.hypot(document.pageBox[2]-document.pageBox[0],document.pageBox[3]-document.pageBox[1]);
@@ -27,15 +28,53 @@ function cluster(values,tolerance){const result=[];for(const value of [...values
 export function detectTables(document,options={}) {
     const c=context(document,options),tol=c.tolerance,out=[],lines=segments(document),axis=lines.filter(s=>Math.abs(s.a[0]-s.b[0])<=tol||Math.abs(s.a[1]-s.b[1])<=tol);
     const index=new SpatialIndex(axis,s=>expand(s.box,tol)),seen=new Set();let checks=0;
-    for(const seed of axis){if(seen.has(seed))continue;const queue=[seed],component=[];seen.add(seed);while(queue.length){const s=queue.pop();component.push(s);if(component.length>1024)break;for(const t of index.search(expand(s.box,tol))){if(++checks>2_000_000)throw new RangeError('Table intersection budget exceeded');if(!seen.has(t)){seen.add(t);queue.push(t);}}}
+    for(const seed of axis){abortAnalysis(options.signal);if(seen.has(seed))continue;const queue=[seed],component=[];seen.add(seed);while(queue.length){const s=queue.pop();component.push(s);if(component.length>1024)throw new RangeError('Table component budget exceeded');for(const t of index.search(expand(s.box,tol))){if(++checks>2_000_000)throw new RangeError('Table intersection budget exceeded');if(!seen.has(t)){seen.add(t);queue.push(t);}}}
         if(component.length>1024||component.length<6)continue;
         const hs=component.filter(s=>Math.abs(s.a[1]-s.b[1])<=tol),vs=component.filter(s=>Math.abs(s.a[0]-s.b[0])<=tol),xs=cluster(vs.map(s=>s.a[0]),tol),ys=cluster(hs.map(s=>s.a[1]),tol);
         if(xs.length<2||ys.length<2||xs.length*ys.length>4096)continue;
-        const covers=(ss,coord,lo,hi,horizontal)=>{const ranges=ss.filter(s=>Math.abs(s.a[horizontal?1:0]-coord)<=tol).map(s=>[Math.min(s.a[horizontal?0:1],s.b[horizontal?0:1]),Math.max(s.a[horizontal?0:1],s.b[horizontal?0:1])]).sort((a,b)=>a[0]-b[0]);let end=lo;for(const [a,b] of ranges){if(a>end+tol)break;if(b>end)end=b;}return end>=hi-tol;};
-        if(!xs.every(x=>covers(vs,x,ys[0],ys.at(-1),false))||!ys.every(y=>covers(hs,y,xs[0],xs.at(-1),true)))continue;
-        const box=[xs[0],ys[0],xs.at(-1),ys.at(-1)];if(component.some(s=>!containsBox(box,s.box,tol)))continue;const inside=c.index.search(box).filter(e=>containsBox(box,entityBox(e,document),tol));if(!inside.length)continue;
-        const cells=[];for(let y=ys.length-2;y>=0;y--)for(let x=0;x<xs.length-1;x++){const b=[xs[x],ys[y],xs[x+1],ys[y+1]],texts=inside.filter(e=>{const p=center(entityBox(e,document));return p[0]>=b[0]&&p[0]<b[2]&&p[1]>=b[1]&&p[1]<b[3];}).sort((a,b)=>b.position[1]-a.position[1]||a.position[0]-b.position[0]);cells.push({row:ys.length-2-y,column:x,bounds:b,text:texts.map(e=>e.text).join(' '),entities:texts.map(e=>e.id)});}
-        bounded(out,proposal('table-grid',`Table grid · ${ys.length-1} rows × ${xs.length-1} columns`,[...component.map(s=>s.e),...inside],{bounds:box,rows:ys.length-1,columns:xs.length-1,cells},.94));
+        // Missing internal separators join elementary cells. Partial separators are
+        // ambiguous: reject rather than fabricate a cell edge or truncate a stroke.
+        const coverage=(ss,coord,lo,hi,horizontal)=>{
+            const ranges=ss.filter(s=>Math.abs(s.a[horizontal?1:0]-coord)<=tol)
+                .map(s=>[Math.max(lo,s.box[horizontal?0:1]),Math.min(hi,s.box[horizontal?2:3])])
+                .filter(([a,b])=>b>a+tol).sort((a,b)=>a[0]-b[0]);
+            let end=lo,covered=0;
+            for(const [a,b] of ranges){covered+=Math.max(0,b-Math.max(end,a));end=Math.max(end,b);}
+            return covered<=tol?'absent':covered>=hi-lo-tol?'complete':'partial';
+        };
+        if(coverage(vs,xs[0],ys[0],ys.at(-1),false)!=='complete'||
+           coverage(vs,xs.at(-1),ys[0],ys.at(-1),false)!=='complete'||
+           coverage(hs,ys[0],xs[0],xs.at(-1),true)!=='complete'||
+           coverage(hs,ys.at(-1),xs[0],xs.at(-1),true)!=='complete')continue;
+        const box=[xs[0],ys[0],xs.at(-1),ys.at(-1)];
+        if(component.some(s=>!containsBox(box,s.box,tol)))continue;
+        const inside=c.index.search(box).filter(e=>containsBox(box,entityBox(e,document),tol));
+        if(!inside.length)continue;
+        const columns=xs.length-1,rows=ys.length-1,sets=new DisjointSet(columns*rows),barriers=[];
+        let ambiguous=false;
+        for(let y=0;y<rows;y++)for(let x=1;x<columns;x++){
+            const a=y*columns+x-1,b=a+1,status=coverage(vs,xs[x],ys[y],ys[y+1],false);
+            if(status==='partial')ambiguous=true;else if(status==='absent')sets.union(a,b);else barriers.push([a,b]);
+        }
+        for(let y=1;y<rows;y++)for(let x=0;x<columns;x++){
+            const a=(y-1)*columns+x,b=y*columns+x,status=coverage(hs,ys[y],xs[x],xs[x+1],true);
+            if(status==='partial')ambiguous=true;else if(status==='absent')sets.union(a,b);else barriers.push([a,b]);
+        }
+        if(ambiguous||barriers.some(([a,b])=>sets.find(a)===sets.find(b)))continue;
+        const regions=new Map();
+        for(let y=0;y<rows;y++)for(let x=0;x<columns;x++){
+            const key=sets.find(y*columns+x),r=regions.get(key)||{x0:x,y0:y,x1:x+1,y1:y+1,count:0};
+            r.x0=Math.min(r.x0,x);r.x1=Math.max(r.x1,x+1);r.y0=Math.min(r.y0,y);r.y1=Math.max(r.y1,y+1);r.count++;regions.set(key,r);
+        }
+        if([...regions.values()].some(r=>(r.x1-r.x0)*(r.y1-r.y0)!==r.count))continue;
+        const cells=[...regions.values()].map(r=>{
+            const b=[xs[r.x0],ys[r.y0],xs[r.x1],ys[r.y1]],texts=inside.filter(e=>{
+                const p=center(entityBox(e,document));return p[0]>=b[0]&&p[0]<b[2]&&p[1]>=b[1]&&p[1]<b[3];
+            }).sort((a,b)=>b.position[1]-a.position[1]||a.position[0]-b.position[0]);
+            return {row:rows-r.y1,column:r.x0,rowSpan:r.y1-r.y0,columnSpan:r.x1-r.x0,bounds:b,text:texts.map(e=>e.text).join(' '),entities:texts.map(e=>e.id)};
+        }).sort((a,b)=>a.row-b.row||a.column-b.column);
+        bounded(out,proposal('table-grid',`Table grid · ${rows} rows × ${columns} columns`,[...component.map(s=>s.e),...inside],
+            {bounds:box,rows,columns,cells,mergedCells:cells.filter(c=>c.rowSpan>1||c.columnSpan>1).length},.94));
     }return out;
 }
 /** Baseline bucketing with spatial neighborhood queries; preserve every original text run. */
@@ -87,5 +126,91 @@ export function detectLeaders(document,options={}) {
             const a=wings.find(w=>w.sign>0),b=wings.find(w=>w.sign<0);if(!a||!b||a.len/b.len<.6||a.len/b.len>1.67)continue;const texts=c.index.search(expand([...tail,...tail],c.h*3)),label=texts.sort((a,b)=>distance(center(entityBox(a,document)),tail)-distance(center(entityBox(b,document)),tail))[0];if(!label)continue;const key=[s.e.id,a.t.e.id,b.t.e.id,label.id].sort().join('|');if(seen.has(key))continue;seen.add(key);bounded(out,proposal('leader-callout',`Leader → ${label.text}`,[s.e,a.t.e,b.t.e,label],{tip,tail,text:label.text},.91));}}
     return out;
 }
-const definitions=[['table-grids','Tables and schedules',detectTables],['text-flows','Text reading flows',detectTextFlows],['notations','Engineering and electrical notation',detectTechnicalText],['fields','Labeled document fields',detectFields],['diagram','Diagram nodes and connectivity',detectDiagram],['parallel','Parallel boundaries',detectParallelBoundaries],['concentric','Concentric mechanical features',detectConcentric],['leaders','Leader callouts',detectLeaders]];
-export const documentRules=definitions.map(([id,title,detect],i)=>({id:'document.'+id,title,version:'1.0.0',stage:60+i,description:'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.',run:({document,options,checkAbort})=>{checkAbort();return options.profile==='exact'?[]:detect(document,options);}}));
+/** Conservative borderless schedules: repeated aligned columns, whitespace gutters,
+ * at least three rows and two columns. This is a hypothesis, never table reconstruction
+ * by text content alone; original TEXT entities and reading direction remain intact. */
+export function detectBorderlessTables(document, options={}) {
+    const c=context(document,options),out=[],rows=[];
+    const source=c.texts.filter(e=>Math.abs(((e.rotation||0)%360+360)%360)<.5)
+        .map(e=>({e,box:entityBox(e,document)})).sort((a,b)=>b.e.position[1]-a.e.position[1]||a.box[0]-b.box[0]);
+    for(const item of source){
+        abortAnalysis(options.signal);
+        const last=rows.at(-1),h=item.e.height||c.h;
+        if(last&&Math.abs(item.e.position[1]-last.y)<=Math.min(h,last.h)*.25)last.items.push(item);
+        else rows.push({y:item.e.position[1],h,items:[item]});
+    }
+    const candidates=[];
+    for(const row of rows){
+        row.items.sort((a,b)=>a.box[0]-b.box[0]);const cells=[];
+        for(const item of row.items){
+            const cell=cells.at(-1),gap=cell?item.box[0]-cell.box[2]:Infinity;
+            if(cell&&gap<row.h*1.5){cell.items.push(item);union(cell.box,item.box);}
+            else cells.push({items:[item],box:[...item.box]});
+        }
+        candidates.push({...row,cells});
+    }
+    let start=0;
+    while(start<candidates.length){
+        const first=candidates[start];
+        if(first.cells.length<2||first.cells.length>32){start++;continue;}
+        let end=start+1;
+        while(end<candidates.length){
+            const row=candidates[end],prev=candidates[end-1],gap=prev.y-row.y;
+            if(row.cells.length!==first.cells.length||gap<Math.min(row.h,prev.h)*.8||gap>Math.max(row.h,prev.h)*4||
+               row.cells.some((cell,i)=>Math.abs(cell.box[0]-first.cells[i].box[0])>c.h*.5))break;
+            end++;
+        }
+        if(end-start>=3){
+            if((end-start)*first.cells.length>4096)throw new RangeError('Borderless table cell budget exceeded');
+            const chunk=candidates.slice(start,end),columns=first.cells.length;
+            // A real whitespace gutter must remain across ALL rows, not just one.
+            let gutters=true;
+            for(let x=0;x<columns-1;x++)if(Math.min(...chunk.map(r=>r.cells[x+1].box[0]))-
+                Math.max(...chunk.map(r=>r.cells[x].box[2]))<c.h*1.25)gutters=false;
+            const entities=chunk.flatMap(r=>r.cells.flatMap(cell=>cell.items.map(i=>i.e))),bounds=emptyBox();
+            for(const e of entities)union(bounds,entityBox(e,document));
+            if(gutters)bounded(out,proposal('borderless-table',`Unruled schedule · ${chunk.length} rows × ${columns} columns`,entities,
+                {bounds,rows:chunk.length,columns,cells:chunk.flatMap((r,row)=>r.cells.map((cell,column)=>({row,column,rowSpan:1,columnSpan:1,bounds:cell.box,
+                    text:cell.items.map(i=>i.e.text).join(' '),entities:cell.items.map(i=>i.e.id)}))),
+                 interpretation:'Repeated alignment and whitespace; may also be multi-column prose.'},.84));
+        }
+        start=end;
+    }
+    return out;
+}
+/** Numeric or bullet list markers must occupy a shared gutter and descend in page
+ * order. Numeric lists must be consecutive; drawings' isolated item numbers do not qualify. */
+export function detectLists(document, options={}) {
+    const c=context(document,options),out=[],rows=[];let work=0;
+    for(const e of c.texts){
+        const match=String(e.text).trim().match(/^(?:(\d{1,4})[.)]|([•●▪◦]))(?:\s+(.+))?$/u);
+        if(!match||Math.abs(e.rotation||0)>.5)continue;
+        const box=entityBox(e,document),h=e.height||c.h;
+        const companions=match[3]?[]:c.index.search([box[2],box[1]-h*.2,box[2]+h*24,box[3]+h*.2])
+            .filter(t=>t!==e&&Math.abs(t.position[1]-e.position[1])<h*.25)
+            .sort((a,b)=>a.position[0]-b.position[0]);
+        if(!match[3]&&!companions.length)continue;
+        rows.push({e,number:match[1]?Number(match[1]):null,marker:match[2]||null,body:match[3]||companions.map(t=>t.text).join(' '),members:[e,...companions]});
+    }
+    rows.sort((a,b)=>b.e.position[1]-a.e.position[1]||a.e.position[0]-b.e.position[0]);
+    const used=new Set();
+    for(const row of rows){
+        abortAnalysis(options.signal);if(used.has(row.e.id))continue;
+        const chain=[row];
+        for(const next of rows){
+            if(++work>1000000)throw new RangeError('List neighborhood budget exceeded');
+            const prev=chain.at(-1),h=prev.e.height||c.h,gap=prev.e.position[1]-next.e.position[1];
+            if(used.has(next.e.id)||gap<h*.8||gap>h*4||Math.abs(next.e.position[0]-row.e.position[0])>h*.5)continue;
+            if(row.number===null?next.marker!==row.marker:next.number!==prev.number+1)continue;
+            chain.push(next);
+            if(chain.length>256)throw new RangeError('List length budget exceeded');
+        }
+        if(chain.length<3)continue;
+        chain.forEach(r=>used.add(r.e.id));
+        bounded(out,proposal('document-list',`${row.number===null?'Bullet':'Numbered'} list · ${chain.length} items`,chain.flatMap(r=>r.members),
+            {ordered:row.number!==null,items:chain.map(r=>({number:r.number,text:r.body,entities:r.members.map(e=>e.id)}))},.9));
+    }
+    return out;
+}
+const definitions=[['table-grids','Tables and schedules',detectTables],['text-flows','Text reading flows',detectTextFlows],['notations','Engineering and electrical notation',detectTechnicalText],['fields','Labeled document fields',detectFields],['diagram','Diagram nodes and connectivity',detectDiagram],['parallel','Parallel boundaries',detectParallelBoundaries],['concentric','Concentric mechanical features',detectConcentric],['leaders','Leader callouts',detectLeaders],['borderless-tables','Unruled schedules',detectBorderlessTables],['lists','Numbered and bullet lists',detectLists]];
+export const documentRules=definitions.map(([id,title,detect],i)=>({id:'document.'+id,title,version:id==='table-grids'?'1.1.0':'1.0.0',stage:60+i,description:'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.',run:({document,options,checkAbort})=>{checkAbort();return options.profile==='exact'?[]:detect(document,options);}}));

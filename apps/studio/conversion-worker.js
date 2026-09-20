@@ -416,27 +416,63 @@ function deltaE2000(a, b) {
     const x = dl / sl, y = dc / sc, z = dH / sh;
     return Math.sqrt(Math.max(0, x * x + y * y + z * z + rt * y * z));
 }
+/** Audit explicit entity paint values, including missing counterparts and alpha.
+ * Quantization is reported, never repaired by altering the preview or applying ICC twice.
+ * This is not a compositing/overprint proof and does not resolve BYBLOCK inheritance. */
 function auditColors(original, preview, { maxSamples = 32 } = {}) {
+    if (!Number.isInteger(maxSamples) || maxSamples < 0 || maxSamples > 4096)
+        throw new RangeError('Invalid color audit sample budget');
     const all = d => [...d.entities, ...d.blocks.flatMap(b => b.entities)].flatMap(e => [e, ...(e.attributes || [])]);
     const targets = new Map(all(preview).map(e => [e.id, e]));
-    let compared = 0, changed = 0, maxDeltaE = 0, maxChannelError = 0;
-    const samples = [];
+    let compared = 0, changed = 0, missing = 0, invalid = 0, unresolved = 0, maxDeltaE = 0, maxChannelError = 0, opacityCompared = 0, opacityChanged = 0, maxOpacityError = 0;
+    const samples = [], sample = value => { if (samples.length < maxSamples)
+        samples.push(value); };
+    const valid = c => (Array.isArray(c) || ArrayBuffer.isView(c)) && c.length === 3 && Array.from(c).every(v => Number.isFinite(v) && v >= 0 && v <= 255);
     for (const e of all(original)) {
         const target = targets.get(e.id);
-        if (!e.color || !target?.color)
+        if (!target) {
+            missing++;
+            sample({ id: e.id, reason: 'missing-exported-entity' });
             continue;
-        const a = normalizeRgb(e.color), b = normalizeRgb(target.color), error = Math.max(...a.map((v, i) => Math.abs(v - b[i])));
-        compared++;
-        maxChannelError = Math.max(maxChannelError, error);
-        if (error) {
-            changed++;
-            const deltaE = deltaE2000(srgbToLab(a), srgbToLab(b));
-            maxDeltaE = Math.max(maxDeltaE, deltaE);
-            if (samples.length < maxSamples)
-                samples.push({ id: e.id, source: a, exported: b, deltaE2000: deltaE });
+        }
+        if (e.color == null) {
+            unresolved++;
+            sample({ id: e.id, reason: 'inherited-color-not-audited' });
+        }
+        else if (!valid(e.color) || !valid(target.color)) {
+            invalid++;
+            sample({ id: e.id, reason: 'missing-or-invalid-rgb' });
+        }
+        else {
+            const a = normalizeRgb(e.color), b = normalizeRgb(target.color), error = Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+            compared++;
+            maxChannelError = Math.max(maxChannelError, error);
+            if (error) {
+                changed++;
+                const deltaE = deltaE2000(srgbToLab(a), srgbToLab(b));
+                maxDeltaE = Math.max(maxDeltaE, deltaE);
+                sample({ id: e.id, reason: 'rgb-quantization-or-change', source: a, exported: b, deltaE2000: deltaE });
+            }
+        }
+        const a = e.opacity ?? 1, b = target.opacity ?? 1;
+        if (!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || a > 1 || b < 0 || b > 1) {
+            invalid++;
+            sample({ id: e.id, reason: 'invalid-opacity' });
+            continue;
+        }
+        opacityCompared++;
+        const error = Math.abs(a - b);
+        maxOpacityError = Math.max(maxOpacityError, error);
+        if (error > 1e-12) {
+            opacityChanged++;
+            sample({ id: e.id, reason: 'opacity-quantization-or-loss', sourceOpacity: a, exportedOpacity: b, error });
         }
     }
-    return { space: 'sRGB', metric: 'CIEDE2000 / D65', compared, changed, maxChannelError, maxDeltaE, samples, exact: changed === 0, profilePolicy: 'PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.' };
+    const complete = missing === 0 && invalid === 0 && unresolved === 0, rgbExact = complete && changed === 0, opacityExact = opacityChanged === 0 && missing === 0 && invalid === 0;
+    return { space: 'sRGB', metric: 'CIEDE2000 / D65', compared, changed, missing, invalid, unresolved, complete, rgbExact,
+        maxChannelError, maxDeltaE, opacityCompared, opacityChanged, maxOpacityError, opacityExact, samples, exact: rgbExact && opacityExact,
+        profilePolicy: 'PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.',
+        scope: 'Explicit entity RGB and opacity; not a proof of PDF blend modes, overprint, image profiles, or inherited CAD colors.' };
 }
 
 },
@@ -1479,7 +1515,7 @@ class ConversionEngine {
         if (!roundtripValidation.valid)
             throw new Error('Serialized DXF failed round-trip validation: ' + roundtripValidation.errors.join('; '));
         checkpoint('roundtripMs');
-        const report = { schema: 'revector.report/1', version: '0.2.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, ocr: scene.ocr || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const report = { schema: 'revector.report/1', version: '0.3.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, ocr: scene.ocr || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
     }
@@ -2382,6 +2418,7 @@ exports.TesseractOcr = exports.DEFAULT_OCR_OPTIONS = exports.OCR_VERSION = void 
 exports.normalizeOcrOptions = normalizeOcrOptions;
 exports.ocrWords = ocrWords;
 exports.rotationMatrix = rotationMatrix;
+exports.deduplicateOcrWords = deduplicateOcrWords;
 exports.nativeTextBoxes = nativeTextBoxes;
 exports.wordToPaint = wordToPaint;
 exports.recoverPdfRaster = recoverPdfRaster;
@@ -2390,66 +2427,112 @@ const model_1 = require("@revector/model");
 const raster_1 = require("@revector/raster");
 const topology_1 = require("@revector/topology");
 exports.OCR_VERSION = '7.0.0';
-exports.DEFAULT_OCR_OPTIONS = Object.freeze({ scope: 'raster', languages: 'eng', dpi: 300, minConfidence: 65, preprocess: 'none', rotation: 0, traceLines: false, maxPixels: 24_000_000, maxRegions: 128, maxWords: 25000, timeoutMs: 120000 });
+exports.DEFAULT_OCR_OPTIONS = Object.freeze({ scope: 'raster', languages: 'eng', dpi: 300, minConfidence: 65, preprocess: 'none', rotation: 0, traceLines: false, maxPixels: 24_000_000, maxRegions: 128, maxWords: 25000, timeoutMs: 120000, tileSize: 2048, tileOverlap: 96, maxTiles: 256, deskew: false });
 function normalizeOcrOptions(input = {}) {
     const o = { ...exports.DEFAULT_OCR_OPTIONS, ...input };
     if (!/^[a-z][a-z0-9_]{1,23}(\+[a-z][a-z0-9_]{1,23}){0,7}$/.test(o.languages))
         throw new RangeError('Invalid OCR language codes');
     if (!['raster', 'page'].includes(o.scope) || !['none', 'otsu', 'sauvola'].includes(o.preprocess) || ![0, 90, 180, 270].includes(o.rotation))
         throw new RangeError('Invalid OCR mode');
-    for (const [key, min, max] of [['dpi', 72, 600], ['minConfidence', 0, 100], ['maxPixels', 1, 48_000_000], ['maxRegions', 1, 1024], ['maxWords', 1, 100000], ['timeoutMs', 1000, 600000]])
+    for (const [key, min, max] of [['dpi', 72, 600], ['minConfidence', 0, 100], ['maxPixels', 1, 48_000_000], ['maxRegions', 1, 1024], ['maxWords', 1, 100000], ['timeoutMs', 1000, 600000], ['tileSize', 256, 8192], ['tileOverlap', 0, 2048], ['maxTiles', 1, 4096]])
         if (!Number.isFinite(o[key]) || o[key] < min || o[key] > max)
             throw new RangeError('Invalid OCR ' + key);
+    for (const key of ['maxRegions', 'maxWords', 'tileSize', 'tileOverlap', 'maxTiles'])
+        if (!Number.isInteger(o[key]))
+            throw new RangeError('OCR ' + key + ' must be an integer');
+    if (o.tileOverlap * 2 >= o.tileSize)
+        throw new RangeError('OCR overlap must be smaller than half a tile');
+    if (o.tileSize * o.tileSize > o.maxPixels)
+        o.tileSize = Math.max(256, Math.floor(Math.sqrt(o.maxPixels)));
+    if (o.tileSize * o.tileSize > o.maxPixels || o.tileOverlap * 2 >= o.tileSize)
+        throw new RangeError('OCR pixel budget cannot accommodate the tile settings');
     return o;
 }
 /** Injectable OCR provider. A session owns exactly one worker, serialized jobs and hard cancellation. */
 class TesseractOcr {
-    constructor(options = {}) { this.options = options; this.worker = null; this.busy = false; }
+    constructor(options = {}) { this.options = options; this.worker = null; this.busy = false; this.active = null; this.terminated = new WeakMap(); }
+    stop(worker) {
+        if (!worker || typeof worker !== 'object')
+            return Promise.resolve();
+        if (!this.terminated.has(worker))
+            this.terminated.set(worker, Promise.resolve().then(() => worker.terminate?.()).catch(() => { }));
+        return this.terminated.get(worker);
+    }
     async recognize(image, options = {}) {
         if (this.busy)
             throw new Error('OCR session is busy; await the previous recognition');
+        const timeout = options.timeoutMs ?? 120000;
+        if (!Number.isFinite(timeout) || timeout <= 0)
+            throw new RangeError('Invalid OCR deadline');
+        (0, model_1.checkAbort)(options.signal);
         this.busy = true;
-        let timer, abort;
-        const signal = options.signal;
-        let cancelled = false;
-        try {
-            (0, model_1.checkAbort)(signal);
-            const failure = new Promise((_, reject) => {
-                abort = () => { cancelled = true; void this.dispose(); reject(Object.assign(new Error('OCR cancelled'), { name: 'AbortError' })); };
-                signal?.addEventListener('abort', abort, { once: true });
-                timer = setTimeout(() => { cancelled = true; void this.dispose(); reject(new Error('OCR deadline exceeded')); }, options.timeoutMs || 120000);
-            });
-            const work = (async () => {
-                if (!this.worker) {
-                    const moduleUrl = this.options.moduleUrl;
-                    const namespace = this.options.provider || await globalThis.__revectorImport(moduleUrl);
-                    const lib = typeof namespace?.createWorker === 'function' ? namespace : namespace?.default;
-                    if (typeof lib?.createWorker !== 'function')
-                        throw new TypeError('OCR provider must export createWorker, directly or through its ES-module default export');
-                    const worker = await lib.createWorker(this.options.languages || 'eng', 1, { ...(this.options.node ? {} : { workerPath: this.options.workerPath, corePath: this.options.corePath, workerBlobURL: false }), langPath: this.options.langPath, gzip: true, logger: typeof this.options.onProgress === 'function' ? this.options.onProgress : () => { } });
-                    if (cancelled) {
-                        await worker.terminate();
-                        throw Object.assign(new Error('OCR cancelled'), { name: 'AbortError' });
-                    }
-                    this.worker = worker;
+        const token = { cancelled: false, cancel: null };
+        this.active = token;
+        let timer, localWorker = this.worker;
+        const ensureActive = () => { if (token.cancelled || this.active !== token)
+            throw Object.assign(new Error('OCR cancelled'), { name: 'AbortError' }); };
+        const failure = new Promise((_, reject) => {
+            token.cancel = (error) => {
+                if (token.cancelled)
+                    return;
+                token.cancelled = true;
+                if (this.worker === localWorker)
+                    this.worker = null;
+                void this.stop(localWorker);
+                reject(error);
+            };
+        });
+        const abort = () => token.cancel(Object.assign(new Error('OCR cancelled'), { name: 'AbortError' }));
+        options.signal?.addEventListener('abort', abort, { once: true });
+        timer = setTimeout(() => token.cancel(new Error('OCR deadline exceeded')), timeout);
+        const work = (async () => {
+            if (!localWorker) {
+                const moduleUrl = this.options.moduleUrl;
+                const namespace = this.options.provider || await globalThis.__revectorImport(moduleUrl);
+                ensureActive();
+                const lib = typeof namespace?.createWorker === 'function' ? namespace : namespace?.default;
+                if (typeof lib?.createWorker !== 'function')
+                    throw new TypeError('OCR provider must export createWorker, directly or through its ES-module default export');
+                const created = await lib.createWorker(this.options.languages || 'eng', 1, { ...(this.options.node ? {} : { workerPath: this.options.workerPath, corePath: this.options.corePath, workerBlobURL: false }),
+                    langPath: this.options.langPath, gzip: true, logger: typeof this.options.onProgress === 'function' ? this.options.onProgress : () => { } });
+                // A cancelled initialization may finish after a NEW call has started.
+                // Release only its own worker, never a newer session's worker.
+                if (token.cancelled || this.active !== token) {
+                    void this.stop(created);
+                    ensureActive();
                 }
-                await this.worker.setParameters({ tessedit_pageseg_mode: String(options.psm ?? 11), preserve_interword_spaces: '1', user_defined_dpi: String(options.dpi || 300) });
-                return (await this.worker.recognize(image, {}, { blocks: true, text: true })).data;
-            })();
+                localWorker = created;
+                if (!created || typeof created.setParameters !== 'function' || typeof created.recognize !== 'function' || typeof created.terminate !== 'function')
+                    throw new TypeError('OCR provider returned an invalid worker');
+                this.worker = created;
+            }
+            ensureActive();
+            await localWorker.setParameters({ tessedit_pageseg_mode: String(options.psm ?? 11), preserve_interword_spaces: '1', user_defined_dpi: String(options.dpi || 300) });
+            ensureActive();
+            const response = await localWorker.recognize(image, {}, { blocks: true, text: true });
+            ensureActive();
+            return response.data;
+        })();
+        try {
             return await Promise.race([work, failure]);
         }
         catch (error) {
-            await this.dispose();
+            token.cancelled = true;
+            if (this.worker === localWorker)
+                this.worker = null;
+            void this.stop(localWorker);
             throw error;
         }
         finally {
             clearTimeout(timer);
-            signal?.removeEventListener('abort', abort);
-            this.busy = false;
+            options.signal?.removeEventListener('abort', abort);
+            if (this.active === token) {
+                this.active = null;
+                this.busy = false;
+            }
         }
     }
-    async dispose() { const worker = this.worker; this.worker = null; if (worker)
-        await worker.terminate(); }
+    async dispose() { this.active?.cancel(Object.assign(new Error('OCR disposed'), { name: 'AbortError' })); const worker = this.worker; this.worker = null; await this.stop(worker); }
 }
 exports.TesseractOcr = TesseractOcr;
 function ocrWords(data) {
@@ -2474,6 +2557,31 @@ function rotationMatrix(rotation, width, height) {
     if (rotation === 270)
         return [0, -1, 1, 0, 0, width];
     throw new RangeError('OCR rotation must be a quarter-turn');
+}
+/** Confidence-ordered spatial NMS for overlapping tiles. Text disagreement is
+ * retained unless boxes almost coincide. Equal labels at distinct positions remain. */
+function deduplicateOcrWords(words, { maxComparisons = 1000000 } = {}) {
+    const box = w => [w.bbox.x0, w.bbox.y0, w.bbox.x1, w.bbox.y1], records = words.map((word, index) => ({ word, index, box: box(word) }));
+    const index = new topology_1.SpatialIndex(records, r => r.box), suppressed = new Set(), keptIds = new Set(), kept = [];
+    let work = 0;
+    const normalize = s => String(s).normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+    records.sort((a, b) => (Number.isFinite(b.word.confidence) ? b.word.confidence : -1) - (Number.isFinite(a.word.confidence) ? a.word.confidence : -1) || a.index - b.index);
+    for (const record of records) {
+        if (suppressed.has(record.index))
+            continue;
+        kept.push(record);
+        keptIds.add(record.index);
+        for (const other of index.search(record.box)) {
+            if (++work > maxComparisons)
+                throw new RangeError('OCR duplicate comparison budget exceeded');
+            if (other === record || suppressed.has(other.index) || keptIds.has(other.index))
+                continue;
+            const common = overlap(record.box, other.box), reverse = overlap(other.box, record.box), same = normalize(record.word.text) === normalize(other.word.text);
+            if (Math.min(common, reverse) > (same ? .55 : .92))
+                suppressed.add(other.index);
+        }
+    }
+    return kept.sort((a, b) => a.box[1] - b.box[1] || a.box[0] - b.box[0] || a.index - b.index).map(r => r.word);
 }
 function canvasPath(ctx, paths) { ctx.beginPath(); for (const p of paths) {
     ctx.moveTo(...p.start);
@@ -2513,10 +2621,23 @@ function wordToPaint(word, pixelToPdf, { page = 1, regionId = 'r0', color = [0, 
 /** Recognizes composited visible raster regions; vector extraction is untouched.
  * PDF.js performs image decoding, ICC transforms, soft masks and page rotation before OCR. */
 async function recoverPdfRaster(source, scene, input = {}) {
+    const canvases = new Set(), factory = input.canvasFactory || canvasFactory;
+    const make = (width, height) => { const canvas = factory(width, height); canvases.add(canvas); return canvas; };
+    try {
+        return await recoverRasterCore(source, scene, { ...input, canvasFactory: make });
+    }
+    finally {
+        for (const canvas of canvases) {
+            canvas.width = 1;
+            canvas.height = 1;
+        }
+    }
+}
+async function recoverRasterCore(source, scene, input = {}) {
     const o = normalizeOcrOptions(input), signal = o.signal, make = o.canvasFactory || canvasFactory, regions = (0, raster_1.rasterRegions)(scene, o);
     const out = structuredClone(scene);
     out.items = out.items.filter(i => !i.ocr && !i.rasterInference);
-    out.ocr = { engine: 'tesseract.js', version: exports.OCR_VERSION, options: Object.fromEntries(Object.entries(o).filter(([k, v]) => !['signal', 'provider', 'canvasFactory', 'session', 'onProgress'].includes(k) && typeof v !== 'function')), accepted: 0, rejected: 0, duplicates: 0, regions: regions.length, lines: 0, rejectedWords: [] };
+    out.ocr = { engine: 'tesseract.js', version: exports.OCR_VERSION, options: Object.fromEntries(Object.entries(o).filter(([k, v]) => !['signal', 'provider', 'canvasFactory', 'session', 'onProgress'].includes(k) && typeof v !== 'function')), accepted: 0, rejected: 0, duplicates: 0, regions: regions.length, lines: 0, rejectedWords: [], tiles: 0, tileDuplicates: 0, deskew: [] };
     if (!regions.length) {
         out.diagnostics.push((0, model_1.diagnostic)('OCR_NO_RASTER', 'No visible raster content was found. Native PDF text was not OCR processed.', 'info'));
         return out;
@@ -2552,53 +2673,134 @@ async function recoverPdfRaster(source, scene, input = {}) {
                     ctx.drawImage(full, -x, -y);
                     ctx.restore();
                 }
-            const R = rotationMatrix(o.rotation, w, h), rotated = make(o.rotation % 180 ? h : w, o.rotation % 180 ? w : h), rc = rotated.getContext('2d', { willReadFrequently: true });
-            rc.setTransform(...R);
-            rc.drawImage(crop, 0, 0);
-            rc.resetTransform();
-            const original = rc.getImageData(0, 0, rotated.width, rotated.height), localToGlobal = (0, geometry_1.compose)([1, 0, 0, 1, x, y], (0, geometry_1.inverse)(R)), localToPdf = (0, geometry_1.compose)(pixelToPdf, localToGlobal);
-            let binary;
-            if (o.preprocess !== 'none') {
-                binary = (0, raster_1.binarize)(original, { method: o.preprocess, invert: !!o.invert, signal, maxPixels: o.maxPixels });
-                const clean = (0, raster_1.binaryRgba)(binary, original.width, original.height), image = rc.createImageData(clean.width, clean.height);
-                image.data.set(clean.data);
-                rc.putImageData(image, 0, 0);
-            }
-            const data = await session.recognize(typeof rotated.toBuffer === 'function' ? rotated.toBuffer('image/png') : rotated, { ...o, signal }), words = ocrWords(data);
-            if (out.ocr.accepted + out.ocr.rejected + out.ocr.duplicates + words.length > o.maxWords)
-                throw new RangeError('OCR word budget exceeded');
-            const wordBoxes = [];
-            for (const word of words) {
-                const box = [word.bbox.x0, word.bbox.y0, word.bbox.x1, word.bbox.y1];
-                wordBoxes.push(box);
-                const global = (0, geometry_1.transformBox)(box, localToGlobal);
-                if (native.search(global).some(b => (0, geometry_1.intersects)(global, b) && overlap(global, b) > .6)) {
-                    out.ocr.duplicates++;
-                    continue;
+            const R = rotationMatrix(o.rotation, w, h), oriented = make(o.rotation % 180 ? h : w, o.rotation % 180 ? w : h), oc = oriented.getContext('2d', { willReadFrequently: true });
+            oc.setTransform(...R);
+            oc.drawImage(crop, 0, 0);
+            oc.resetTransform();
+            let rotated = oriented, applied = R;
+            try {
+                if (o.deskew) {
+                    // Analyze a small thumbnail so the angular sweep has bounded cost.
+                    const ds = Math.min(1, 1400 / Math.max(oriented.width, oriented.height)), small = make(Math.max(1, Math.round(oriented.width * ds)), Math.max(1, Math.round(oriented.height * ds)));
+                    const sc = small.getContext('2d', { willReadFrequently: true });
+                    sc.drawImage(oriented, 0, 0, small.width, small.height);
+                    const binary = (0, raster_1.binarize)(sc.getImageData(0, 0, small.width, small.height), { signal, invert: !!o.invert });
+                    const skew = (0, raster_1.estimateSkew)(binary, small.width, small.height, { signal });
+                    small.width = small.height = 1;
+                    const skewRecord = { region: ri, ...skew, scale: 1 };
+                    out.ocr.deskew.push(skewRecord);
+                    if (skew.angle) {
+                        const correction = (0, raster_1.boundedRotation)(-skew.angle, oriented.width, oriented.height, o.maxPixels);
+                        skewRecord.scale = correction.scale;
+                        rotated = make(correction.width, correction.height);
+                        const dc = rotated.getContext('2d');
+                        dc.fillStyle = '#fff';
+                        dc.fillRect(0, 0, rotated.width, rotated.height);
+                        dc.setTransform(...correction.matrix);
+                        dc.drawImage(oriented, 0, 0);
+                        dc.resetTransform();
+                        applied = (0, geometry_1.compose)(correction.matrix, R);
+                    }
                 }
-                if (!Number.isFinite(word.confidence) || word.confidence < o.minConfidence) {
-                    out.ocr.rejected++;
-                    if (out.ocr.rejectedWords.length < 200)
-                        out.ocr.rejectedWords.push({ text: word.text, confidence: word.confidence ?? 0, box, region: ri });
-                    continue;
+                const rc = rotated.getContext('2d', { willReadFrequently: true }), localToGlobal = (0, geometry_1.compose)([1, 0, 0, 1, x, y], (0, geometry_1.inverse)(applied)), localToPdf = (0, geometry_1.compose)(pixelToPdf, localToGlobal);
+                if (out.ocr.tiles >= o.maxTiles)
+                    throw new RangeError('OCR tile budget exceeded');
+                const tiles = (0, raster_1.planRasterTiles)(rotated.width, rotated.height, { tileSize: o.tileSize, overlap: o.tileOverlap, maxTiles: o.maxTiles - out.ocr.tiles });
+                const candidates = [], lineCandidates = [];
+                for (let ti = 0; ti < tiles.length; ti++) {
+                    (0, model_1.checkAbort)(signal);
+                    out.ocr.tiles++;
+                    const tile = tiles[ti], canvas = make(tile.width, tile.height), tc = canvas.getContext('2d', { willReadFrequently: true });
+                    try {
+                        tc.drawImage(rotated, -tile.x, -tile.y);
+                        const original = tc.getImageData(0, 0, tile.width, tile.height);
+                        let binary;
+                        if (o.preprocess !== 'none') {
+                            binary = (0, raster_1.binarize)(original, { method: o.preprocess, invert: !!o.invert, signal, maxPixels: o.maxPixels });
+                            const clean = (0, raster_1.binaryRgba)(binary, tile.width, tile.height), image = tc.createImageData(tile.width, tile.height);
+                            image.data.set(clean.data);
+                            tc.putImageData(image, 0, 0);
+                        }
+                        else if (o.invert) {
+                            const image = tc.createImageData(tile.width, tile.height);
+                            image.data.set(original.data);
+                            for (let j = 0; j < image.data.length; j += 4)
+                                for (let k = 0; k < 3; k++)
+                                    image.data[j + k] = 255 - image.data[j + k];
+                            tc.putImageData(image, 0, 0);
+                        }
+                        o.onProgress?.({ phase: 'ocr-tile', done: ti, total: tiles.length });
+                        const data = await session.recognize(typeof canvas.toBuffer === 'function' ? canvas.toBuffer('image/png') : canvas, { ...o, signal }), words = ocrWords(data);
+                        if (out.ocr.accepted + out.ocr.rejected + out.ocr.duplicates + out.ocr.tileDuplicates + candidates.length + words.length > o.maxWords)
+                            throw new RangeError('OCR word budget exceeded');
+                        for (const word of words) {
+                            const b = word.bbox, box = [b.x0, b.y0, b.x1, b.y1];
+                            if (b.x0 < 0 || b.y0 < 0 || b.x1 > tile.width || b.y1 > tile.height)
+                                continue;
+                            const baseline = word.lineBaseline;
+                            candidates.push({ ...word, bbox: { x0: b.x0 + tile.x, y0: b.y0 + tile.y, x1: b.x1 + tile.x, y1: b.y1 + tile.y },
+                                lineBaseline: baseline ? { x0: baseline.x0 + tile.x, y0: baseline.y0 + tile.y, x1: baseline.x1 + tile.x, y1: baseline.y1 + tile.y } : undefined,
+                                sampledColor: inkColor(original, box), tile: ti });
+                        }
+                        if (o.traceLines) {
+                            binary ||= (0, raster_1.binarize)(original, { signal, invert: !!o.invert });
+                            for (const word of words) {
+                                const b = word.bbox;
+                                for (let py = Math.max(0, Math.floor(b.y0) - 2); py < Math.min(tile.height, Math.ceil(b.y1) + 2); py++)
+                                    for (let px = Math.max(0, Math.floor(b.x0) - 2); px < Math.min(tile.width, Math.ceil(b.x1) + 2); px++)
+                                        binary[py * tile.width + px] = 0;
+                            }
+                            for (const line of (0, raster_1.detectRasterLines)(binary, tile.width, tile.height, { minLength: Math.max(24, scale * 15), maxThickness: Math.max(3, Math.round(scale * 3)), signal })) {
+                                // Clip inferred lines to disjoint ownership cells; halo duplicates
+                                // must not introduce double strokes in the exported drawing.
+                                let start = [line.start[0] + tile.x, line.start[1] + tile.y], end = [line.end[0] + tile.x, line.end[1] + tile.y];
+                                const vertical = start[0] === end[0], axis = vertical ? 1 : 0, other = 1 - axis;
+                                if (start[other] < tile.core[other] || start[other] >= tile.core[other + 2])
+                                    continue;
+                                start[axis] = Math.max(start[axis], tile.core[axis]);
+                                end[axis] = Math.min(end[axis], tile.core[axis + 2]);
+                                if (end[axis] - start[axis] < 1)
+                                    continue;
+                                lineCandidates.push({ ...line, start, end });
+                                if (lineCandidates.length > 100000)
+                                    throw new RangeError('OCR line budget exceeded');
+                            }
+                        }
+                    }
+                    finally {
+                        canvas.width = canvas.height = 1;
+                    }
                 }
-                out.items.push(wordToPaint(word, localToPdf, { page: scene.pageNumber, regionId: String(ri), imageIds: region.items.map(i => i.id), color: inkColor(original, box) }));
-                out.ocr.accepted++;
-            }
-            if (o.traceLines) {
-                binary ||= (0, raster_1.binarize)(original, { signal });
-                for (const b of wordBoxes) {
-                    for (let py = Math.max(0, Math.floor(b[1]) - 2); py < Math.min(original.height, Math.ceil(b[3]) + 2); py++)
-                        for (let px = Math.max(0, Math.floor(b[0]) - 2); px < Math.min(original.width, Math.ceil(b[2]) + 2); px++)
-                            binary[py * original.width + px] = 0;
+                const recovered = deduplicateOcrWords(candidates);
+                out.ocr.tileDuplicates += candidates.length - recovered.length;
+                for (const word of recovered) {
+                    const b = word.bbox, box = [b.x0, b.y0, b.x1, b.y1], global = (0, geometry_1.transformBox)(box, localToGlobal);
+                    if (native.search(global).some(b => (0, geometry_1.intersects)(global, b) && overlap(global, b) > .6)) {
+                        out.ocr.duplicates++;
+                        continue;
+                    }
+                    if (!Number.isFinite(word.confidence) || word.confidence < o.minConfidence) {
+                        out.ocr.rejected++;
+                        if (out.ocr.rejectedWords.length < 200)
+                            out.ocr.rejectedWords.push({ text: word.text, confidence: word.confidence ?? 0, box, region: ri });
+                        continue;
+                    }
+                    const item = wordToPaint(word, localToPdf, { page: scene.pageNumber, regionId: String(ri), imageIds: (region.wholePage ? out.items.filter(i => i.kind === 'image' && i.visible !== false) : region.items).map(i => i.id), color: word.sampledColor });
+                    item.ocr.tile = word.tile;
+                    item.ocr.deskew = out.ocr.deskew.find(d => d.region === ri) || null;
+                    out.items.push(item);
+                    out.ocr.accepted++;
                 }
-                for (const line of (0, raster_1.detectRasterLines)(binary, original.width, original.height, { minLength: Math.max(24, scale * 15), maxThickness: Math.max(3, Math.round(scale * 3)), signal })) {
+                for (const line of lineCandidates) {
                     const start = (0, geometry_1.transform)(localToPdf, line.start), end = (0, geometry_1.transform)(localToPdf, line.end);
-                    out.items.push({ id: `raster-line-${ri}-${out.ocr.lines++}`, kind: 'path', operator: -1, visible: true, layerId: 'REVECTOR_RASTER_LINES', paths: [{ start, segments: [{ kind: 'L', to: end }], closed: false }], stroke: true, fill: false, clips: [], formPath: [], style: { stroke: [0, 0, 0], lineWidth: line.thickness / scale, strokeAlpha: 1, dash: [] }, rasterInference: { method: 'axis-runs', confidence: line.confidence } });
+                    out.items.push({ id: `raster-line-${ri}-${out.ocr.lines++}`, kind: 'path', operator: -1, visible: true, layerId: 'REVECTOR_RASTER_LINES', paths: [{ start, segments: [{ kind: 'L', to: end }], closed: false }], stroke: true, fill: false, clips: [], formPath: [], style: { stroke: [0, 0, 0], lineWidth: line.thickness * Math.hypot(localToPdf[0], localToPdf[1]), strokeAlpha: 1, dash: [] }, rasterInference: { method: 'axis-runs', confidence: line.confidence } });
                 }
             }
-            crop.width = crop.height = 1;
-            rotated.width = rotated.height = 1;
+            finally {
+                crop.width = crop.height = 1;
+                oriented.width = oriented.height = 1;
+                rotated.width = rotated.height = 1;
+            }
         }
     }
     finally {
@@ -3397,9 +3599,107 @@ exports.OPS = Object.freeze({ dependency: 1, setLineWidth: 2, setLineCap: 3, set
 exports.DRAW_OPS = { moveTo: 0, lineTo: 1, curveTo: 2, quadraticCurveTo: 3, closePath: 4 };
 
 },
+"@revector/raster/analysis.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.planRasterTiles = planRasterTiles;
+exports.estimateSkew = estimateSkew;
+exports.boundedRotation = boundedRotation;
+const model_1 = require("@revector/model");
+/** Disjoint ownership rectangles plus overlapping OCR halos. Each allocated tile is
+ * at most tileSize²; reject the entire plan before allocating any tile over budget. */
+function planRasterTiles(width, height, { tileSize = 2048, overlap = 96, maxTiles = 256 } = {}) {
+    for (const [name, value, min, max] of [['width', width, 1, 1000000], ['height', height, 1, 1000000], ['tileSize', tileSize, 256, 8192], ['overlap', overlap, 0, 2048], ['maxTiles', maxTiles, 1, 4096]])
+        if (!Number.isInteger(value) || value < min || value > max)
+            throw new RangeError('Invalid tile ' + name);
+    if (overlap * 2 >= tileSize)
+        throw new RangeError('Tile overlap must be less than half tile size');
+    if (width <= tileSize && height <= tileSize)
+        return [{ x: 0, y: 0, width, height, core: [0, 0, width, height] }];
+    const stride = tileSize - 2 * overlap, columns = Math.ceil(width / stride), rows = Math.ceil(height / stride);
+    if (columns * rows > maxTiles)
+        throw new RangeError('OCR tile budget exceeded');
+    const out = [];
+    for (let y = 0; y < height; y += stride)
+        for (let x = 0; x < width; x += stride) {
+            const x0 = Math.max(0, x - overlap), y0 = Math.max(0, y - overlap), x1 = Math.min(width, x + stride + overlap), y1 = Math.min(height, y + stride + overlap);
+            out.push({ x: x0, y: y0, width: x1 - x0, height: y1 - y0, core: [x, y, Math.min(width, x + stride), Math.min(height, y + stride)] });
+        }
+    return out;
+}
+/** Bounded projection-profile skew estimator. Returns the detected clockwise text
+ * angle in image coordinates; correction rotates by its negative. Not an OSD engine.
+ * Sparse pages, drawings, or scores without a pronounced peak retain angle zero. */
+function estimateSkew(binary, width, height, { maxAngle = 12, step = .5, maxSamples = 40000, signal } = {}) {
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || binary.length !== width * height)
+        throw new RangeError('Invalid skew raster');
+    if (!Number.isFinite(maxAngle) || maxAngle < 0 || maxAngle > 20 || !Number.isFinite(step) || step < .1 || step > 2 || !Number.isInteger(maxSamples) || maxSamples < 100 || maxSamples > 100000)
+        throw new RangeError('Invalid skew budget');
+    (0, model_1.checkAbort)(signal);
+    let count = 0;
+    for (let i = 0; i < binary.length; i++)
+        if (binary[i])
+            count++;
+    if (count < 100 || maxAngle === 0)
+        return { angle: 0, confidence: 0, samples: count, reason: 'insufficient-ink' };
+    const stride = Math.max(1, Math.ceil(count / maxSamples)), xs = [], ys = [];
+    let seen = 0;
+    for (let y = 0; y < height; y++) {
+        (0, model_1.checkAbort)(signal);
+        for (let x = 0; x < width; x++)
+            if (binary[y * width + x] && seen++ % stride === 0) {
+                xs.push(x);
+                ys.push(y);
+            }
+    }
+    const bins = new Uint32Array(Math.ceil(Math.hypot(width, height) * 2) + 8), offset = bins.length >> 1;
+    function score(angle) {
+        (0, model_1.checkAbort)(signal);
+        bins.fill(0);
+        const a = angle * Math.PI / 180, s = Math.sin(a), c = Math.cos(a);
+        for (let i = 0; i < xs.length; i++)
+            bins[Math.round(-xs[i] * s + ys[i] * c) + offset]++;
+        let value = 0;
+        for (const n of bins)
+            value += n * n;
+        return value;
+    }
+    const scores = [];
+    let best = { angle: 0, value: score(0) };
+    for (let a = -maxAngle; a <= maxAngle + 1e-8; a += step) {
+        const value = score(a);
+        scores.push(value);
+        if (value > best.value)
+            best = { angle: a, value };
+    }
+    const median = [...scores].sort((a, b) => a - b)[scores.length >> 1], confidence = Math.max(0, Math.min(1, (best.value / Math.max(1, median) - 1) / 2));
+    if (confidence < .12 || Math.abs(best.angle) >= maxAngle - .01)
+        return { angle: 0, confidence, samples: xs.length, reason: 'ambiguous-projection' };
+    const center = best.angle;
+    for (let a = center - step; a <= center + step + 1e-8; a += step / 5)
+        if (Math.abs(a) <= maxAngle) {
+            const value = score(a);
+            if (value > best.value)
+                best = { angle: a, value };
+        }
+    return { angle: Math.abs(best.angle) < .15 ? 0 : Math.round(best.angle * 1000) / 1000, confidence, samples: xs.length, reason: 'projection-peak' };
+}
+/** Rotate an image without clipping, with an allocation cap and explicit affine map. */
+function boundedRotation(angle, width, height, maxPixels = 24000000) {
+    if (!Number.isFinite(angle) || !Number.isFinite(maxPixels) || maxPixels < 1 || !Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1)
+        throw new RangeError('Invalid rotation');
+    const a = angle * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), corners = [[0, 0], [width, 0], [width, height], [0, height]].map(([x, y]) => [c * x - s * y, s * x + c * y]);
+    const minX = Math.min(...corners.map(p => p[0])), minY = Math.min(...corners.map(p => p[1]));
+    const w = Math.max(...corners.map(p => p[0])) - minX, h = Math.max(...corners.map(p => p[1])) - minY;
+    const scale = Math.min(1, Math.sqrt(maxPixels / ((w + 1) * (h + 1))));
+    return { width: Math.max(1, Math.ceil(w * scale - 1e-7)), height: Math.max(1, Math.ceil(h * scale - 1e-7)), scale, matrix: [c * scale, s * scale, -s * scale, c * scale, -minX * scale, -minY * scale] };
+}
+
+},
 "@revector/raster":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.boundedRotation = exports.estimateSkew = exports.planRasterTiles = void 0;
 exports.validateRaster = validateRaster;
 exports.grayscale = grayscale;
 exports.otsu = otsu;
@@ -3583,6 +3883,10 @@ function detectRasterLines(binary, width, height, { minLength = 60, maxThickness
     }
     return result;
 }
+var analysis_js_1 = require("@revector/raster/analysis.js");
+Object.defineProperty(exports, "planRasterTiles", { enumerable: true, get: function () { return analysis_js_1.planRasterTiles; } });
+Object.defineProperty(exports, "estimateSkew", { enumerable: true, get: function () { return analysis_js_1.estimateSkew; } });
+Object.defineProperty(exports, "boundedRotation", { enumerable: true, get: function () { return analysis_js_1.boundedRotation; } });
 
 },
 "@revector/renderer":(require,module,exports)=>{
@@ -4298,6 +4602,8 @@ exports.detectDiagram = detectDiagram;
 exports.detectParallelBoundaries = detectParallelBoundaries;
 exports.detectConcentric = detectConcentric;
 exports.detectLeaders = detectLeaders;
+exports.detectBorderlessTables = detectBorderlessTables;
+exports.detectLists = detectLists;
 const model_1 = require("@revector/model");
 const geometry_1 = require("@revector/geometry");
 const topology_1 = require("@revector/topology");
@@ -4307,6 +4613,7 @@ const expand = (b, d) => [b[0] - d, b[1] - d, b[2] + d, b[3] + d];
 const center = b => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
 const unique = es => [...new Map(es.map(e => [e.id, e])).values()];
 function context(document, options = {}) {
+    (0, model_1.checkAbort)(options.signal);
     if (document.entities.length > (options.maxAnalysisEntities ?? 150000))
         throw new RangeError('Document analysis entity budget exceeded');
     const texts = document.entities.filter(e => textTypes.has(e.type) && String(e.text || '').trim()), h = median(texts.map(e => e.height).filter(h => h > 0));
@@ -4345,6 +4652,7 @@ function detectTables(document, options = {}) {
     const index = new topology_1.SpatialIndex(axis, s => expand(s.box, tol)), seen = new Set();
     let checks = 0;
     for (const seed of axis) {
+        (0, model_1.checkAbort)(options.signal);
         if (seen.has(seed))
             continue;
         const queue = [seed], component = [];
@@ -4353,7 +4661,7 @@ function detectTables(document, options = {}) {
             const s = queue.pop();
             component.push(s);
             if (component.length > 1024)
-                break;
+                throw new RangeError('Table component budget exceeded');
             for (const t of index.search(expand(s.box, tol))) {
                 if (++checks > 2_000_000)
                     throw new RangeError('Table intersection budget exceeded');
@@ -4368,13 +4676,23 @@ function detectTables(document, options = {}) {
         const hs = component.filter(s => Math.abs(s.a[1] - s.b[1]) <= tol), vs = component.filter(s => Math.abs(s.a[0] - s.b[0]) <= tol), xs = cluster(vs.map(s => s.a[0]), tol), ys = cluster(hs.map(s => s.a[1]), tol);
         if (xs.length < 2 || ys.length < 2 || xs.length * ys.length > 4096)
             continue;
-        const covers = (ss, coord, lo, hi, horizontal) => { const ranges = ss.filter(s => Math.abs(s.a[horizontal ? 1 : 0] - coord) <= tol).map(s => [Math.min(s.a[horizontal ? 0 : 1], s.b[horizontal ? 0 : 1]), Math.max(s.a[horizontal ? 0 : 1], s.b[horizontal ? 0 : 1])]).sort((a, b) => a[0] - b[0]); let end = lo; for (const [a, b] of ranges) {
-            if (a > end + tol)
-                break;
-            if (b > end)
-                end = b;
-        } return end >= hi - tol; };
-        if (!xs.every(x => covers(vs, x, ys[0], ys.at(-1), false)) || !ys.every(y => covers(hs, y, xs[0], xs.at(-1), true)))
+        // Missing internal separators join elementary cells. Partial separators are
+        // ambiguous: reject rather than fabricate a cell edge or truncate a stroke.
+        const coverage = (ss, coord, lo, hi, horizontal) => {
+            const ranges = ss.filter(s => Math.abs(s.a[horizontal ? 1 : 0] - coord) <= tol)
+                .map(s => [Math.max(lo, s.box[horizontal ? 0 : 1]), Math.min(hi, s.box[horizontal ? 2 : 3])])
+                .filter(([a, b]) => b > a + tol).sort((a, b) => a[0] - b[0]);
+            let end = lo, covered = 0;
+            for (const [a, b] of ranges) {
+                covered += Math.max(0, b - Math.max(end, a));
+                end = Math.max(end, b);
+            }
+            return covered <= tol ? 'absent' : covered >= hi - lo - tol ? 'complete' : 'partial';
+        };
+        if (coverage(vs, xs[0], ys[0], ys.at(-1), false) !== 'complete' ||
+            coverage(vs, xs.at(-1), ys[0], ys.at(-1), false) !== 'complete' ||
+            coverage(hs, ys[0], xs[0], xs.at(-1), true) !== 'complete' ||
+            coverage(hs, ys.at(-1), xs[0], xs.at(-1), true) !== 'complete')
             continue;
         const box = [xs[0], ys[0], xs.at(-1), ys.at(-1)];
         if (component.some(s => !(0, geometry_1.containsBox)(box, s.box, tol)))
@@ -4382,13 +4700,51 @@ function detectTables(document, options = {}) {
         const inside = c.index.search(box).filter(e => (0, geometry_1.containsBox)(box, (0, model_1.entityBox)(e, document), tol));
         if (!inside.length)
             continue;
-        const cells = [];
-        for (let y = ys.length - 2; y >= 0; y--)
-            for (let x = 0; x < xs.length - 1; x++) {
-                const b = [xs[x], ys[y], xs[x + 1], ys[y + 1]], texts = inside.filter(e => { const p = center((0, model_1.entityBox)(e, document)); return p[0] >= b[0] && p[0] < b[2] && p[1] >= b[1] && p[1] < b[3]; }).sort((a, b) => b.position[1] - a.position[1] || a.position[0] - b.position[0]);
-                cells.push({ row: ys.length - 2 - y, column: x, bounds: b, text: texts.map(e => e.text).join(' '), entities: texts.map(e => e.id) });
+        const columns = xs.length - 1, rows = ys.length - 1, sets = new topology_1.DisjointSet(columns * rows), barriers = [];
+        let ambiguous = false;
+        for (let y = 0; y < rows; y++)
+            for (let x = 1; x < columns; x++) {
+                const a = y * columns + x - 1, b = a + 1, status = coverage(vs, xs[x], ys[y], ys[y + 1], false);
+                if (status === 'partial')
+                    ambiguous = true;
+                else if (status === 'absent')
+                    sets.union(a, b);
+                else
+                    barriers.push([a, b]);
             }
-        bounded(out, proposal('table-grid', `Table grid · ${ys.length - 1} rows × ${xs.length - 1} columns`, [...component.map(s => s.e), ...inside], { bounds: box, rows: ys.length - 1, columns: xs.length - 1, cells }, .94));
+        for (let y = 1; y < rows; y++)
+            for (let x = 0; x < columns; x++) {
+                const a = (y - 1) * columns + x, b = y * columns + x, status = coverage(hs, ys[y], xs[x], xs[x + 1], true);
+                if (status === 'partial')
+                    ambiguous = true;
+                else if (status === 'absent')
+                    sets.union(a, b);
+                else
+                    barriers.push([a, b]);
+            }
+        if (ambiguous || barriers.some(([a, b]) => sets.find(a) === sets.find(b)))
+            continue;
+        const regions = new Map();
+        for (let y = 0; y < rows; y++)
+            for (let x = 0; x < columns; x++) {
+                const key = sets.find(y * columns + x), r = regions.get(key) || { x0: x, y0: y, x1: x + 1, y1: y + 1, count: 0 };
+                r.x0 = Math.min(r.x0, x);
+                r.x1 = Math.max(r.x1, x + 1);
+                r.y0 = Math.min(r.y0, y);
+                r.y1 = Math.max(r.y1, y + 1);
+                r.count++;
+                regions.set(key, r);
+            }
+        if ([...regions.values()].some(r => (r.x1 - r.x0) * (r.y1 - r.y0) !== r.count))
+            continue;
+        const cells = [...regions.values()].map(r => {
+            const b = [xs[r.x0], ys[r.y0], xs[r.x1], ys[r.y1]], texts = inside.filter(e => {
+                const p = center((0, model_1.entityBox)(e, document));
+                return p[0] >= b[0] && p[0] < b[2] && p[1] >= b[1] && p[1] < b[3];
+            }).sort((a, b) => b.position[1] - a.position[1] || a.position[0] - b.position[0]);
+            return { row: rows - r.y1, column: r.x0, rowSpan: r.y1 - r.y0, columnSpan: r.x1 - r.x0, bounds: b, text: texts.map(e => e.text).join(' '), entities: texts.map(e => e.id) };
+        }).sort((a, b) => a.row - b.row || a.column - b.column);
+        bounded(out, proposal('table-grid', `Table grid · ${rows} rows × ${columns} columns`, [...component.map(s => s.e), ...inside], { bounds: box, rows, columns, cells, mergedCells: cells.filter(c => c.rowSpan > 1 || c.columnSpan > 1).length }, .94));
     }
     return out;
 }
@@ -4551,8 +4907,118 @@ function detectLeaders(document, options = {}) {
     }
     return out;
 }
-const definitions = [['table-grids', 'Tables and schedules', detectTables], ['text-flows', 'Text reading flows', detectTextFlows], ['notations', 'Engineering and electrical notation', detectTechnicalText], ['fields', 'Labeled document fields', detectFields], ['diagram', 'Diagram nodes and connectivity', detectDiagram], ['parallel', 'Parallel boundaries', detectParallelBoundaries], ['concentric', 'Concentric mechanical features', detectConcentric], ['leaders', 'Leader callouts', detectLeaders]];
-exports.documentRules = definitions.map(([id, title, detect], i) => ({ id: 'document.' + id, title, version: '1.0.0', stage: 60 + i, description: 'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.', run: ({ document, options, checkAbort }) => { checkAbort(); return options.profile === 'exact' ? [] : detect(document, options); } }));
+/** Conservative borderless schedules: repeated aligned columns, whitespace gutters,
+ * at least three rows and two columns. This is a hypothesis, never table reconstruction
+ * by text content alone; original TEXT entities and reading direction remain intact. */
+function detectBorderlessTables(document, options = {}) {
+    const c = context(document, options), out = [], rows = [];
+    const source = c.texts.filter(e => Math.abs(((e.rotation || 0) % 360 + 360) % 360) < .5)
+        .map(e => ({ e, box: (0, model_1.entityBox)(e, document) })).sort((a, b) => b.e.position[1] - a.e.position[1] || a.box[0] - b.box[0]);
+    for (const item of source) {
+        (0, model_1.checkAbort)(options.signal);
+        const last = rows.at(-1), h = item.e.height || c.h;
+        if (last && Math.abs(item.e.position[1] - last.y) <= Math.min(h, last.h) * .25)
+            last.items.push(item);
+        else
+            rows.push({ y: item.e.position[1], h, items: [item] });
+    }
+    const candidates = [];
+    for (const row of rows) {
+        row.items.sort((a, b) => a.box[0] - b.box[0]);
+        const cells = [];
+        for (const item of row.items) {
+            const cell = cells.at(-1), gap = cell ? item.box[0] - cell.box[2] : Infinity;
+            if (cell && gap < row.h * 1.5) {
+                cell.items.push(item);
+                (0, geometry_1.union)(cell.box, item.box);
+            }
+            else
+                cells.push({ items: [item], box: [...item.box] });
+        }
+        candidates.push({ ...row, cells });
+    }
+    let start = 0;
+    while (start < candidates.length) {
+        const first = candidates[start];
+        if (first.cells.length < 2 || first.cells.length > 32) {
+            start++;
+            continue;
+        }
+        let end = start + 1;
+        while (end < candidates.length) {
+            const row = candidates[end], prev = candidates[end - 1], gap = prev.y - row.y;
+            if (row.cells.length !== first.cells.length || gap < Math.min(row.h, prev.h) * .8 || gap > Math.max(row.h, prev.h) * 4 ||
+                row.cells.some((cell, i) => Math.abs(cell.box[0] - first.cells[i].box[0]) > c.h * .5))
+                break;
+            end++;
+        }
+        if (end - start >= 3) {
+            if ((end - start) * first.cells.length > 4096)
+                throw new RangeError('Borderless table cell budget exceeded');
+            const chunk = candidates.slice(start, end), columns = first.cells.length;
+            // A real whitespace gutter must remain across ALL rows, not just one.
+            let gutters = true;
+            for (let x = 0; x < columns - 1; x++)
+                if (Math.min(...chunk.map(r => r.cells[x + 1].box[0])) -
+                    Math.max(...chunk.map(r => r.cells[x].box[2])) < c.h * 1.25)
+                    gutters = false;
+            const entities = chunk.flatMap(r => r.cells.flatMap(cell => cell.items.map(i => i.e))), bounds = (0, geometry_1.emptyBox)();
+            for (const e of entities)
+                (0, geometry_1.union)(bounds, (0, model_1.entityBox)(e, document));
+            if (gutters)
+                bounded(out, proposal('borderless-table', `Unruled schedule · ${chunk.length} rows × ${columns} columns`, entities, { bounds, rows: chunk.length, columns, cells: chunk.flatMap((r, row) => r.cells.map((cell, column) => ({ row, column, rowSpan: 1, columnSpan: 1, bounds: cell.box,
+                        text: cell.items.map(i => i.e.text).join(' '), entities: cell.items.map(i => i.e.id) }))),
+                    interpretation: 'Repeated alignment and whitespace; may also be multi-column prose.' }, .84));
+        }
+        start = end;
+    }
+    return out;
+}
+/** Numeric or bullet list markers must occupy a shared gutter and descend in page
+ * order. Numeric lists must be consecutive; drawings' isolated item numbers do not qualify. */
+function detectLists(document, options = {}) {
+    const c = context(document, options), out = [], rows = [];
+    let work = 0;
+    for (const e of c.texts) {
+        const match = String(e.text).trim().match(/^(?:(\d{1,4})[.)]|([•●▪◦]))(?:\s+(.+))?$/u);
+        if (!match || Math.abs(e.rotation || 0) > .5)
+            continue;
+        const box = (0, model_1.entityBox)(e, document), h = e.height || c.h;
+        const companions = match[3] ? [] : c.index.search([box[2], box[1] - h * .2, box[2] + h * 24, box[3] + h * .2])
+            .filter(t => t !== e && Math.abs(t.position[1] - e.position[1]) < h * .25)
+            .sort((a, b) => a.position[0] - b.position[0]);
+        if (!match[3] && !companions.length)
+            continue;
+        rows.push({ e, number: match[1] ? Number(match[1]) : null, marker: match[2] || null, body: match[3] || companions.map(t => t.text).join(' '), members: [e, ...companions] });
+    }
+    rows.sort((a, b) => b.e.position[1] - a.e.position[1] || a.e.position[0] - b.e.position[0]);
+    const used = new Set();
+    for (const row of rows) {
+        (0, model_1.checkAbort)(options.signal);
+        if (used.has(row.e.id))
+            continue;
+        const chain = [row];
+        for (const next of rows) {
+            if (++work > 1000000)
+                throw new RangeError('List neighborhood budget exceeded');
+            const prev = chain.at(-1), h = prev.e.height || c.h, gap = prev.e.position[1] - next.e.position[1];
+            if (used.has(next.e.id) || gap < h * .8 || gap > h * 4 || Math.abs(next.e.position[0] - row.e.position[0]) > h * .5)
+                continue;
+            if (row.number === null ? next.marker !== row.marker : next.number !== prev.number + 1)
+                continue;
+            chain.push(next);
+            if (chain.length > 256)
+                throw new RangeError('List length budget exceeded');
+        }
+        if (chain.length < 3)
+            continue;
+        chain.forEach(r => used.add(r.e.id));
+        bounded(out, proposal('document-list', `${row.number === null ? 'Bullet' : 'Numbered'} list · ${chain.length} items`, chain.flatMap(r => r.members), { ordered: row.number !== null, items: chain.map(r => ({ number: r.number, text: r.body, entities: r.members.map(e => e.id) })) }, .9));
+    }
+    return out;
+}
+const definitions = [['table-grids', 'Tables and schedules', detectTables], ['text-flows', 'Text reading flows', detectTextFlows], ['notations', 'Engineering and electrical notation', detectTechnicalText], ['fields', 'Labeled document fields', detectFields], ['diagram', 'Diagram nodes and connectivity', detectDiagram], ['parallel', 'Parallel boundaries', detectParallelBoundaries], ['concentric', 'Concentric mechanical features', detectConcentric], ['leaders', 'Leader callouts', detectLeaders], ['borderless-tables', 'Unruled schedules', detectBorderlessTables], ['lists', 'Numbered and bullet lists', detectLists]];
+exports.documentRules = definitions.map(([id, title, detect], i) => ({ id: 'document.' + id, title, version: id === 'table-grids' ? '1.1.0' : '1.0.0', stage: 60 + i, description: 'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.', run: ({ document, options, checkAbort }) => { checkAbort(); return options.profile === 'exact' ? [] : detect(document, options); } }));
 
 },
 "@revector/semantics":(require,module,exports)=>{
@@ -5610,9 +6076,30 @@ class Workbench {
         }
     }
     configureOcr() {
-        const settings = this.ocrSettings || ocr_1.DEFAULT_OCR_OPTIONS;
-        const enabled = (0, ui_1.element)('input', { id: 'ocr-enabled', type: 'checkbox', checked: !!this.ocrSettings }), scope = select('ocr-scope', [['raster', 'Visible raster regions'], ['page', 'Whole page (scanned documents)']], settings.scope), languages = (0, ui_1.element)('input', { id: 'ocr-languages', value: settings.languages, title: 'Bundled eng, deu, pol. Combine with +, e.g. eng+pol.' }), dpi = (0, ui_1.element)('input', { id: 'ocr-dpi', type: 'number', min: 72, max: 600, value: settings.dpi }), confidence = (0, ui_1.element)('input', { id: 'ocr-confidence', type: 'number', min: 0, max: 100, value: settings.minConfidence }), preprocess = select('ocr-preprocess', ['none', 'otsu', 'sauvola'], settings.preprocess), rotation = select('ocr-rotation', ['0', '90', '180', '270'], String(settings.rotation)), trace = (0, ui_1.element)('input', { id: 'ocr-lines', type: 'checkbox', checked: settings.traceLines });
-        (0, ui_1.dialog)({ title: 'Raster OCR · local recognition', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('p', { text: 'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.' }), field('Enable OCR', enabled), field('Scope', scope), field('Languages', languages), field('Resolution (DPI)', dpi), field('Minimum confidence (%)', confidence), field('Preprocessing', preprocess), field('Recognition rotation', rotation), field('Estimate horizontal / vertical raster lines', trace)), actions: [{ label: 'Cancel', run: d => d.close() }, { label: 'Apply and convert', primary: true, run: d => { this.ocrSettings = enabled.checked ? { scope: scope.value, languages: languages.value, dpi: Number(dpi.value), minConfidence: Number(confidence.value), preprocess: preprocess.value, rotation: Number(rotation.value), traceLines: trace.checked } : null; d.close(); void this.run(true); } }] });
+        const settings = { ...ocr_1.DEFAULT_OCR_OPTIONS, ...this.ocrSettings };
+        const enabled = (0, ui_1.element)('input', { id: 'ocr-enabled', type: 'checkbox', checked: !!this.ocrSettings });
+        const scope = select('ocr-scope', [['raster', 'Raster regions only'], ['page', 'Whole page']], settings.scope);
+        const languages = select('ocr-languages', [['eng', 'English'], ['deu', 'German'], ['pol', 'Polish'], ['eng+deu', 'English + German'], ['eng+pol', 'English + Polish']], settings.languages);
+        const dpi = (0, ui_1.element)('input', { id: 'ocr-dpi', type: 'number', min: 72, max: 600, value: settings.dpi });
+        const confidence = (0, ui_1.element)('input', { id: 'ocr-confidence', type: 'number', min: 0, max: 100, value: settings.minConfidence });
+        const preprocess = select('ocr-preprocess', ['none', 'otsu', 'sauvola'], settings.preprocess);
+        const rotation = select('ocr-rotation', ['0', '90', '180', '270'], String(settings.rotation));
+        const tiles = select('ocr-tile-size', [...new Set(['512', '1024', '2048', '4096', String(settings.tileSize)])].sort((a, b) => Number(a) - Number(b)), String(settings.tileSize));
+        const deskew = (0, ui_1.element)('input', { id: 'ocr-deskew', type: 'checkbox', checked: settings.deskew });
+        const invert = (0, ui_1.element)('input', { id: 'ocr-invert', type: 'checkbox', checked: settings.invert });
+        const trace = (0, ui_1.element)('input', { id: 'ocr-lines', type: 'checkbox', checked: settings.traceLines });
+        (0, ui_1.dialog)({ title: 'Raster OCR · local recognition', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('p', { text: 'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.' }), field('Enable OCR', enabled), field('Scope', scope), field('Languages', languages), field('Resolution (DPI)', dpi), field('Minimum confidence (%)', confidence), field('Preprocessing', preprocess), field('Recognition rotation', rotation), field('Correct small scan skew', deskew), field('Invert light text on dark paper', invert), field('Maximum tile side (pixels)', tiles), field('Estimate horizontal / vertical raster lines', trace), (0, ui_1.element)('p', { text: 'Tiles overlap to protect words at boundaries. Deskew estimates small angles, not arbitrary page orientation. Both preserve the inverse coordinate transform in OCR provenance.' })),
+            actions: [{ label: 'Cancel', run: d => d.close() }, { label: 'Apply and convert', primary: true, run: d => {
+                        try {
+                            this.ocrSettings = enabled.checked ? (0, ocr_1.normalizeOcrOptions)({ ...settings, scope: scope.value, languages: languages.value, dpi: Number(dpi.value), minConfidence: Number(confidence.value),
+                                preprocess: preprocess.value, rotation: Number(rotation.value), deskew: deskew.checked, invert: invert.checked, tileSize: Number(tiles.value), traceLines: trace.checked }) : null;
+                            d.close();
+                            void this.run(true);
+                        }
+                        catch (error) {
+                            this.error(error);
+                        }
+                    } }] });
     }
     help() { (0, ui_1.dialog)({ title: 'Revector Studio · vector-first CAD recovery', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('h3', { text: 'A local, inspectable conversion workflow' }), (0, ui_1.element)('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), (0, ui_1.element)('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), (0, ui_1.element)('h3', { text: 'Meaning is recovered, not assumed' }), (0, ui_1.element)('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), (0, ui_1.element)('h3', { text: 'Explicit format boundaries' }), (0, ui_1.element)('p', { text: 'Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), (0, ui_1.element)('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), (0, ui_1.element)('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
     setStatus(text) {

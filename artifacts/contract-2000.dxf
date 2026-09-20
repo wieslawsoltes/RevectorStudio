@@ -1424,6 +1424,10 @@ Recovered semantic group
 122
 340
 123
+1001
+REVECTOR
+1000
+{"id":"Equipment","source":{"ids":[],"ref":"5465b825"},"semantic":{}}
 0
 ENDSEC
 0
