@@ -1,0 +1,1250 @@
+
+> revector-studio@0.6.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: Arc fitting handles orientation and wrap 0,1.5707963267948966
+ok 1 - Arc fitting handles orientation and wrap 0,1.5707963267948966
+  ---
+  duration_ms: 3.386852
+  type: 'test'
+  ...
+# Subtest: Arc fitting handles orientation and wrap 5.654866776461628,1.5707963267948966
+ok 2 - Arc fitting handles orientation and wrap 5.654866776461628,1.5707963267948966
+  ---
+  duration_ms: 0.945342
+  type: 'test'
+  ...
+# Subtest: Arc fitting handles orientation and wrap 0,-1.5707963267948966
+ok 3 - Arc fitting handles orientation and wrap 0,-1.5707963267948966
+  ---
+  duration_ms: 0.767941
+  type: 'test'
+  ...
+# Subtest: Closed circle fit certifies chord error and rejects a loose six-sided polygon
+ok 4 - Closed circle fit certifies chord error and rejects a loose six-sided polygon
+  ---
+  duration_ms: 1.235222
+  type: 'test'
+  ...
+# Subtest: Normalized circle fit remains stable at translated large coordinates
+ok 5 - Normalized circle fit remains stable at translated large coordinates
+  ---
+  duration_ms: 1.593349
+  type: 'test'
+  ...
+# Subtest: Circle hypothesis rejects collinear and reversing observations
+ok 6 - Circle hypothesis rejects collinear and reversing observations
+  ---
+  duration_ms: 0.340294
+  type: 'test'
+  ...
+# Subtest: Cubic fit certifies full chord intervals, not just sampled interpolation
+ok 7 - Cubic fit certifies full chord intervals, not just sampled interpolation
+  ---
+  duration_ms: 10.86049
+  type: 'test'
+  ...
+# Subtest: Cubic fitting preserves closed loops without inventing smoothness at joins
+ok 8 - Cubic fitting preserves closed loops without inventing smoothness at joins
+  ---
+  duration_ms: 0.46135
+  type: 'test'
+  ...
+# Subtest: Fitting rejects invalid data, budgets and cancelled jobs
+ok 9 - Fitting rejects invalid data, budgets and cancelled jobs
+  ---
+  duration_ms: 3.088536
+  type: 'test'
+  ...
+# Subtest: Curve rule is opt-in inference with original geometry preserved until accepted
+ok 10 - Curve rule is opt-in inference with original geometry preserved until accepted
+  ---
+  duration_ms: 7.800297
+  type: 'test'
+  ...
+# Subtest: Default plain X crossing does not assert engineering connectivity
+ok 11 - Default plain X crossing does not assert engineering connectivity
+  ---
+  duration_ms: 3.946364
+  type: 'test'
+  ...
+# Subtest: Crossing policy is explicit provenance connect
+ok 12 - Crossing policy is explicit provenance connect
+  ---
+  duration_ms: 0.813647
+  type: 'test'
+  ...
+# Subtest: Crossing policy is explicit provenance cross
+ok 13 - Crossing policy is explicit provenance cross
+  ---
+  duration_ms: 0.351846
+  type: 'test'
+  ...
+# Subtest: Endpoint contacts and tees have distinct classifications
+ok 14 - Endpoint contacts and tees have distinct classifications
+  ---
+  duration_ms: 3.667445
+  type: 'test'
+  ...
+# Subtest: Filled disk marker supports a junction, a stroked circle does not
+ok 15 - Filled disk marker supports a junction, a stroked circle does not
+  ---
+  duration_ms: 1.44337
+  type: 'test'
+  ...
+# Subtest: Junction evidence survives serialization in every DXF generation
+ok 16 - Junction evidence survives serialization in every DXF generation
+  ---
+  duration_ms: 27.140098
+  type: 'test'
+  ...
+# Subtest: Junction limits and cancellation are enforced
+ok 17 - Junction limits and cancellation are enforced
+  ---
+  duration_ms: 0.596933
+  type: 'test'
+  ...
+# Subtest: Rule registry keeps old ordering and has no duplicate identities
+ok 18 - Rule registry keeps old ordering and has no duplicate identities
+  ---
+  duration_ms: 2.866322
+  type: 'test'
+  ...
+# Subtest: Appearance capture does not mutate scene and releases its canvas
+ok 19 - Appearance capture does not mutate scene and releases its canvas
+  ---
+  duration_ms: 5.028211
+  type: 'test'
+  ...
+# Subtest: Appearance allocations are released on failure and cancellation
+ok 20 - Appearance allocations are released on failure and cancellation
+  ---
+  duration_ms: 0.74582
+  type: 'test'
+  ...
+# Subtest: Appearance rejects excess resolution before allocating and rejects pure XFA
+ok 21 - Appearance rejects excess resolution before allocating and rejects pure XFA
+  ---
+  duration_ms: 0.330986
+  type: 'test'
+  ...
+# Subtest: Appearance layers preserve native entities, off flags, measured mapping and integrity
+ok 22 - Appearance layers preserve native entities, off flags, measured mapping and integrity
+  ---
+  duration_ms: 176.930364
+  type: 'test'
+  ...
+# Subtest: Appearance never masks structural failures
+ok 23 - Appearance never masks structural failures
+  ---
+  duration_ms: 5.898012
+  type: 'test'
+  ...
+# Subtest: Original PDF archival is opt-in, byte-preserving, checksummed and budgeted
+ok 24 - Original PDF archival is opt-in, byte-preserving, checksummed and budgeted
+  ---
+  duration_ms: 2.127555
+  type: 'test'
+  ...
+# Subtest: Cubic filled-dot geometry does not throw or create a RULE_FAILURE
+ok 25 - Cubic filled-dot geometry does not throw or create a RULE_FAILURE
+  ---
+  duration_ms: 1.293771
+  type: 'test'
+  ...
+# Subtest: Fitting rejects numeric overflow and invalid point budgets instead of returning NaN certificates
+ok 26 - Fitting rejects numeric overflow and invalid point budgets instead of returning NaN certificates
+  ---
+  duration_ms: 0.38059
+  type: 'test'
+  ...
+# Subtest: Unrepresentable two-point tolerance is rejected instead of weakening the certificate
+ok 27 - Unrepresentable two-point tolerance is rejected instead of weakening the certificate
+  ---
+  duration_ms: 0.229197
+  type: 'test'
+  ...
+# Subtest: Every static cross-package browser import resolves through the shipped import map
+ok 28 - Every static cross-package browser import resolves through the shipped import map
+  ---
+  duration_ms: 707.658644
+  type: 'test'
+  ...
+# Subtest: Affine inverse randomized round-trip and composition
+ok 29 - Affine inverse randomized round-trip and composition
+  ---
+  duration_ms: 12.355737
+  type: 'test'
+  ...
+# Subtest: INSERT decomposition preserves reflections and rejects shear
+ok 30 - INSERT decomposition preserves reflections and rejects shear
+  ---
+  duration_ms: 0.470226
+  type: 'test'
+  ...
+# Subtest: Cubic subdivision preserves the exact polynomial curve
+ok 31 - Cubic subdivision preserves the exact polynomial curve
+  ---
+  duration_ms: 0.814498
+  type: 'test'
+  ...
+# Subtest: Cubic subinterval matches the parent parameterization
+ok 32 - Cubic subinterval matches the parent parameterization
+  ---
+  duration_ms: 0.311801
+  type: 'test'
+  ...
+# Subtest: Analytic cubic bounds include interior extrema
+ok 33 - Analytic cubic bounds include interior extrema
+  ---
+  duration_ms: 0.674618
+  type: 'test'
+  ...
+# Subtest: Polynomial root isolation finds repeated and ordinary roots
+ok 34 - Polynomial root isolation finds repeated and ordinary roots
+  ---
+  duration_ms: 0.43444
+  type: 'test'
+  ...
+# Subtest: Curve arrangement intersection
+ok 35 - Curve arrangement intersection
+  ---
+  duration_ms: 3.725203
+  type: 'test'
+  ...
+# Subtest: Curve arrangement union
+ok 36 - Curve arrangement union
+  ---
+  duration_ms: 0.79431
+  type: 'test'
+  ...
+# Subtest: Curve arrangement difference
+ok 37 - Curve arrangement difference
+  ---
+  duration_ms: 0.977912
+  type: 'test'
+  ...
+# Subtest: Curve arrangement xor
+ok 38 - Curve arrangement xor
+  ---
+  duration_ms: 0.926968
+  type: 'test'
+  ...
+# Subtest: Even-odd versus nonzero winding retains hole semantics
+ok 39 - Even-odd versus nonzero winding retains hole semantics
+  ---
+  duration_ms: 0.30597
+  type: 'test'
+  ...
+# Subtest: Cubic clipping splits Béziers, never tessellates them
+ok 40 - Cubic clipping splits Béziers, never tessellates them
+  ---
+  duration_ms: 1.428773
+  type: 'test'
+  ...
+# Subtest: Line/cubic intersection parameters are consistent
+ok 41 - Line/cubic intersection parameters are consistent
+  ---
+  duration_ms: 0.219169
+  type: 'test'
+  ...
+# Subtest: Spatial index agrees with brute-force intersections
+ok 42 - Spatial index agrees with brute-force intersections
+  ---
+  duration_ms: 2.356021
+  type: 'test'
+  ...
+# Subtest: Line chains do not merge through T-junctions
+ok 43 - Line chains do not merge through T-junctions
+  ---
+  duration_ms: 0.530128
+  type: 'test'
+  ...
+# Subtest: PDF constructPath modern packed buffers use the real paint opcode
+ok 44 - PDF constructPath modern packed buffers use the real paint opcode
+  ---
+  duration_ms: 1.91031
+  type: 'test'
+  ...
+# Subtest: PDF legacy constructPath remains supported
+ok 45 - PDF legacy constructPath remains supported
+  ---
+  duration_ms: 0.493139
+  type: 'test'
+  ...
+# Subtest: PDF clip applies after painting the current path
+ok 46 - PDF clip applies after painting the current path
+  ---
+  duration_ms: 3.356997
+  type: 'test'
+  ...
+# Subtest: PDF save/restore isolates graphics state and transforms
+ok 47 - PDF save/restore isolates graphics state and transforms
+  ---
+  duration_ms: 0.476729
+  type: 'test'
+  ...
+# Subtest: PDF nested text-matrix contract and TJ spacing keep finite glyph origins
+ok 48 - PDF nested text-matrix contract and TJ spacing keep finite glyph origins
+  ---
+  duration_ms: 2.088392
+  type: 'test'
+  ...
+# Subtest: PDF invisible text does not become geometry when hidden layers are included
+ok 49 - PDF invisible text does not become geometry when hidden layers are included
+  ---
+  duration_ms: 0.396679
+  type: 'test'
+  ...
+# Subtest: PDF optional content visibility and named layers survive extraction
+ok 50 - PDF optional content visibility and named layers survive extraction
+  ---
+  duration_ms: 0.864942
+  type: 'test'
+  ...
+# Subtest: PDF group matrix affects the group clip without double-transforming children
+ok 51 - PDF group matrix affects the group clip without double-transforming children
+  ---
+  duration_ms: 0.868699
+  type: 'test'
+  ...
+# Subtest: PDF images and shading produce diagnostics, never traced entities
+ok 52 - PDF images and shading produce diagnostics, never traced entities
+  ---
+  duration_ms: 2.041464
+  type: 'test'
+  ...
+# Subtest: Operator budget and abort are enforced
+ok 53 - Operator budget and abort are enforced
+  ---
+  duration_ms: 1.043104
+  type: 'test'
+  ...
+# Subtest: Unit conversion and model drawing scale are independent and exact
+ok 54 - Unit conversion and model drawing scale are independent and exact
+  ---
+  duration_ms: 0.674647
+  type: 'test'
+  ...
+# Subtest: Failed semantic transaction leaves the original model unchanged
+ok 55 - Failed semantic transaction leaves the original model unchanged
+  ---
+  duration_ms: 0.828474
+  type: 'test'
+  ...
+# Subtest: Semantic dependency cycle is rejected
+ok 56 - Semantic dependency cycle is rejected
+  ---
+  duration_ms: 10.649968
+  type: 'test'
+  ...
+# Subtest: Safe declarative rule classifies a tag and creates its layer
+ok 57 - Safe declarative rule classifies a tag and creates its layer
+  ---
+  duration_ms: 47.009503
+  type: 'test'
+  ...
+# Subtest: Declarative regex rejects backtracking and grouping constructs
+ok 58 - Declarative regex rejects backtracking and grouping constructs
+  ---
+  duration_ms: 0.694784
+  type: 'test'
+  ...
+# Subtest: Attribute append proposals preserve previously accepted attributes
+ok 59 - Attribute append proposals preserve previously accepted attributes
+  ---
+  duration_ms: 0.996277
+  type: 'test'
+  ...
+# Subtest: Explicit placements keep repeated block instances at source paint positions
+ok 60 - Explicit placements keep repeated block instances at source paint positions
+  ---
+  duration_ms: 1.678128
+  type: 'test'
+  ...
+# Subtest: Block origin is accounted for in world bounds
+ok 61 - Block origin is accounted for in world bounds
+  ---
+  duration_ms: 0.299197
+  type: 'test'
+  ...
+# Subtest: Validation detects duplicate attribute IDs and missing GROUP members
+ok 62 - Validation detects duplicate attribute IDs and missing GROUP members
+  ---
+  duration_ms: 0.567949
+  type: 'test'
+  ...
+# Subtest: DXF 2000: entity, block, attribute, cubic hatch and provenance round-trip
+ok 63 - DXF 2000: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 19.747023
+  type: 'test'
+  ...
+# Subtest: DXF 2004: entity, block, attribute, cubic hatch and provenance round-trip
+ok 64 - DXF 2004: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 15.789154
+  type: 'test'
+  ...
+# Subtest: DXF 2007: entity, block, attribute, cubic hatch and provenance round-trip
+ok 65 - DXF 2007: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 4.163199
+  type: 'test'
+  ...
+# Subtest: DXF 2010: entity, block, attribute, cubic hatch and provenance round-trip
+ok 66 - DXF 2010: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 5.67688
+  type: 'test'
+  ...
+# Subtest: DXF 2013: entity, block, attribute, cubic hatch and provenance round-trip
+ok 67 - DXF 2013: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 3.738016
+  type: 'test'
+  ...
+# Subtest: DXF 2018: entity, block, attribute, cubic hatch and provenance round-trip
+ok 68 - DXF 2018: entity, block, attribute, cubic hatch and provenance round-trip
+  ---
+  duration_ms: 3.22478
+  type: 'test'
+  ...
+# Subtest: DXF long Unicode XDATA chunks never exceed 255 bytes and retain JSON
+ok 69 - DXF long Unicode XDATA chunks never exceed 255 bytes and retain JSON
+  ---
+  duration_ms: 5.160779
+  type: 'test'
+  ...
+# Subtest: DXF name collisions are blocked rather than silently merging layers
+ok 70 - DXF name collisions are blocked rather than silently merging layers
+  ---
+  duration_ms: 0.380379
+  type: 'test'
+  ...
+# Subtest: DXF 2000 transparency is explicitly unsupported in strict mode
+ok 71 - DXF 2000 transparency is explicitly unsupported in strict mode
+  ---
+  duration_ms: 1.157146
+  type: 'test'
+  ...
+# Subtest: DXF polyline bulges are retained by the round-trip reader
+ok 72 - DXF polyline bulges are retained by the round-trip reader
+  ---
+  duration_ms: 1.450263
+  type: 'test'
+  ...
+# Subtest: DXF unsupported versions, nonfinite coordinates and truncated streams are rejected
+ok 73 - DXF unsupported versions, nonfinite coordinates and truncated streams are rejected
+  ---
+  duration_ms: 0.581404
+  type: 'test'
+  ...
+# Subtest: Vector template matching is geometry-only and translation-invariant
+ok 74 - Vector template matching is geometry-only and translation-invariant
+  ---
+  duration_ms: 0.616149
+  type: 'test'
+  ...
+# Subtest: ZIP32 produces valid local, central-directory and EOF signatures
+ok 75 - ZIP32 produces valid local, central-directory and EOF signatures
+  ---
+  duration_ms: 13.999132
+  type: 'test'
+  ...
+# Subtest: Conversion engine previews parsed serialized DXF, with separate measured timings
+ok 76 - Conversion engine previews parsed serialized DXF, with separate measured timings
+  ---
+  duration_ms: 11.724651
+  type: 'test'
+  ...
+# Subtest: Generated worker bundle executes the same kernel in an isolated Node worker
+ok 77 - Generated worker bundle executes the same kernel in an isolated Node worker
+  ---
+  duration_ms: 159.237336
+  type: 'test'
+  ...
+# Subtest: Circle corner-box labels are excluded from diagram nodes
+ok 78 - Circle corner-box labels are excluded from diagram nodes
+  ---
+  duration_ms: 3.269073
+  type: 'test'
+  ...
+# Subtest: Connectors ending inside shape boxes but away from contours are not connected
+ok 79 - Connectors ending inside shape boxes but away from contours are not connected
+  ---
+  duration_ms: 1.67431
+  type: 'test'
+  ...
+# Subtest: Nested regions assign labels to the smallest unambiguous contour
+ok 80 - Nested regions assign labels to the smallest unambiguous contour
+  ---
+  duration_ms: 0.519047
+  type: 'test'
+  ...
+# Subtest: Concave contour notches crossing a text box do not count as containment
+ok 81 - Concave contour notches crossing a text box do not count as containment
+  ---
+  duration_ms: 1.871769
+  type: 'test'
+  ...
+# Subtest: Self-intersecting polygons, partial ellipses and bulged polylines are not guessed
+ok 82 - Self-intersecting polygons, partial ellipses and bulged polylines are not guessed
+  ---
+  duration_ms: 0.673245
+  type: 'test'
+  ...
+# Subtest: Ambiguous coincident contours do not claim label ownership
+ok 83 - Ambiguous coincident contours do not claim label ownership
+  ---
+  duration_ms: 0.274622
+  type: 'test'
+  ...
+# Subtest: RGB byte domain never guesses that near-black [1,0,0] means full red
+ok 84 - RGB byte domain never guesses that near-black [1,0,0] means full red
+  ---
+  duration_ms: 5.860412
+  type: 'test'
+  ...
+# Subtest: Faithful color is independent of dark-canvas contrast enhancement
+ok 85 - Faithful color is independent of dark-canvas contrast enhancement
+  ---
+  duration_ms: 0.332099
+  type: 'test'
+  ...
+# Subtest: CIEDE2000 matches published reference pair 2.0425
+ok 86 - CIEDE2000 matches published reference pair 2.0425
+  ---
+  duration_ms: 1.890884
+  type: 'test'
+  ...
+# Subtest: Color roundtrip and explicit audit for DXF 2000
+ok 87 - Color roundtrip and explicit audit for DXF 2000
+  ---
+  duration_ms: 12.732745
+  type: 'test'
+  ...
+# Subtest: Color roundtrip and explicit audit for DXF 2004
+ok 88 - Color roundtrip and explicit audit for DXF 2004
+  ---
+  duration_ms: 1.719965
+  type: 'test'
+  ...
+# Subtest: Color roundtrip and explicit audit for DXF 2007
+ok 89 - Color roundtrip and explicit audit for DXF 2007
+  ---
+  duration_ms: 1.852252
+  type: 'test'
+  ...
+# Subtest: Color roundtrip and explicit audit for DXF 2010
+ok 90 - Color roundtrip and explicit audit for DXF 2010
+  ---
+  duration_ms: 4.523891
+  type: 'test'
+  ...
+# Subtest: Color roundtrip and explicit audit for DXF 2013
+ok 91 - Color roundtrip and explicit audit for DXF 2013
+  ---
+  duration_ms: 2.26471
+  type: 'test'
+  ...
+# Subtest: Color roundtrip and explicit audit for DXF 2018
+ok 92 - Color roundtrip and explicit audit for DXF 2018
+  ---
+  duration_ms: 2.632556
+  type: 'test'
+  ...
+# Subtest: Transparent black raster pixels composite to white paper before OCR
+ok 93 - Transparent black raster pixels composite to white paper before OCR
+  ---
+  duration_ms: 1.269265
+  type: 'test'
+  ...
+# Subtest: Sauvola preserves ink and enforces allocation budgets
+ok 94 - Sauvola preserves ink and enforces allocation budgets
+  ---
+  duration_ms: 0.69742
+  type: 'test'
+  ...
+# Subtest: Raster line detector collapses stroke width to one centerline
+ok 95 - Raster line detector collapses stroke width to one centerline
+  ---
+  duration_ms: 1.232306
+  type: 'test'
+  ...
+# Subtest: Raster region planner merges overlapping images and excludes hidden marks
+ok 96 - Raster region planner merges overlapping images and excludes hidden marks
+  ---
+  duration_ms: 0.657896
+  type: 'test'
+  ...
+# Subtest: OCR quadrant 0: inverse affine mapping preserves source baseline
+ok 97 - OCR quadrant 0: inverse affine mapping preserves source baseline
+  ---
+  duration_ms: 0.293076
+  type: 'test'
+  ...
+# Subtest: OCR quadrant 90: inverse affine mapping preserves source baseline
+ok 98 - OCR quadrant 90: inverse affine mapping preserves source baseline
+  ---
+  duration_ms: 0.144399
+  type: 'test'
+  ...
+# Subtest: OCR quadrant 180: inverse affine mapping preserves source baseline
+ok 99 - OCR quadrant 180: inverse affine mapping preserves source baseline
+  ---
+  duration_ms: 0.141434
+  type: 'test'
+  ...
+# Subtest: OCR quadrant 270: inverse affine mapping preserves source baseline
+ok 100 - OCR quadrant 270: inverse affine mapping preserves source baseline
+  ---
+  duration_ms: 0.181889
+  type: 'test'
+  ...
+# Subtest: OCR block extraction preserves word confidence and rejects degenerate boxes
+ok 101 - OCR block extraction preserves word confidence and rejects degenerate boxes
+  ---
+  duration_ms: 0.302413
+  type: 'test'
+  ...
+# Subtest: OCR word becomes editable TEXT with exact affine placement and estimated provenance
+ok 102 - OCR word becomes editable TEXT with exact affine placement and estimated provenance
+  ---
+  duration_ms: 8.850063
+  type: 'test'
+  ...
+# Subtest: OCR options reject path traversal, extreme resolution and unsupported rotations
+ok 103 - OCR options reject path traversal, extreme resolution and unsupported rotations
+  ---
+  duration_ms: 0.562128
+  type: 'test'
+  ...
+# Subtest: OCR session uses blocks output and releases its worker
+ok 104 - OCR session uses blocks output and releases its worker
+  ---
+  duration_ms: 1.019009
+  type: 'test'
+  ...
+# Subtest: OCR cancellation terminates a running worker and rejects rather than exporting stale text
+ok 105 - OCR cancellation terminates a running worker and rejects rather than exporting stale text
+  ---
+  duration_ms: 33.941176
+  type: 'test'
+  ...
+# Subtest: Table topology recovers rows, columns, cells and text membership
+ok 106 - Table topology recovers rows, columns, cells and text membership
+  ---
+  duration_ms: 4.210497
+  type: 'test'
+  ...
+# Subtest: Unconnected rules and missing table borders are not fabricated into tables
+ok 107 - Unconnected rules and missing table borders are not fabricated into tables
+  ---
+  duration_ms: 0.69742
+  type: 'test'
+  ...
+# Subtest: Semantic GROUP metadata survives all native geometry unchanged and DXF roundtrip
+ok 108 - Semantic GROUP metadata survives all native geometry unchanged and DXF roundtrip
+  ---
+  duration_ms: 16.687351
+  type: 'test'
+  ...
+# Subtest: Text flow retains reading order without replacing original runs
+ok 109 - Text flow retains reading order without replacing original runs
+  ---
+  duration_ms: 0.811091
+  type: 'test'
+  ...
+# Subtest: Field and engineering lexicons record hypotheses, not asserted plant meaning
+ok 110 - Field and engineering lexicons record hypotheses, not asserted plant meaning
+  ---
+  duration_ms: 2.298714
+  type: 'test'
+  ...
+# Subtest: Diagram graph resolves labeled shapes and boundary-touching connectors
+ok 111 - Diagram graph resolves labeled shapes and boundary-touching connectors
+  ---
+  duration_ms: 2.64033
+  type: 'test'
+  ...
+# Subtest: Parallel boundaries require orientation and substantial projected overlap
+ok 112 - Parallel boundaries require orientation and substantial projected overlap
+  ---
+  duration_ms: 1.001496
+  type: 'test'
+  ...
+# Subtest: Concentric circles preserve radii without deciding hole versus bearing
+ok 113 - Concentric circles preserve radii without deciding hole versus bearing
+  ---
+  duration_ms: 0.530028
+  type: 'test'
+  ...
+# Subtest: Leader detector requires balanced arrow wings and a nearby label
+ok 114 - Leader detector requires balanced arrow wings and a nearby label
+  ---
+  duration_ms: 1.989638
+  type: 'test'
+  ...
+# Subtest: Repeated PDF image instances receive distinct instance transforms
+ok 115 - Repeated PDF image instances receive distinct instance transforms
+  ---
+  duration_ms: 2.099362
+  type: 'test'
+  ...
+# Subtest: Broad analysis honors explicit entity limits
+ok 116 - Broad analysis honors explicit entity limits
+  ---
+  duration_ms: 0.305319
+  type: 'test'
+  ...
+# Subtest: IMAGE 2000: shared definitions, reactors, affine placement and default pixel boundaries
+ok 117 - IMAGE 2000: shared definitions, reactors, affine placement and default pixel boundaries
+  ---
+  duration_ms: 18.27521
+  type: 'test'
+  ...
+# Subtest: IMAGE 2004: shared definitions, reactors, affine placement and default pixel boundaries
+ok 118 - IMAGE 2004: shared definitions, reactors, affine placement and default pixel boundaries
+  ---
+  duration_ms: 3.466761
+  type: 'test'
+  ...
+# Subtest: IMAGE 2007: shared definitions, reactors, affine placement and default pixel boundaries
+ok 119 - IMAGE 2007: shared definitions, reactors, affine placement and default pixel boundaries
+  ---
+  duration_ms: 5.103131
+  type: 'test'
+  ...
+# Subtest: IMAGE 2010: shared definitions, reactors, affine placement and default pixel boundaries
+ok 120 - IMAGE 2010: shared definitions, reactors, affine placement and default pixel boundaries
+  ---
+  duration_ms: 4.28703
+  type: 'test'
+  ...
+# Subtest: IMAGE 2013: shared definitions, reactors, affine placement and default pixel boundaries
+ok 121 - IMAGE 2013: shared definitions, reactors, affine placement and default pixel boundaries
+  ---
+  duration_ms: 6.641808
+  type: 'test'
+  ...
+# Subtest: IMAGE 2018: shared definitions, reactors, affine placement and default pixel boundaries
+ok 122 - IMAGE 2018: shared definitions, reactors, affine placement and default pixel boundaries
+  ---
+  duration_ms: 3.495394
+  type: 'test'
+  ...
+# Subtest: Image bounds include shear and reflected bases
+ok 123 - Image bounds include shear and reflected bases
+  ---
+  duration_ms: 0.588196
+  type: 'test'
+  ...
+# Subtest: Missing, singular, and inconsistent IMAGE resources fail model validation
+ok 124 - Missing, singular, and inconsistent IMAGE resources fail model validation
+  ---
+  duration_ms: 0.513978
+  type: 'test'
+  ...
+# Subtest: Image file paths reject traversal, remote URLs, control characters and duplicate case
+ok 125 - Image file paths reject traversal, remote URLs, control characters and duplicate case
+  ---
+  duration_ms: 0.631968
+  type: 'test'
+  ...
+# Subtest: Package fails closed on unavailable image bytes and unsafe drawing paths
+ok 126 - Package fails closed on unavailable image bytes and unsafe drawing paths
+  ---
+  duration_ms: 2.08764
+  type: 'test'
+  ...
+# Subtest: Preserved image is lowered between the original native paint operations
+ok 127 - Preserved image is lowered between the original native paint operations
+  ---
+  duration_ms: 4.213333
+  type: 'test'
+  ...
+# Subtest: Transfer functions and blend-dependent images are explicitly skipped
+ok 128 - Transfer functions and blend-dependent images are explicitly skipped
+  ---
+  duration_ms: 1.244489
+  type: 'test'
+  ...
+# Subtest: Image pixels are never counted as exact vector color audit results
+ok 129 - Image pixels are never counted as exact vector color audit results
+  ---
+  duration_ms: 2.966529
+  type: 'test'
+  ...
+# Subtest: Host callback objects and credentials are not serialized as CAD options
+ok 130 - Host callback objects and credentials are not serialized as CAD options
+  ---
+  duration_ms: 0.444148
+  type: 'test'
+  ...
+# Subtest: Tesseract browser ES-module default export is normalized to the provider API
+ok 131 - Tesseract browser ES-module default export is normalized to the provider API
+  ---
+  duration_ms: 1.930178
+  type: 'test'
+  ...
+# Subtest: Malformed OCR provider fails with a precise contract error and releases busy state
+ok 132 - Malformed OCR provider fails with a precise contract error and releases busy state
+  ---
+  duration_ms: 0.849353
+  type: 'test'
+  ...
+# Subtest: Complete adjacent-tile observations suppress high-confidence clipped fragments
+ok 133 - Complete adjacent-tile observations suppress high-confidence clipped fragments
+  ---
+  duration_ms: 2.390275
+  type: 'test'
+  ...
+# Subtest: Vertical crop fragments and small contained glyphs do not duplicate full words
+ok 134 - Vertical crop fragments and small contained glyphs do not duplicate full words
+  ---
+  duration_ms: 0.402179
+  type: 'test'
+  ...
+# Subtest: Unmatched clipped text remains available with explicit provenance
+ok 135 - Unmatched clipped text remains available with explicit provenance
+  ---
+  duration_ms: 0.248753
+  type: 'test'
+  ...
+# Subtest: Ordinary overlapping labels and distant repeated text are not seam fragments
+ok 136 - Ordinary overlapping labels and distant repeated text are not seam fragments
+  ---
+  duration_ms: 0.498359
+  type: 'test'
+  ...
+# Subtest: Same-tile nested observations are not cross-tile truncation evidence
+ok 137 - Same-tile nested observations are not cross-tile truncation evidence
+  ---
+  duration_ms: 0.26274
+  type: 'test'
+  ...
+# Subtest: PDF page rotation 0 maps native text into display-aligned CAD coordinates
+ok 138 - PDF page rotation 0 maps native text into display-aligned CAD coordinates
+  ---
+  duration_ms: 410.384479
+  type: 'test'
+  ...
+# Subtest: PDF page rotation 90 maps native text into display-aligned CAD coordinates
+ok 139 - PDF page rotation 90 maps native text into display-aligned CAD coordinates
+  ---
+  duration_ms: 23.338987
+  type: 'test'
+  ...
+# Subtest: PDF page rotation 180 maps native text into display-aligned CAD coordinates
+ok 140 - PDF page rotation 180 maps native text into display-aligned CAD coordinates
+  ---
+  duration_ms: 15.164822
+  type: 'test'
+  ...
+# Subtest: PDF page rotation 270 maps native text into display-aligned CAD coordinates
+ok 141 - PDF page rotation 270 maps native text into display-aligned CAD coordinates
+  ---
+  duration_ms: 11.948849
+  type: 'test'
+  ...
+# Subtest: Public transactions detach unchanged entities, assets, history, and candidate metadata
+ok 142 - Public transactions detach unchanged entities, assets, history, and candidate metadata
+  ---
+  duration_ms: 4.187424
+  type: 'test'
+  ...
+# Subtest: Rule snapshots are deeply immutable, detached and reused only while geometry is unchanged
+ok 143 - Rule snapshots are deeply immutable, detached and reused only while geometry is unchanged
+  ---
+  duration_ms: 12.673579
+  type: 'test'
+  ...
+# Subtest: Conflicting copy-on-write transaction leaves no partial entity, layer, block or group changes
+ok 144 - Conflicting copy-on-write transaction leaves no partial entity, layer, block or group changes
+  ---
+  duration_ms: 1.991551
+  type: 'test'
+  ...
+# Subtest: Sequential patches to the same ID retain intermediate history and public transaction behavior
+ok 145 - Sequential patches to the same ID retain intermediate history and public transaction behavior
+  ---
+  duration_ms: 2.242319
+  type: 'test'
+  ...
+# Subtest: Multiple replacements anchored before one entity preserve proposal and paint order
+ok 146 - Multiple replacements anchored before one entity preserve proposal and paint order
+  ---
+  duration_ms: 0.63851
+  type: 'test'
+  ...
+# Subtest: Candidate IDs are deduplicated without changing candidate budget failures
+ok 147 - Candidate IDs are deduplicated without changing candidate budget failures
+  ---
+  duration_ms: 2.730089
+  type: 'test'
+  ...
+# Subtest: Public validation never caches mutable inputs; immutable sessions recheck cross-references
+ok 148 - Public validation never caches mutable inputs; immutable sessions recheck cross-references
+  ---
+  duration_ms: 0.564723
+  type: 'test'
+  ...
+# Subtest: Shared block dependency tails do not conceal a cycle
+ok 149 - Shared block dependency tails do not conceal a cycle
+  ---
+  duration_ms: 0.47775
+  type: 'test'
+  ...
+# Subtest: BVH selection preserves exact legacy membership and traversal: random
+ok 150 - BVH selection preserves exact legacy membership and traversal: random
+  ---
+  duration_ms: 47.923164
+  type: 'test'
+  ...
+# Subtest: BVH selection preserves exact legacy membership and traversal: equal
+ok 151 - BVH selection preserves exact legacy membership and traversal: equal
+  ---
+  duration_ms: 21.547948
+  type: 'test'
+  ...
+# Subtest: BVH selection preserves exact legacy membership and traversal: grid
+ok 152 - BVH selection preserves exact legacy membership and traversal: grid
+  ---
+  duration_ms: 11.904967
+  type: 'test'
+  ...
+# Subtest: BVH selection preserves exact legacy membership and traversal: ordered
+ok 153 - BVH selection preserves exact legacy membership and traversal: ordered
+  ---
+  duration_ms: 11.46659
+  type: 'test'
+  ...
+# Subtest: BVH selection preserves exact legacy membership and traversal: reverse
+ok 154 - BVH selection preserves exact legacy membership and traversal: reverse
+  ---
+  duration_ms: 10.057474
+  type: 'test'
+  ...
+# Subtest: Prepared ray predicates exactly match unprepared polynomials with holes, tangencies and mutation isolation
+ok 155 - Prepared ray predicates exactly match unprepared polynomials with holes, tangencies and mutation isolation
+  ---
+  duration_ms: 192.03273
+  type: 'test'
+  ...
+# Subtest: Prepared shared clipping remains cubic, deterministic and bounded
+ok 156 - Prepared shared clipping remains cubic, deterministic and bounded
+  ---
+  duration_ms: 20.977907
+  type: 'test'
+  ...
+# Subtest: Streaming DXF reader preserves BOM, CRLF and final-line behavior
+ok 157 - Streaming DXF reader preserves BOM, CRLF and final-line behavior
+  ---
+  duration_ms: 11.849614
+  type: 'test'
+  ...
+# Subtest: DXF string fast paths retain control sanitization and surrogate escape fidelity
+ok 158 - DXF string fast paths retain control sanitization and surrogate escape fidelity
+  ---
+  duration_ms: 16.188631
+  type: 'test'
+  ...
+# Subtest: Indexed group membership retains order, multiple memberships and Unicode evidence
+ok 159 - Indexed group membership retains order, multiple memberships and Unicode evidence
+  ---
+  duration_ms: 6.661865
+  type: 'test'
+  ...
+# Subtest: Binary RGBA conversion agrees for every byte channel without mutating source
+ok 160 - Binary RGBA conversion agrees for every byte channel without mutating source
+  ---
+  duration_ms: 0.275063
+  type: 'test'
+  ...
+# Subtest: Idle workers reuse code, but every conversion gets a fresh input scene snapshot
+ok 161 - Idle workers reuse code, but every conversion gets a fresh input scene snapshot
+  ---
+  duration_ms: 0.789461
+  type: 'test'
+  ...
+# Subtest: Cancelling a busy worker terminates exactly once and isolates stale callbacks
+ok 162 - Cancelling a busy worker terminates exactly once and isolates stale callbacks
+  ---
+  duration_ms: 0.540327
+  type: 'test'
+  ...
+# Subtest: Old abort signals cannot cancel a reused worker; post errors and callback errors retire it
+ok 163 - Old abort signals cannot cancel a reused worker; post errors and callback errors retire it
+  ---
+  duration_ms: 0.610989
+  type: 'test'
+  ...
+# Subtest: PDF font waits are bounded concurrent and deterministic; cached pages do not fetch fonts again
+ok 164 - PDF font waits are bounded concurrent and deterministic; cached pages do not fetch fonts again
+  ---
+  duration_ms: 23.269427
+  type: 'test'
+  ...
+# Subtest: PDF resource cancellation remains AbortError and does not populate a missing-font cache
+ok 165 - PDF resource cancellation remains AbortError and does not populate a missing-font cache
+  ---
+  duration_ms: 10.382229
+  type: 'test'
+  ...
+# Subtest: Timed-out independent fonts retain fallback entries, and invalid concurrency fails explicitly
+ok 166 - Timed-out independent fonts retain fallback entries, and invalid concurrency fails explicitly
+  ---
+  duration_ms: 9.579092
+  type: 'test'
+  ...
+# Subtest: Shallow-frozen external detector inputs never qualify for internal immutable caches
+ok 167 - Shallow-frozen external detector inputs never qualify for internal immutable caches
+  ---
+  duration_ms: 1.908296
+  type: 'test'
+  ...
+# Subtest: Worker errors during idle cause replacement instead of reusing a crashed worker
+ok 168 - Worker errors during idle cause replacement instead of reusing a crashed worker
+  ---
+  duration_ms: 0.473372
+  type: 'test'
+  ...
+# Subtest: Validation handles deeply nested block DAGs without recursive stack growth
+ok 169 - Validation handles deeply nested block DAGs without recursive stack growth
+  ---
+  duration_ms: 205.98988
+  type: 'test'
+  ...
+# Subtest: Diagonal strokes become one arbitrary-angle path with pixel-center endpoints
+ok 170 - Diagonal strokes become one arbitrary-angle path with pixel-center endpoints
+  ---
+  duration_ms: 10.727112
+  type: 'test'
+  ...
+# Subtest: Four-way junction splits into four paths, never joins unrelated branches
+ok 171 - Four-way junction splits into four paths, never joins unrelated branches
+  ---
+  duration_ms: 4.616765
+  type: 'test'
+  ...
+# Subtest: Pure closed cycles survive simplification as closed polylines
+ok 172 - Pure closed cycles survive simplification as closed polylines
+  ---
+  duration_ms: 1.224543
+  type: 'test'
+  ...
+# Subtest: Thick strokes converge, isolated dots remain reported, and input is immutable
+ok 173 - Thick strokes converge, isolated dots remain reported, and input is immutable
+  ---
+  duration_ms: 6.922344
+  type: 'test'
+  ...
+# Subtest: Corner shortcuts do not turn L-shaped linework into a false triangle
+ok 174 - Corner shortcuts do not turn L-shaped linework into a false triangle
+  ---
+  duration_ms: 1.054305
+  type: 'test'
+  ...
+# Subtest: Disconnected strokes remain separate and border coordinates are retained
+ok 175 - Disconnected strokes remain separate and border coordinates are retained
+  ---
+  duration_ms: 0.871885
+  type: 'test'
+  ...
+# Subtest: Zero tolerance retains every sampled skeleton vertex
+ok 176 - Zero tolerance retains every sampled skeleton vertex
+  ---
+  duration_ms: 0.878077
+  type: 'test'
+  ...
+# Subtest: Trace budgets and cancellation fail before partial geometry is returned
+ok 177 - Trace budgets and cancellation fail before partial geometry is returned
+  ---
+  duration_ms: 2.594265
+  type: 'test'
+  ...
+# Subtest: Blank rasters return no invented vectors
+ok 178 - Blank rasters return no invented vectors
+  ---
+  duration_ms: 4.300615
+  type: 'test'
+  ...
+# Subtest: Real PDF.js: two authored pages, all six DXF versions, controls and layer/block recovery
+ok 179 - Real PDF.js: two authored pages, all six DXF versions, controls and layer/block recovery
+  ---
+  duration_ms: 662.909132
+  type: 'test'
+  ...
+# Subtest: Full semantic acceptance produces attributes, dimensions and groups with valid ownership
+ok 180 - Full semantic acceptance produces attributes, dimensions and groups with valid ownership
+  ---
+  duration_ms: 65.272476
+  type: 'test'
+  ...
+# Subtest: Merged table headers have column spans without changing source geometry
+ok 181 - Merged table headers have column spans without changing source geometry
+  ---
+  duration_ms: 47.508971
+  type: 'test'
+  ...
+# Subtest: Merged first-column cells recover row spans in top-down page order
+ok 182 - Merged first-column cells recover row spans in top-down page order
+  ---
+  duration_ms: 1.243557
+  type: 'test'
+  ...
+# Subtest: Partial internal table separators are rejected rather than completed
+ok 183 - Partial internal table separators are rejected rather than completed
+  ---
+  duration_ms: 0.452593
+  type: 'test'
+  ...
+# Subtest: L-shaped merged table regions are rejected
+ok 184 - L-shaped merged table regions are rejected
+  ---
+  duration_ms: 0.529828
+  type: 'test'
+  ...
+# Subtest: Repeated aligned text columns produce a borderless schedule with cell provenance
+ok 185 - Repeated aligned text columns produce a borderless schedule with cell provenance
+  ---
+  duration_ms: 1.213221
+  type: 'test'
+  ...
+# Subtest: Two rows, irregular columns and missing whitespace do not become schedules
+ok 186 - Two rows, irregular columns and missing whitespace do not become schedules
+  ---
+  duration_ms: 1.020903
+  type: 'test'
+  ...
+# Subtest: Consecutive inline numbered lists retain item content and source entity IDs
+ok 187 - Consecutive inline numbered lists retain item content and source entity IDs
+  ---
+  duration_ms: 3.177134
+  type: 'test'
+  ...
+# Subtest: Separated bullet markers and bodies are grouped without inventing numbering
+ok 188 - Separated bullet markers and bodies are grouped without inventing numbering
+  ---
+  duration_ms: 0.78329
+  type: 'test'
+  ...
+# Subtest: Isolated nonconsecutive callout numbers do not qualify as a list
+ok 189 - Isolated nonconsecutive callout numbers do not qualify as a list
+  ---
+  duration_ms: 0.63306
+  type: 'test'
+  ...
+# Subtest: Document detection responds to already-aborted analyses
+ok 190 - Document detection responds to already-aborted analyses
+  ---
+  duration_ms: 1.303649
+  type: 'test'
+  ...
+# Subtest: Tile cores cover every pixel once, halos overlap, allocations stay bounded
+ok 191 - Tile cores cover every pixel once, halos overlap, allocations stay bounded
+  ---
+  duration_ms: 21.389192
+  type: 'test'
+  ...
+# Subtest: Tile planner rejects excessive work and inconsistent halo settings before allocation
+ok 192 - Tile planner rejects excessive work and inconsistent halo settings before allocation
+  ---
+  duration_ms: 1.048634
+  type: 'test'
+  ...
+# Subtest: Projection skew estimator recovers positive and negative small-angle text baselines
+ok 193 - Projection skew estimator recovers positive and negative small-angle text baselines
+  ---
+  duration_ms: 37.340141
+  type: 'test'
+  ...
+# Subtest: Skew estimation does not rotate empty or sparse pages and honors cancellation
+ok 194 - Skew estimation does not rotate empty or sparse pages and honors cancellation
+  ---
+  duration_ms: 0.358839
+  type: 'test'
+  ...
+# Subtest: Arbitrary deskew transforms preserve every corner and roundtrip within the allocation cap
+ok 195 - Arbitrary deskew transforms preserve every corner and roundtrip within the allocation cap
+  ---
+  duration_ms: 0.882415
+  type: 'test'
+  ...
+# Subtest: OCR tile duplicate suppression prefers confidence and preserves repeated labels elsewhere
+ok 196 - OCR tile duplicate suppression prefers confidence and preserves repeated labels elsewhere
+  ---
+  duration_ms: 0.720422
+  type: 'test'
+  ...
+# Subtest: Deskew and tile translation compose into PDF provenance, not nominal DPI estimates
+ok 197 - Deskew and tile translation compose into PDF provenance, not nominal DPI estimates
+  ---
+  duration_ms: 0.314537
+  type: 'test'
+  ...
+# Subtest: Late cancelled OCR initialization cannot terminate a newer session worker
+ok 198 - Late cancelled OCR initialization cannot terminate a newer session worker
+  ---
+  duration_ms: 11.117139
+  type: 'test'
+  ...
+# Subtest: Cancelling setParameters never starts recognition and releases exactly once
+ok 199 - Cancelling setParameters never starts recognition and releases exactly once
+  ---
+  duration_ms: 1.371265
+  type: 'test'
+  ...
+# Subtest: OCR initialization deadlines release late workers without unhandled completion
+ok 200 - OCR initialization deadlines release late workers without unhandled completion
+  ---
+  duration_ms: 10.490821
+  type: 'test'
+  ...
+# Subtest: Disposing a busy OCR session rejects its result and permits clean reuse
+ok 201 - Disposing a busy OCR session rejects its result and permits clean reuse
+  ---
+  duration_ms: 1.194797
+  type: 'test'
+  ...
+# Subtest: RGBA audit cannot claim exactness when target entities are missing or colors are inherited
+ok 202 - RGBA audit cannot claim exactness when target entities are missing or colors are inherited
+  ---
+  duration_ms: 0.498279
+  type: 'test'
+  ...
+# Subtest: RGBA audit distinguishes RGB fidelity from opacity quantization and legacy alpha loss
+ok 203 - RGBA audit distinguishes RGB fidelity from opacity quantization and legacy alpha loss
+  ---
+  duration_ms: 3.200144
+  type: 'test'
+  ...
+# Subtest: RGBA audit reports malformed numerical values rather than normalizing them silently
+ok 204 - RGBA audit reports malformed numerical values rather than normalizing them silently
+  ---
+  duration_ms: 0.496746
+  type: 'test'
+  ...
+# Subtest: All canvases are released when PDF rendering fails before worker creation
+ok 205 - All canvases are released when PDF rendering fails before worker creation
+  ---
+  duration_ms: 2.366981
+  type: 'test'
+  ...
+# Subtest: Portable SHA-256 agrees with native crypto across padding, multi-block and byte-offset boundaries
+ok 206 - Portable SHA-256 agrees with native crypto across padding, multi-block and byte-offset boundaries
+  ---
+  duration_ms: 86.907005
+  type: 'test'
+  ...
+1..206
+# tests 206
+# suites 0
+# pass 206
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2457.497536

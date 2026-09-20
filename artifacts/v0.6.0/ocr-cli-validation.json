@@ -1,0 +1,48 @@
+{
+  "passed": true,
+  "texts": [
+    "NATIVE-42",
+    "P-101",
+    "PUMP",
+    "FLOW",
+    "120",
+    "L/MIN"
+  ],
+  "errors": 0,
+  "fixes": 0,
+  "ocr": {
+    "engine": "tesseract.js",
+    "version": "7.0.0",
+    "options": {
+      "scope": "raster",
+      "languages": "eng",
+      "dpi": 250,
+      "minConfidence": 60,
+      "preprocess": "none",
+      "rotation": 0,
+      "traceLines": false,
+      "traceMode": "axis",
+      "traceTolerance": 0.65,
+      "maxTracePixels": 4000000,
+      "maxPixels": 24000000,
+      "maxRegions": 128,
+      "maxWords": 25000,
+      "timeoutMs": 120000,
+      "tileSize": 2048,
+      "tileOverlap": 96,
+      "maxTiles": 256,
+      "deskew": false,
+      "invert": false
+    },
+    "accepted": 5,
+    "rejected": 0,
+    "duplicates": 1,
+    "regions": 1,
+    "lines": 0,
+    "rejectedWords": [],
+    "tiles": 1,
+    "tileDuplicates": 0,
+    "deskew": [],
+    "effectiveDpi": 250
+  }
+}

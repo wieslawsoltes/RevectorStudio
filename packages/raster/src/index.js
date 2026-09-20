@@ -27,7 +27,7 @@ export function binarize(raster, {method='otsu',window=31,k=.2,invert=false,maxP
     for(let y=0;y<h;y++){checkAbort(signal);for(let x=0;x<w;x++){const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),y0=Math.max(0,y-r),y1=Math.min(h,y+r+1),n=(x1-x0)*(y1-y0),a=y0*stride+x0,b=y0*stride+x1,c=y1*stride+x0,d=y1*stride+x1,m=(sum[d]-sum[b]-sum[c]+sum[a])/n,variance=(squares[d]-squares[b]-squares[c]+squares[a])/n-m*m;out[y*w+x]=g[y*w+x]<m*(1+k*(Math.sqrt(Math.max(0,variance))/128-1))?1:0;}}
     return out;
 }
-export function binaryRgba(binary,width,height){if(binary.length!==width*height)throw new RangeError('Binary size mismatch');const data=new Uint8ClampedArray(binary.length*4);for(let i=0;i<binary.length;i++){const v=binary[i]?0:255;data.set([v,v,v,255],i*4);}return {data,width,height};}
+export function binaryRgba(binary,width,height){if(binary.length!==width*height)throw new RangeError('Binary size mismatch');const data=new Uint8ClampedArray(binary.length*4);for(let i=0;i<binary.length;i++){const v=binary[i]?0:255;const j=i*4;data[j]=data[j+1]=data[j+2]=v;data[j+3]=255;}return {data,width,height};}
 /** Plan disjoint rectangular crops around visible raster marks in displayed-page coordinates.
  * Shape/clip masks are applied later, not approximated by these bounding boxes. */
 export function rasterRegions(scene,{scope='raster',padding=2,maxRegions=256}={}) {

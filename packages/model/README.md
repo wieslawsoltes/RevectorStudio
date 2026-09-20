@@ -1,6 +1,6 @@
 # @revector/model
 
-**Versioned CAD and paint models** — Revector Studio 0.5.0.
+**Versioned CAD and paint models** — Revector Studio 0.6.0.
 
 Discriminated entity declarations, layer/block/group contracts, provenance, validation, model bounds, signals and cancellation.
 
@@ -23,3 +23,5 @@ The declaration file is the authoritative signature reference; source implementa
 Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. Native conversion remains vector-first. Optional @revector/ocr adds inferred raster text and ruled lines with confidence and provenance.
 
 Original package code: MIT; see `LICENSE`. Any included third-party notice remains applicable.
+
+Performance ownership contracts and reproducible benchmarks: `docs/PERFORMANCE.md` in the repository.

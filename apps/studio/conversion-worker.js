@@ -73,7 +73,8 @@ async function lowerScene(scene, userOptions = {}) {
         throw new RangeError('Unsupported output units');
     const scale = factor * options.drawingScale, M = (0, geometry_1.compose)([scale, 0, 0, scale, 0, 0], scene.pageTransform || geometry_1.I);
     const doc = (0, model_1.createDocument)({ name: scene.source?.name || `Page ${scene.pageNumber}`, units: options.units, source: { ...scene.source, page: scene.pageNumber, coordinateTransform: M, options: evidenceOptions(options), irSchema: scene.schema }, pageBox: [0, 0, (scene.pageSize?.[0] ?? (scene.box[2] - scene.box[0])) * scale, (scene.pageSize?.[1] ?? (scene.box[3] - scene.box[1])) * scale], diagnostics: structuredClone(scene.diagnostics || []) });
-    const records = new Map(), styleNames = new Map(), sourceEntities = new Map();
+    const records = new Map(), styleNames = new Map(), sourceEntities = new Map(), clipCache = new WeakMap();
+    const pageClip = { id: 'page-crop', paths: [(0, geometry_1.rectPath)(doc.pageBox)], rule: 'nonzero', box: doc.pageBox, axisRect: true };
     let counter = 0;
     const addReport = (code, msg, severity = 'warning', id) => doc.diagnostics.push((0, model_1.diagnostic)(code, msg, severity, { sourceId: id, page: scene.pageNumber }));
     const makeId = () => `e${++counter}`;
@@ -106,10 +107,19 @@ async function lowerScene(scene, userOptions = {}) {
     }
     function edgeEntity(edge, item) { const base = common(item); return edge.kind === 'L' ? { ...base, type: 'LINE', start: edge.points[0], end: edge.points[1] } : { ...base, type: 'SPLINE', degree: 3, controlPoints: edge.points, knots: [0, 0, 0, 0, 1, 1, 1, 1], weights: [], closed: false }; }
     function effectiveClips(item) {
-        const clips = (item.clips || []).map(c => ({ ...c, paths: (0, geometry_1.mapPaths)(c.paths || [], M) }));
-        if (options.clip)
-            clips.unshift({ id: 'page-crop', paths: [(0, geometry_1.rectPath)(doc.pageBox)], rule: 'nonzero' });
-        return options.clip ? clips : [];
+        if (!options.clip)
+            return [];
+        const clips = [pageClip];
+        for (const c of item.clips || []) {
+            let prepared = clipCache.get(c);
+            if (!prepared) {
+                const paths = (0, geometry_1.mapPaths)(c.paths || [], M);
+                prepared = { ...c, paths, box: (0, geometry_1.pathBox)(paths), axisRect: paths.length === 1 && isAxisRect(paths[0]) };
+                clipCache.set(c, prepared);
+            }
+            clips.push(prepared);
+        }
+        return clips;
     }
     function clippedStroke(edge, clips, item) {
         let parts = [edge];
@@ -122,15 +132,16 @@ async function lowerScene(scene, userOptions = {}) {
                 parts = [];
                 break;
             }
-            const cb = (0, geometry_1.pathBox)(c.paths);
+            const cb = c.box;
             parts = parts.flatMap(e => {
                 const eb = (0, geometry_1.pathBox)([{ start: e.points[0], segments: [e.kind === 'L' ? { kind: 'L', to: e.points[1] } : { kind: 'C', c1: e.points[1], c2: e.points[2], to: e.points[3] }], closed: false }]);
                 if (!(0, geometry_1.intersects)(eb, cb))
                     return [];
                 // Rectangular enclosing clips can be skipped without changing the geometry.
-                if (c.paths.length === 1 && c.paths[0].segments.every(s => s.kind === 'L') && isAxisRect(c.paths[0]) && (0, geometry_1.containsBox)(cb, eb, 1e-9))
+                if (c.axisRect && (0, geometry_1.containsBox)(cb, eb, 1e-9))
                     return [e];
-                return (0, geometry_1.clipCurveToPaths)(e, c.paths, c.rule, { tolerance: options.booleanTolerance });
+                c.query ||= (0, geometry_1.preparePathQuery)(c.paths);
+                return c.query.clip(e, c.rule, { tolerance: options.booleanTolerance });
             });
         }
         return parts;
@@ -157,10 +168,10 @@ async function lowerScene(scene, userOptions = {}) {
                 }
                 if (!c.paths.length)
                     return [];
-                const a = (0, geometry_1.pathBox)(result), b = (0, geometry_1.pathBox)(c.paths);
+                const a = (0, geometry_1.pathBox)(result), b = c.box;
                 if (!(0, geometry_1.intersects)(a, b))
                     return [];
-                if (c.paths.length === 1 && isAxisRect(c.paths[0]) && (0, geometry_1.containsBox)(b, a, 1e-9))
+                if (c.axisRect && (0, geometry_1.containsBox)(b, a, 1e-9))
                     continue;
                 result = (0, geometry_1.booleanPaths)(result, c.paths, { operation: 'intersection', subjectRule: rule, clipRule: c.rule, tolerance: options.booleanTolerance });
                 if (!result.length)
@@ -287,11 +298,11 @@ async function lowerScene(scene, userOptions = {}) {
                 if (c.text)
                     continue;
                 const box = (0, model_1.entityBox)(e, doc);
-                if (!(0, geometry_1.intersects)(box, (0, geometry_1.pathBox)(c.paths))) {
+                if (!(0, geometry_1.intersects)(box, c.box)) {
                     visible = false;
                     break;
                 }
-                if (!(0, geometry_1.containsBox)((0, geometry_1.pathBox)(c.paths), box))
+                if (!(0, geometry_1.containsBox)(c.box, box))
                     addReport('PARTIAL_TEXT_CLIP', 'A partially clipped editable text run is preserved whole. Switch to glyph positioning for finer granularity; font-outline clipping is not inferred.', 'error', item.id);
             }
             if (visible)
@@ -328,9 +339,19 @@ async function lowerScene(scene, userOptions = {}) {
     if (options.preserveForms) {
         // Leaf forms are converted first. Only exact INSERT-representable transforms
         // are folded; shears or unresolved clipped forms remain exploded.
-        const consumed = new Set(), definitions = new Map();
+        const consumed = new Set(), definitions = new Map(), formMembers = new Map(), order = new Map();
+        const placements = new Map();
+        const indexForm = (entity, position) => {
+            order.set(entity, position);
+            for (const id of new Set(entity.source?.formPath || [])) {
+                if (!formMembers.has(id))
+                    formMembers.set(id, []);
+                formMembers.get(id).push(entity);
+            }
+        };
+        doc.entities.forEach(indexForm);
         for (const form of [...(scene.forms || [])].reverse()) {
-            const members = doc.entities.filter(e => !consumed.has(e.id) && e.source?.formPath?.includes(form.id));
+            const members = (formMembers.get(form.id) || []).filter(e => !consumed.has(e.id)).sort((a, b) => order.get(a) - order.get(b));
             if (members.length < 2 || members.some(e => e.type === 'INSERT' || e.type === 'DIMENSION'))
                 continue;
             const fm = (0, geometry_1.compose)(M, form.transform), decomp = (0, geometry_1.decomposeInsert)(fm);
@@ -361,13 +382,23 @@ async function lowerScene(scene, userOptions = {}) {
                 doc.blocks.push(block);
             }
             const first = members[0], insert = { id: makeId(), type: 'INSERT', name: block.name, ...decomp, layer: first.layer, color: first.color, lineweight: first.lineweight, opacity: first.opacity, source: { ids: [...new Set(members.flatMap(e => e.source?.ids || []))], page: scene.pageNumber, form: form.id, formPath: (first.source?.formPath || []).filter(x => x !== form.id) }, semantic: { class: 'form-xobject', confidence: 1, method: 'source' }, attributes: [] };
-            const index = doc.entities.indexOf(first);
             for (const e of members)
                 consumed.add(e.id);
-            doc.entities.splice(index, 0, insert);
+            const anchor = order.get(first);
+            indexForm(insert, anchor);
+            if (!placements.has(first.id))
+                placements.set(first.id, []);
+            placements.get(first.id).push(insert);
             doc.candidates.push({ id: `source-${form.id}`, rule: 'pdf.forms', title: `Preserve Form XObject as ${block.name}`, confidence: 1, exact: true, status: 'accepted', members: members.map(e => e.id), evidence: [{ kind: 'pdf-form-scope', form: form.id, operatorCount: form.end - form.start }], result: [insert.id] });
         }
-        doc.entities = doc.entities.filter(e => !consumed.has(e.id));
+        const retained = [];
+        for (const e of doc.entities) {
+            for (const insert of placements.get(e.id) || [])
+                retained.push(insert);
+            if (!consumed.has(e.id))
+                retained.push(e);
+        }
+        doc.entities = retained;
         for (const b of doc.blocks)
             delete b.signature;
     }
@@ -613,21 +644,34 @@ const geometry_1 = require("@revector/geometry");
 const aci_js_1 = require("@revector/dxf/aci.js");
 const decodeDxfString = s => String(s).replace(/\\U\+([0-9A-Fa-f]{4})/g, (_, v) => String.fromCharCode(parseInt(v, 16)));
 exports.decodeDxfString = decodeDxfString;
-function pairs(text, maxPairs) {
-    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/), out = [];
-    if (lines.at(-1) === '')
-        lines.pop();
-    if (lines.length % 2)
-        throw new Error('DXF group/value line count is odd');
-    if (lines.length / 2 > maxPairs)
-        throw new RangeError('DXF pair budget exceeded');
-    for (let i = 0; i < lines.length; i += 2) {
-        const code = Number(lines[i].trim());
+function* pairs(text, maxPairs) {
+    let offset = text.charCodeAt(0) === 0xFEFF ? 1 : 0, lineNumber = 1, count = 0;
+    const readLine = () => {
+        const end = text.indexOf('\n', offset);
+        let value;
+        if (end < 0) {
+            value = text.slice(offset);
+            offset = text.length;
+        }
+        else {
+            value = text.slice(offset, end > offset && text.charCodeAt(end - 1) === 13 ? end - 1 : end);
+            offset = end + 1;
+        }
+        return value;
+    };
+    while (offset < text.length) {
+        const codeText = readLine();
+        if (offset >= text.length)
+            throw new Error('DXF group/value line count is odd');
+        const value = readLine();
+        if (++count > maxPairs)
+            throw new RangeError('DXF pair budget exceeded');
+        const code = Number(codeText.trim());
         if (!Number.isInteger(code) || code < 0 || code > 1071)
-            throw new Error(`Invalid DXF group code on line ${i + 1}`);
-        out.push([code, lines[i + 1]]);
+            throw new Error(`Invalid DXF group code on line ${lineNumber}`);
+        yield [code, value];
+        lineNumber += 2;
     }
-    return out;
 }
 function records(data) {
     const out = [];
@@ -639,7 +683,18 @@ function records(data) {
     }
     return out;
 }
-const get = (r, code, def) => r.tags.find(t => t[0] === code)?.[1] ?? def;
+function get(r, code, def) {
+    // Most records ask for dozens of distinct tags. Index first occurrences once;
+    // repeated point/edge codes remain in tags for ordered multi-value decoding.
+    let values = r.firstValues;
+    if (!values) {
+        values = r.firstValues = new Map();
+        for (const [c, v] of r.tags)
+            if (!values.has(c))
+                values.set(c, v);
+    }
+    return values.get(code) ?? def;
+}
 const n = (r, c, d = 0) => Number(get(r, c, d));
 const p = (r, c, d = [0, 0]) => [n(r, c, d[0]), n(r, c + 10, d[1])];
 function readColor(r, layer) {
@@ -753,22 +808,25 @@ function readHatch(r) {
 }
 /** Reads the writer's complete entity subset. It is not advertised as a universal DXF importer. */
 function readDxf(text, { maxPairs = 10000000 } = {}) {
-    const data = pairs(text, maxPairs), sections = new Map();
-    let name = null;
-    for (let i = 0; i < data.length; i++) {
-        const [c, v] = data[i];
+    const iterator = pairs(text, maxPairs), sections = new Map();
+    let name = null, last = null;
+    for (const pair of iterator) {
+        const [c, v] = pair;
+        last = pair;
         if (c === 0 && v === 'SECTION') {
-            if (data[i + 1]?.[0] !== 2)
+            const next = iterator.next();
+            if (next.done || next.value[0] !== 2)
                 throw Error('DXF SECTION has no name');
-            name = data[++i][1];
+            last = next.value;
+            name = next.value[1];
             sections.set(name, []);
         }
         else if (c === 0 && v === 'ENDSEC')
             name = null;
         else if (name)
-            sections.get(name).push(data[i]);
+            sections.get(name).push(pair);
     }
-    if (data.at(-1)?.[1] !== 'EOF')
+    if (last?.[1] !== 'EOF')
         throw Error('DXF has no EOF marker');
     const doc = (0, model_1.createDocument)({ name: 'DXF round trip', layers: [] });
     const header = sections.get('HEADER') || [];
@@ -793,6 +851,7 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
     }
     if (!doc.layers.some(l => l.name === '0'))
         doc.layers.push({ name: '0', color: [0, 0, 0], visible: true });
+    const layerIndex = new Map(doc.layers.map(l => [l.name, l]));
     const imageDefs = new Map();
     for (const r of records(sections.get('OBJECTS') || []))
         if (r.type === 'IMAGEDEF') {
@@ -803,7 +862,7 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
         }
     let next = 0;
     function entity(r) {
-        const layer = (0, exports.decodeDxfString)(get(r, 8, '0')), l = doc.layers.find(l => l.name === layer), meta = parseXdata(r);
+        const layer = (0, exports.decodeDxfString)(get(r, 8, '0')), l = layerIndex.get(layer), meta = parseXdata(r);
         const e = { id: meta?.id || `dxf-${++next}`, handle: get(r, 5, ''), type: r.type, layer, color: readColor(r, l), lineweight: Math.max(0, n(r, 370, 0)) / 100, opacity: get(r, 440, null) !== null ? (n(r, 440) & 255) / 255 : 1, dash: linetypes.get(get(r, 6, 'CONTINUOUS')) || [], source: meta?.source || {}, semantic: meta?.semantic || {} };
         switch (r.type) {
             case 'IMAGE': {
@@ -979,24 +1038,18 @@ const aci_js_1 = require("@revector/dxf/aci.js");
 const UNIT_CODES = { unitless: 0, in: 1, mm: 4, cm: 5, m: 6, pt: 0 };
 const LINEWEIGHTS = [0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, 53, 60, 70, 80, 90, 100, 106, 120, 140, 158, 200, 211];
 function dxfString(value) {
-    let out = '';
-    for (let i = 0; i < String(value ?? '').length; i++) {
-        const c = String(value ?? '').charCodeAt(i);
-        if (c === 10 || c === 13 || c < 32)
-            out += ' ';
-        else if (c > 126)
-            out += '\\U+' + c.toString(16).toUpperCase().padStart(4, '0');
-        else
-            out += String.fromCharCode(c);
-    }
-    return out;
+    const text = String(value ?? '');
+    // Most tags and provenance JSON are ASCII; do not allocate one character at a time.
+    return /[\x00-\x1f\x7f-\uffff]/.test(text)
+        ? text.replace(/[\x00-\x1f\x7f-\uffff]/g, c => c.charCodeAt(0) < 32 ? ' ' : '\\U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'))
+        : text;
 }
 function name(value) { const n = String(value).replace(/[<>\/\\":;?*|=,\x00-\x1f]/g, '_'); return n.slice(0, 240) || '0'; }
 function blockName(value) { return value.startsWith('*') ? '*' + name(value.slice(1)) : name(value); }
 function nearestACI(rgb) {
     let best = 7, error = Infinity;
     for (let i = 1; i < 256; i++) {
-        const v = aci_js_1.ACI[i], c = [v >>> 16 & 255, v >>> 8 & 255, v & 255], d = c.reduce((s, x, j) => s + (x - rgb[j]) ** 2, 0);
+        const v = aci_js_1.ACI[i], dr = (v >>> 16 & 255) - rgb[0], dg = (v >>> 8 & 255) - rgb[1], db = (v & 255) - rgb[2], d = dr * dr + dg * dg + db * db;
         if (d < error) {
             error = d;
             best = i;
@@ -1063,7 +1116,13 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
     const layerHandles = new Map(doc.layers.map(l => [l.name, h()]));
     const appids = [{ name: 'ACAD', handle: h() }, { name: 'REVECTOR', handle: h() }];
     const dimStyle = h(), vport = h();
-    const groupHandles = new Map(doc.groups.map(g => [g.name, h()]));
+    const groupHandles = new Map(doc.groups.map(g => [g.name, h()])), groupMembership = new Map();
+    for (const g of doc.groups)
+        for (const id of new Set(g.members)) {
+            if (!groupMembership.has(id))
+                groupMembership.set(id, []);
+            groupMembership.get(id).push(g);
+        }
     for (const e of (0, model_1.allEntities)(doc)) {
         handles.set(e.id, h());
         if (e.type === 'INSERT' && e.attributes?.length) {
@@ -1073,7 +1132,8 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
         }
     }
     const imageEntities = (0, model_1.allEntities)(doc).filter(e => e.type === 'IMAGE');
-    const usedAssets = (doc.assets || []).filter(a => imageEntities.some(e => e.imageId === a.id));
+    const usedAssetIds = new Set(imageEntities.map(e => e.imageId));
+    const usedAssets = (doc.assets || []).filter(a => usedAssetIds.has(a.id));
     const imageDict = imageEntities.length ? h() : null, rasterVariables = imageEntities.length ? h() : null;
     const imageDefs = new Map(usedAssets.map(a => [a.id, h()]));
     const imageReactors = new Map(imageEntities.map(e => [e.id, h()]));
@@ -1081,6 +1141,8 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
     const num = n => {
         if (!Number.isFinite(n))
             throw Error(`Non-finite DXF numeric value ${n}`);
+        if (Number.isInteger(n))
+            return String(n);
         const v = Math.abs(n) < 10 ** (-precision) / 2 ? 0 : n;
         return Number(v.toFixed(precision)).toString();
     };
@@ -1100,15 +1162,22 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
             tag(100, s);
     };
     const table = (type, count, fn) => { record('TABLE', tables[type], null); tag(2, type); tag(100, 'AcDbSymbolTable'); tag(70, count); fn(); tag(0, 'ENDTAB'); };
+    const paletteCache = new Map();
     function color(rgb, hidden = false) {
-        const aci = nearestACI(rgb);
+        const key = rgb.join(',');
+        let aci = paletteCache.get(key);
+        if (aci === undefined) {
+            aci = nearestACI(rgb);
+            if (paletteCache.size < 4096)
+                paletteCache.set(key, aci);
+        }
         tag(62, hidden ? -aci : aci);
         if (modern)
             tag(420, rgbInt(rgb));
     }
     function common(e, owner, handle = handles.get(e.id)) {
         record(e.type, handle, null);
-        const reactors = doc.groups.filter(g => g.members.includes(e.id));
+        const reactors = groupMembership.get(e.id) || [];
         if (reactors.length) {
             tag(102, '{ACAD_REACTORS');
             for (const g of reactors)
@@ -1136,6 +1205,11 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
             value = JSON.stringify({ id: e.id, source: { ref: (0, geometry_1.stableHash)(e.source || {}) }, semantic: { class: e.semantic?.class, confidence: e.semantic?.confidence, detailHash: (0, geometry_1.stableHash)(e.semantic || {}), truncated: true } });
         }
         tag(1001, 'REVECTOR');
+        if (!/[\x00-\x1f\x7f-\uffff]/.test(value)) {
+            for (let start = 0; start < value.length; start += 240)
+                tag(1000, value.slice(start, start + 240));
+            return;
+        }
         let chunk = '';
         for (const c of value) {
             const text = dxfString(c);
@@ -1770,10 +1844,12 @@ class ConversionEngine {
         document = await rules.run(document, settings);
         checkpoint('semanticsMs');
         document = (0, appearance_js_1.applyAppearance)(document, scene, settings);
+        checkpoint('representationMs');
         (0, model_1.checkAbort)(settings.signal);
         const validation = (0, model_1.validateDocument)(document);
         if (!validation.valid)
             throw Error('Conversion model failed validation: ' + validation.errors.join('; '));
+        checkpoint('validationMs');
         options.onProgress?.({ phase: 'serialize', done: 0, total: 1 });
         const dxf = (0, dxf_1.exportDxf)(document, { version: settings.version, precision: settings.precision, strict: settings.strict });
         checkpoint('serializeMs');
@@ -1782,8 +1858,10 @@ class ConversionEngine {
         preview.pageBox = [...document.pageBox];
         preview.source = document.source;
         preview.name = document.name;
+        const assetIndex = new Map((document.assets || []).map(a => [a.id, a]));
         for (const a of preview.assets || []) {
-            const original = (document.assets || []).find(s => s.id === a.id && s.path === a.path && s.width === a.width && s.height === a.height);
+            const candidate = assetIndex.get(a.id);
+            const original = candidate && candidate.path === a.path && candidate.width === a.width && candidate.height === a.height ? candidate : null;
             if (original) {
                 a.dataBase64 = original.dataBase64;
                 a.sha256 = original.sha256;
@@ -1793,21 +1871,36 @@ class ConversionEngine {
         if (!roundtripValidation.valid)
             throw new Error('Serialized DXF failed round-trip validation: ' + roundtripValidation.errors.join('; '));
         checkpoint('roundtripMs');
-        const report = { schema: 'revector.report/1', version: '0.5.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, appearance: document.source.appearance || null, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const colorAudit = (0, color_1.auditColors)(document, preview);
+        checkpoint('colorAuditMs');
+        const report = { schema: 'revector.report/1', version: '0.6.0', color: { ...colorAudit, source: scene.colorManagement || null }, appearance: document.source.appearance || null, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        report.timings.totalMs = performance.now() - start;
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
     }
     async convertPdf(bytes, options = {}) {
+        const pipelineStart = performance.now(), phaseTimes = {};
         const source = await pdf_1.PdfSource.open(bytes, options);
+        phaseTimes.pdfOpenMs = performance.now() - pipelineStart;
         try {
+            let mark = performance.now();
             let scene = await source.extract(options.page || 1, options);
+            phaseTimes.extractionMs = performance.now() - mark;
+            mark = performance.now();
             if (options.rasterImages)
                 scene = await source.preserveRasterImages(scene, { ...options.rasterImages, signal: options.signal });
+            phaseTimes.rasterImagesMs = performance.now() - mark;
+            mark = performance.now();
             if (options.ocr)
                 scene = await (0, ocr_1.recoverPdfRaster)(source, scene, { ...options.ocr, signal: options.signal, onProgress: options.onProgress });
+            phaseTimes.ocrMs = performance.now() - mark;
+            mark = performance.now();
             if (options.appearance)
                 scene = await source.captureAppearance(scene, { ...options.appearance, signal: options.signal });
-            return { ...await this.convertScene(scene, options), scene };
+            phaseTimes.appearanceMs = performance.now() - mark;
+            const result = await this.convertScene(scene, options);
+            Object.assign(result.report.timings, phaseTimes, { totalPipelineMs: performance.now() - pipelineStart });
+            return { ...result, scene };
         }
         finally {
             await source.dispose();
@@ -1819,44 +1912,79 @@ const convertScene = (scene, options) => new ConversionEngine().convertScene(sce
 exports.convertScene = convertScene;
 const convertPdf = (bytes, options) => new ConversionEngine().convertPdf(bytes, options);
 exports.convertPdf = convertPdf;
-/** One conversion per worker. Hard termination makes cancellation independent of kernel yielding. */
+/** One in-flight conversion per worker; successful idle workers are reused.
+ * Cancellation and execution errors still hard-terminate the worker. Input scenes are
+ * cloned on every postMessage: mutating a caller's scene never reuses a stale snapshot. */
 class ConversionWorker {
     constructor(url) { this.url = url; this.worker = null; this.pending = null; this.sequence = 0; }
-    cancel() { this.worker?.terminate(); this.worker = null; this.pending?.(Object.assign(new Error('Conversion cancelled'), { name: 'AbortError' })); this.pending = null; }
+    cancel() { this.pending?.(Object.assign(new Error('Conversion cancelled'), { name: 'AbortError' })); }
     convert(scene, options = {}, { signal, onProgress } = {}) {
         this.cancel();
         (0, model_1.checkAbort)(signal);
         const id = ++this.sequence;
         return new Promise((resolve, reject) => {
-            const worker = this.worker = new Worker(this.url, { type: 'module', name: 'revector-conversion' });
-            const cleanup = () => {
+            let worker;
+            try {
+                worker = this.worker ||= new Worker(this.url, { type: 'module', name: 'revector-conversion' });
+            }
+            catch (error) {
+                reject(error);
+                return;
+            }
+            let settled = false;
+            const cleanup = terminate => {
+                if (settled)
+                    return false;
+                settled = true;
                 signal?.removeEventListener('abort', abort);
-                worker.terminate();
-                if (this.worker === worker)
-                    this.worker = null;
-                this.pending = null;
+                worker.onmessage = worker.onerror = worker.onmessageerror = null;
+                if (this.pending === fail)
+                    this.pending = null;
+                if (terminate) {
+                    worker.terminate();
+                    if (this.worker === worker)
+                        this.worker = null;
+                }
+                else
+                    worker.onerror = () => {
+                        if (this.worker === worker && !this.pending) {
+                            worker.terminate();
+                            this.worker = null;
+                        }
+                    };
+                return true;
             };
-            const fail = e => { cleanup(); reject(e); };
+            const fail = error => { if (cleanup(true))
+                reject(error); };
+            const abort = () => fail(Object.assign(new Error('Conversion cancelled'), { name: 'AbortError' }));
             this.pending = fail;
-            const abort = () => this.cancel();
             signal?.addEventListener('abort', abort, { once: true });
             worker.onmessage = ({ data }) => {
-                if (data.id !== id)
+                if (settled || data.id !== id)
                     return;
-                if (data.kind === 'progress')
-                    onProgress?.(data.progress);
-                else if (data.kind === 'result') {
-                    cleanup();
-                    resolve(data.result);
+                if (data.kind === 'progress') {
+                    try {
+                        onProgress?.(data.progress);
+                    }
+                    catch (error) {
+                        fail(error);
+                    }
                 }
-                else if (data.kind === 'error')
+                else if (data.kind === 'result') {
+                    if (cleanup(false))
+                        resolve(data.result);
+                }
+                else if (data.kind === 'error') {
                     fail(Object.assign(new Error(data.error.message), { name: data.error.name, stack: data.error.stack }));
+                }
             };
             worker.onerror = e => fail(Object.assign(new Error(e.message || 'Conversion worker could not start in this browser context'), { name: e.message ? 'WorkerExecutionError' : 'WorkerStartupError' }));
+            worker.onmessageerror = () => fail(new Error('Conversion worker returned an unreadable result'));
             const copy = { ...options };
             delete copy.signal;
             delete copy.onProgress;
             try {
+                (0, model_1.checkAbort)(signal);
                 worker.postMessage({ id, scene, options: copy });
             }
             catch (error) {
@@ -1864,7 +1992,7 @@ class ConversionWorker {
             }
         });
     }
-    dispose() { this.cancel(); }
+    dispose() { this.cancel(); this.worker?.terminate(); this.worker = null; }
 }
 exports.ConversionWorker = ConversionWorker;
 
@@ -1888,10 +2016,12 @@ self.onmessage = async ({ data: { id, scene, options } }) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.intersectEdges = intersectEdges;
+exports.preparePathQuery = preparePathQuery;
 exports.pathWinding = pathWinding;
 exports.insidePaths = insidePaths;
 exports.clipCurveToPaths = clipCurveToPaths;
 exports.booleanPaths = booleanPaths;
+const spatial_js_1 = require("@revector/geometry/spatial.js");
 const geometry_1 = require("@revector/geometry");
 const point = (e, t) => e.kind === 'L' ? (0, geometry_1.lerp)(...e.points, t) : (0, geometry_1.cubicPoint)(e.points, t);
 function derivative(e, t) {
@@ -1995,54 +2125,95 @@ function intersectEdges(a, b, { tolerance = 1e-8, maxSubdivisions = 20000 } = {}
     return uniqueRoots(roots, 1e-6);
 }
 /** Exact polynomial ray tests, using half-open crossings to avoid vertex double counts. */
+function edgeWinding(p, e) {
+    let winding = 0;
+    if (e.kind === 'L') {
+        const [a, b] = e.points;
+        if (a[1] <= p[1] && b[1] > p[1] && (0, geometry_1.cross)((0, geometry_1.sub)(b, a), (0, geometry_1.sub)(p, a)) > 0)
+            winding++;
+        else if (a[1] > p[1] && b[1] <= p[1] && (0, geometry_1.cross)((0, geometry_1.sub)(b, a), (0, geometry_1.sub)(p, a)) < 0)
+            winding--;
+    }
+    else {
+        const v = e.points.map(q => q[1] - p[1]);
+        const scale = Math.max(1, ...v.map(Math.abs));
+        for (const t of (0, geometry_1.polynomialRoots01)(power(v).map(x => x / scale))) {
+            if (t >= 1 - 1e-9)
+                continue;
+            const q = point(e, t);
+            if (q[0] <= p[0])
+                continue;
+            const dy = derivative(e, t)[1];
+            if (Math.abs(dy) > 1e-9)
+                winding += Math.sign(dy);
+            else {
+                const eps = 1e-5, y0 = point(e, Math.max(0, t - eps))[1] - p[1], y1 = point(e, Math.min(1, t + eps))[1] - p[1];
+                if (y0 * y1 < 0)
+                    winding += Math.sign(y1 - y0);
+            }
+        }
+    }
+    return winding;
+}
+function prepareEdges(paths) {
+    const edges = paths.flatMap(path => (0, geometry_1.pathEdges)({ ...path, closed: true }));
+    // Control hulls are conservative for cubic ray tests, including near-tangent roots.
+    const records = edges.map(e => {
+        const box = [Infinity, Infinity, -Infinity, -Infinity];
+        for (const p of e.points) {
+            box[0] = Math.min(box[0], p[0]);
+            box[1] = Math.min(box[1], p[1]);
+            box[2] = Math.max(box[2], p[0]);
+            box[3] = Math.max(box[3], p[1]);
+        }
+        if (e.kind === 'C') {
+            const pad = 1e-7 * Math.max(1, ...box.map(Math.abs));
+            box[0] -= pad;
+            box[1] -= pad;
+            box[2] += pad;
+            box[3] += pad;
+        }
+        return { e, box };
+    });
+    const tree = records.length > 24 ? new spatial_js_1.BoxIndex(records, x => x.box) : null;
+    const visit = (box, fn) => { if (tree)
+        tree.visit(box, r => fn(r.e));
+    else
+        for (const r of records)
+            if ((0, geometry_1.intersects)(r.box, box))
+                fn(r.e); };
+    const winding = p => { let result = 0; visit([p[0], p[1], Infinity, p[1]], e => { result += edgeWinding(p, e); }); return result; };
+    const contains = (p, rule = 'nonzero') => { const w = winding(p); return rule === 'evenodd' ? Math.abs(w) % 2 === 1 : w !== 0; };
+    const clip = (edge, rule = 'nonzero', options = {}) => {
+        const ts = [0, 1];
+        visit(bounds(edge), other => { for (const [t] of intersectEdges(edge, other, options))
+            ts.push(t); });
+        ts.sort((a, b) => a - b);
+        const cuts = ts.filter((t, i) => !i || t - ts[i - 1] > 1e-9), out = [];
+        for (let i = 1; i < cuts.length; i++)
+            if (contains(point(edge, (cuts[i] + cuts[i - 1]) / 2), rule))
+                out.push(edgePart(edge, cuts[i - 1], cuts[i]));
+        return out;
+    };
+    return { edges, winding, contains, clip };
+}
+/** Detached, immutable query snapshot for repeated winding and curve clipping. */
+function preparePathQuery(paths) {
+    const { winding, contains, clip } = prepareEdges(structuredClone(paths));
+    return Object.freeze({ winding, contains, clip });
+}
 function pathWinding(p, paths) {
     let winding = 0;
     for (const path of paths)
-        for (const e of (0, geometry_1.pathEdges)({ ...path, closed: true })) {
-            if (e.kind === 'L') {
-                const [a, b] = e.points;
-                if (a[1] <= p[1] && b[1] > p[1] && (0, geometry_1.cross)((0, geometry_1.sub)(b, a), (0, geometry_1.sub)(p, a)) > 0)
-                    winding++;
-                else if (a[1] > p[1] && b[1] <= p[1] && (0, geometry_1.cross)((0, geometry_1.sub)(b, a), (0, geometry_1.sub)(p, a)) < 0)
-                    winding--;
-            }
-            else {
-                const v = e.points.map(q => q[1] - p[1]);
-                const scale = Math.max(1, ...v.map(Math.abs));
-                for (const t of (0, geometry_1.polynomialRoots01)(power(v).map(x => x / scale))) {
-                    if (t >= 1 - 1e-9)
-                        continue;
-                    const q = point(e, t);
-                    if (q[0] <= p[0])
-                        continue;
-                    const dy = derivative(e, t)[1];
-                    if (Math.abs(dy) > 1e-9)
-                        winding += Math.sign(dy);
-                    else {
-                        const eps = 1e-5, y0 = point(e, Math.max(0, t - eps))[1] - p[1], y1 = point(e, Math.min(1, t + eps))[1] - p[1];
-                        if (y0 * y1 < 0)
-                            winding += Math.sign(y1 - y0);
-                    }
-                }
-            }
-        }
+        for (const e of (0, geometry_1.pathEdges)({ ...path, closed: true }))
+            winding += edgeWinding(p, e);
     return winding;
 }
 function insidePaths(p, paths, rule = 'nonzero') { const w = pathWinding(p, paths); return rule === 'evenodd' ? Math.abs(w) % 2 === 1 : w !== 0; }
 function edgePart(e, a, b) { return { kind: e.kind, points: e.kind === 'L' ? [point(e, a), point(e, b)] : (0, geometry_1.subCubic)(e.points, a, b) }; }
 function reverseEdge(e) { return { kind: e.kind, points: [...e.points].reverse() }; }
 function clipCurveToPaths(edge, paths, rule = 'nonzero', options = {}) {
-    const ts = [0, 1];
-    for (const p of paths)
-        for (const other of (0, geometry_1.pathEdges)({ ...p, closed: true }))
-            for (const [t] of intersectEdges(edge, other, options))
-                ts.push(t);
-    ts.sort((a, b) => a - b);
-    const cuts = ts.filter((t, i) => !i || t - ts[i - 1] > 1e-9), out = [];
-    for (let i = 1; i < cuts.length; i++)
-        if (insidePaths(point(edge, (cuts[i] + cuts[i - 1]) / 2), paths, rule))
-            out.push(edgePart(edge, cuts[i - 1], cuts[i]));
-    return out;
+    return prepareEdges(paths).clip(edge, rule, options);
 }
 function edgeToSegment(e) { return e.kind === 'L' ? { kind: 'L', to: e.points[1] } : { kind: 'C', c1: e.points[1], c2: e.points[2], to: e.points[3] }; }
 /**
@@ -2052,20 +2223,20 @@ function edgeToSegment(e) { return e.kind === 'L' ? { kind: 'L', to: e.points[1]
  * Ambiguous/degenerate arrangements throw rather than fabricate geometry.
  */
 function booleanPaths(subject, clip = [], { operation = 'intersection', subjectRule = 'nonzero', clipRule = 'nonzero', tolerance = 1e-8, maxPairs = 250000 } = {}) {
-    const edges = [...subject.flatMap(p => (0, geometry_1.pathEdges)({ ...p, closed: true })), ...clip.flatMap(p => (0, geometry_1.pathEdges)({ ...p, closed: true }))].filter(e => e.kind === 'C' || (0, geometry_1.distance)(...e.points) > tolerance);
+    const subjectQuery = prepareEdges(subject), clipQuery = prepareEdges(clip);
+    const edges = [...subjectQuery.edges, ...clipQuery.edges].filter(e => e.kind === 'C' || (0, geometry_1.distance)(...e.points) > tolerance);
     if (!edges.length)
         return [];
     const boxes = edges.map(bounds), cuts = edges.map(() => [0, 1]);
     let pairs = 0;
-    // Sweep on min-X; avoids the quadratic empty-pair scan of naive booleans.
+    // BVH broad phase avoids scanning disjoint pairs, including many shared min-X bounds.
     const order = edges.map((_, i) => i).sort((a, b) => boxes[a][0] - boxes[b][0]);
-    const active = [];
+    const rank = new Uint32Array(edges.length);
+    order.forEach((id, index) => { rank[id] = index; });
+    const pairIndex = new spatial_js_1.BoxIndex(order, i => boxes[i]);
     for (const i of order) {
-        for (let k = active.length - 1; k >= 0; k--)
-            if (boxes[active[k]][2] < boxes[i][0] - tolerance)
-                active.splice(k, 1);
-        for (const j of active) {
-            if (!(0, geometry_1.intersects)(boxes[i], boxes[j]))
+        for (const j of pairIndex.search(boxes[i])) {
+            if (rank[j] >= rank[i])
                 continue;
             if (++pairs > maxPairs)
                 throw new RangeError('Vector boolean intersection budget exceeded');
@@ -2074,9 +2245,8 @@ function booleanPaths(subject, clip = [], { operation = 'intersection', subjectR
                 cuts[j].push(u);
             }
         }
-        active.push(i);
     }
-    const predicate = p => { const a = insidePaths(p, subject, subjectRule), b = insidePaths(p, clip, clipRule); return operation === 'normalize' ? a : operation === 'union' ? a || b : operation === 'difference' ? a && !b : operation === 'xor' ? a !== b : a && b; };
+    const predicate = p => { const a = subjectQuery.contains(p, subjectRule), b = clipQuery.contains(p, clipRule); return operation === 'normalize' ? a : operation === 'union' ? a || b : operation === 'difference' ? a && !b : operation === 'xor' ? a !== b : a && b; };
     const kept = [], seen = new Set();
     for (let i = 0; i < edges.length; i++) {
         const ts = cuts[i].sort((a, b) => a - b).filter((t, j, a) => !j || t - a[j - 1] > 1e-9);
@@ -2330,7 +2500,7 @@ function fitCubicPolyline(points, options = {}) {
 "@revector/geometry":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fitCubicPolyline = exports.fitCircularPolyline = exports.booleanPaths = exports.clipCurveToPaths = exports.insidePaths = exports.pathWinding = exports.intersectEdges = exports.containsBox = exports.contains = exports.intersects = exports.validBox = exports.near = exports.lerp = exports.distance = exports.length = exports.cross = exports.dot = exports.mul = exports.sub = exports.add = exports.I = exports.EPS = void 0;
+exports.BoxIndex = exports.fitCubicPolyline = exports.fitCircularPolyline = exports.booleanPaths = exports.clipCurveToPaths = exports.preparePathQuery = exports.insidePaths = exports.pathWinding = exports.intersectEdges = exports.containsBox = exports.contains = exports.intersects = exports.validBox = exports.near = exports.lerp = exports.distance = exports.length = exports.cross = exports.dot = exports.mul = exports.sub = exports.add = exports.I = exports.EPS = void 0;
 exports.finitePoint = finitePoint;
 exports.transform = transform;
 exports.vector = vector;
@@ -2680,17 +2850,110 @@ var boolean_js_1 = require("@revector/geometry/boolean.js");
 Object.defineProperty(exports, "intersectEdges", { enumerable: true, get: function () { return boolean_js_1.intersectEdges; } });
 Object.defineProperty(exports, "pathWinding", { enumerable: true, get: function () { return boolean_js_1.pathWinding; } });
 Object.defineProperty(exports, "insidePaths", { enumerable: true, get: function () { return boolean_js_1.insidePaths; } });
+Object.defineProperty(exports, "preparePathQuery", { enumerable: true, get: function () { return boolean_js_1.preparePathQuery; } });
 Object.defineProperty(exports, "clipCurveToPaths", { enumerable: true, get: function () { return boolean_js_1.clipCurveToPaths; } });
 Object.defineProperty(exports, "booleanPaths", { enumerable: true, get: function () { return boolean_js_1.booleanPaths; } });
 var fitting_js_1 = require("@revector/geometry/fitting.js");
 Object.defineProperty(exports, "fitCircularPolyline", { enumerable: true, get: function () { return fitting_js_1.fitCircularPolyline; } });
 Object.defineProperty(exports, "fitCubicPolyline", { enumerable: true, get: function () { return fitting_js_1.fitCubicPolyline; } });
+var spatial_js_1 = require("@revector/geometry/spatial.js");
+Object.defineProperty(exports, "BoxIndex", { enumerable: true, get: function () { return spatial_js_1.BoxIndex; } });
+
+},
+"@revector/geometry/spatial.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BoxIndex = void 0;
+/** Deterministic static median BVH. In-place selection avoids recursive full-array
+ * sorts/copies; leaf order matches the original median-sort implementation. */
+const intersects = (a, b) => a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
+const compare = axis => (a, b) => (a.box[axis] + a.box[axis + 2]) - (b.box[axis] + b.box[axis + 2]) || a.index - b.index;
+function sortRange(items, lo, hi, cmp) {
+    const sorted = items.slice(lo, hi).sort(cmp);
+    for (let i = 0; i < sorted.length; i++)
+        items[lo + i] = sorted[i];
+}
+function select(items, lo, hi, k, cmp) {
+    let budget = 2 * Math.ceil(Math.log2(hi - lo + 1));
+    while (hi - lo > 16) {
+        if (!budget--) {
+            sortRange(items, lo, hi, cmp);
+            return;
+        }
+        const pivot = items[(lo + hi) >>> 1];
+        let i = lo, j = hi - 1;
+        while (i <= j) {
+            while (cmp(items[i], pivot) < 0)
+                i++;
+            while (cmp(items[j], pivot) > 0)
+                j--;
+            if (i <= j) {
+                const t = items[i];
+                items[i++] = items[j];
+                items[j--] = t;
+            }
+        }
+        if (k <= j)
+            hi = j + 1;
+        else if (k >= i)
+            lo = i;
+        else
+            return;
+    }
+    sortRange(items, lo, hi, cmp);
+}
+class BoxIndex {
+    constructor(items = [], getBox = x => x.bounds) {
+        this.items = items;
+        this.getBox = getBox;
+        const entries = items.map((item, index) => ({ item, index, box: getBox(item) }));
+        this.root = this.#build(entries, 0, entries.length, -1);
+    }
+    #build(entries, lo, hi, parentAxis) {
+        if (lo === hi)
+            return null;
+        const box = [Infinity, Infinity, -Infinity, -Infinity];
+        for (let i = lo; i < hi; i++) {
+            const b = entries[i].box;
+            box[0] = Math.min(box[0], b[0]);
+            box[1] = Math.min(box[1], b[1]);
+            box[2] = Math.max(box[2], b[2]);
+            box[3] = Math.max(box[3], b[3]);
+        }
+        if (hi - lo <= 12) {
+            if (parentAxis >= 0)
+                sortRange(entries, lo, hi, compare(parentAxis));
+            return { box, items: entries.slice(lo, hi) };
+        }
+        const axis = box[2] - box[0] >= box[3] - box[1] ? 0 : 1, mid = (lo + hi) >>> 1;
+        select(entries, lo, hi, mid, compare(axis));
+        return { box, left: this.#build(entries, lo, mid, axis), right: this.#build(entries, mid, hi, axis) };
+    }
+    /** Callback traversal avoids allocating an array for internal geometric predicates. */
+    visit(box, callback) {
+        const stack = [this.root];
+        while (stack.length) {
+            const node = stack.pop();
+            if (!node || !intersects(node.box, box))
+                continue;
+            if (node.items) {
+                for (const entry of node.items)
+                    if (intersects(entry.box, box))
+                        callback(entry.item);
+            }
+            else
+                stack.push(node.left, node.right);
+        }
+    }
+    search(box) { const result = []; this.visit(box, item => result.push(item)); return result; }
+}
+exports.BoxIndex = BoxIndex;
 
 },
 "@revector/model":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.yieldTask = exports.AbortConversionError = exports.Signal = exports.DXF_VERSIONS = exports.SCENE_SCHEMA = exports.MODEL_SCHEMA = exports.sha256Bytes = void 0;
+exports.yieldTask = exports.AbortConversionError = exports.Signal = exports.DXF_VERSIONS = exports.SCENE_SCHEMA = exports.MODEL_SCHEMA = exports.sha256Bytes = exports._isImmutableSnapshot = exports._markImmutableSnapshot = void 0;
 exports.createDocument = createDocument;
 exports.diagnostic = diagnostic;
 exports.ensureLayer = ensureLayer;
@@ -2699,10 +2962,14 @@ exports.entityBox = entityBox;
 exports.documentBox = documentBox;
 exports.entityPaths = entityPaths;
 exports.validateDocument = validateDocument;
+exports.createImmutableDocumentValidator = createImmutableDocumentValidator;
 exports.countTypes = countTypes;
 exports.summary = summary;
 exports.checkAbort = checkAbort;
 exports.isSafeAssetPath = isSafeAssetPath;
+var snapshot_js_1 = require("@revector/model/snapshot.js");
+Object.defineProperty(exports, "_markImmutableSnapshot", { enumerable: true, get: function () { return snapshot_js_1.markImmutableSnapshot; } });
+Object.defineProperty(exports, "_isImmutableSnapshot", { enumerable: true, get: function () { return snapshot_js_1.isImmutableSnapshot; } });
 var sha256_js_1 = require("@revector/model/sha256.js");
 Object.defineProperty(exports, "sha256Bytes", { enumerable: true, get: function () { return sha256_js_1.sha256Bytes; } });
 const geometry_1 = require("@revector/geometry");
@@ -2808,7 +3075,22 @@ function entityPaths(e) {
         default: return [];
     }
 }
-function validateDocument(doc) {
+function validateDocument(doc) { return validate(doc); }
+/** A private ownership session for copy-on-write model pipelines. Entity objects and
+ * their descendants MUST NOT be mutated after validation. Public mutable documents
+ * must use validateDocument instead. Names, references and IDs are always rechecked. */
+function createImmutableDocumentValidator() {
+    const entities = new WeakMap();
+    return doc => validate(doc, entities);
+}
+function* validationEntities(doc) {
+    for (const list of [doc.entities, ...doc.blocks.map(b => b.entities)])
+        for (const e of list) {
+            yield e;
+            yield* e.attributes || [];
+        }
+}
+function validate(doc, entityCache) {
     const errors = [];
     const ids = new Set(), blocks = new Map(doc.blocks.map(b => [b.name, b]));
     const layers = new Set(doc.layers.map(l => l.name));
@@ -2836,7 +3118,7 @@ function validateDocument(doc) {
         errors.push('Duplicate block names');
     if (layers.size !== doc.layers.length)
         errors.push('Duplicate layer names');
-    for (const e of allEntities(doc).flatMap(e => [e, ...(e.attributes || [])])) {
+    for (const e of validationEntities(doc)) {
         if (!e.id)
             errors.push('Entity has no id');
         else if (ids.has(e.id))
@@ -2861,25 +3143,48 @@ function validateDocument(doc) {
             if (!Array.isArray(e.imageSize) || e.imageSize.length !== 2 || !e.imageSize.every(n => Number.isInteger(n) && n > 0) || a && (a.width !== e.imageSize[0] || a.height !== e.imageSize[1]))
                 errors.push(`Image dimensions disagree with asset ${e.id}`);
         }
-        check(e, e.id);
+        const previous = entityCache?.get(e);
+        if (previous) {
+            for (const error of previous)
+                errors.push(error);
+        }
+        else {
+            const start = errors.length;
+            check(e, e.id);
+            entityCache?.set(e, errors.slice(start));
+        }
     }
     for (const g of doc.groups) {
         for (const id of g.members)
             if (!ids.has(id))
                 errors.push(`Group ${g.name} references missing entity ${id}`);
     }
-    const visit = (name, stack = new Set()) => {
-        if (stack.has(name)) {
-            errors.push(`Cyclic block reference ${name}`);
-            return;
+    // Iterative tri-color DFS visits each block/edge once without copying ancestor
+    // sets or overflowing the JavaScript call stack on deeply nested block DAGs.
+    const states = new Map();
+    for (const root of blocks.keys()) {
+        if (states.has(root))
+            continue;
+        const stack = [{ name: root, index: 0 }];
+        states.set(root, 1);
+        while (stack.length) {
+            const frame = stack[stack.length - 1], entities = blocks.get(frame.name)?.entities || [];
+            if (frame.index === entities.length) {
+                states.set(frame.name, 2);
+                stack.pop();
+                continue;
+            }
+            const entity = entities[frame.index++];
+            if (entity.type !== 'INSERT')
+                continue;
+            if (states.get(entity.name) === 1)
+                errors.push(`Cyclic block reference ${entity.name}`);
+            else if (!states.has(entity.name)) {
+                states.set(entity.name, 1);
+                stack.push({ name: entity.name, index: 0 });
+            }
         }
-        const next = new Set([...stack, name]);
-        for (const e of blocks.get(name)?.entities || [])
-            if (e.type === 'INSERT')
-                visit(e.name, next);
-    };
-    for (const name of blocks.keys())
-        visit(name);
+    }
     return { valid: !errors.length, errors };
 }
 function countTypes(doc) {
@@ -2907,7 +3212,13 @@ function checkAbort(signal) {
     if (signal?.aborted)
         throw new AbortConversionError();
 }
-const yieldTask = () => new Promise(resolve => setTimeout(resolve, 0));
+const yieldTask = () => {
+    if (globalThis.scheduler?.yield)
+        return globalThis.scheduler.yield();
+    if (typeof globalThis.setImmediate === 'function')
+        return new Promise(resolve => globalThis.setImmediate(resolve));
+    return new Promise(resolve => setTimeout(resolve, 0));
+};
 exports.yieldTask = yieldTask;
 /** Portable relative paths only: never implicitly fetch URLs or escape an export directory. */
 function isSafeAssetPath(value) {
@@ -2977,6 +3288,19 @@ function sha256Bytes(bytes) {
         compress(tail, 64);
     return Array.from(state, v => v.toString(16).padStart(8, '0')).join('');
 }
+
+},
+"@revector/model/snapshot.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.markImmutableSnapshot = markImmutableSnapshot;
+exports.isImmutableSnapshot = isImmutableSnapshot;
+/** Internal ownership marker, not a heuristic based on shallow Object.freeze.
+ * Only snapshots assembled from detached, deeply frozen branches by RuleEngine
+ * are eligible for cross-rule caches. Ordinary external detector inputs are not. */
+const snapshots = new WeakSet();
+function markImmutableSnapshot(document) { snapshots.add(document); return document; }
+function isImmutableSnapshot(document) { return snapshots.has(document); }
 
 },
 "@revector/ocr":(require,module,exports)=>{
@@ -3767,15 +4091,30 @@ async function loadPdfJs({ moduleUrl, workerUrl } = {}) {
         lib.GlobalWorkerOptions.workerSrc = workerUrl;
     return lib;
 }
-function getObject(store, id, timeout = 15000) {
+function getObject(store, id, timeout = 15000, signal) {
+    (0, model_1.checkAbort)(signal);
     return new Promise((resolve, reject) => {
-        let timer = setTimeout(() => reject(new Error(`PDF resource ${id} did not resolve`)), timeout);
-        try {
-            store.get(id, value => { clearTimeout(timer); resolve(value); });
-        }
-        catch (e) {
+        let settled = false;
+        const finish = (error, value) => {
+            if (settled)
+                return;
+            settled = true;
             clearTimeout(timer);
-            reject(e);
+            signal?.removeEventListener('abort', abort);
+            if (error)
+                reject(error);
+            else
+                resolve(value);
+        };
+        const abort = () => finish(Object.assign(new Error('Conversion cancelled'), { name: 'AbortError' }));
+        const timer = setTimeout(() => finish(new Error(`PDF resource ${id} did not resolve`)), timeout);
+        signal?.addEventListener('abort', abort, { once: true });
+        try {
+            (0, model_1.checkAbort)(signal);
+            store.get(id, value => finish(null, value));
+        }
+        catch (error) {
+            finish(error);
         }
     });
 }
@@ -3811,8 +4150,7 @@ class PdfSource {
         task.onProgress = p => options.onProgress?.({ phase: 'load', done: p.loaded, total: p.total });
         const pdf = await task.promise;
         const source = new PdfSource(lib, task, pdf, options);
-        source.metadata = await pdf.getMetadata().catch(() => ({ info: {} }));
-        source.optionalContent = await pdf.getOptionalContentConfig({ intent: 'display' }).catch(() => null);
+        [source.metadata, source.optionalContent] = await Promise.all([pdf.getMetadata().catch(() => ({ info: {} })), pdf.getOptionalContentConfig({ intent: 'display' }).catch(() => null)]);
         source.ocgs = source.optionalContent?.[Symbol.iterator] ? Object.fromEntries(source.optionalContent) : source.optionalContent?.getGroups?.() || {};
         return source;
     }
@@ -3824,6 +4162,10 @@ class PdfSource {
         const annotationMode = options.includeAnnotations === false ? this.lib.AnnotationMode.DISABLE : this.lib.AnnotationMode.ENABLE;
         const key = `${pageNumber}:${annotationMode}`;
         let cached = this.#cache.get(key);
+        if (cached) {
+            this.#cache.delete(key);
+            this.#cache.set(key, cached);
+        }
         if (!cached) {
             // `any` and the immutable snapshot are essential: PDF.js display rendering
             // replaces packed path buffers with Path2D instances in its cached list.
@@ -3838,17 +4180,35 @@ class PdfSource {
                         if (k === 'Font')
                             fontIds.add(v[0]);
             }
-            const fonts = {};
-            for (const id of fontIds) {
-                try {
-                    fonts[id] = snapshotFont(await getObject(page.commonObjs, id));
+            // Resolve independent font resources concurrently, with a bounded fan-out.
+            // Assign in source order, not completion order, for deterministic scene output.
+            const concurrency = this.options.fontConcurrency ?? 8, timeout = this.options.resourceTimeoutMs ?? 15000;
+            if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 32 || !Number.isFinite(timeout) || timeout <= 0 || timeout > 120000)
+                throw new RangeError('Invalid PDF font concurrency or resource timeout');
+            const ids = [...fontIds], values = new Array(ids.length);
+            let cursor = 0;
+            const resolveFonts = async () => {
+                for (;;) {
+                    const index = cursor++;
+                    if (index >= ids.length)
+                        return;
+                    (0, model_1.checkAbort)(options.signal);
+                    try {
+                        values[index] = snapshotFont(await getObject(page.commonObjs, ids[index], timeout, options.signal));
+                    }
+                    catch (error) {
+                        if (error.name === 'AbortError')
+                            throw error;
+                        values[index] = { name: ids[index], missingFile: true };
+                    }
                 }
-                catch {
-                    fonts[id] = { name: id, missingFile: true };
-                }
-            }
-            const structure = await page.getStructTree().catch(() => null);
-            const annotations = await page.getAnnotations({ intent: 'any' }).catch(() => []);
+            };
+            const [, structure, annotations] = await Promise.all([
+                Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, resolveFonts)),
+                page.getStructTree().catch(() => null), page.getAnnotations({ intent: 'any' }).catch(() => [])
+            ]);
+            (0, model_1.checkAbort)(options.signal);
+            const fonts = Object.fromEntries(ids.map((id, i) => [id, values[i]]));
             cached = { list, fonts, structure, annotations: annotations.map(a => ({ id: a.id, subtype: a.subtype, rect: a.rect, contents: a.contentsObj?.str || '', fieldName: a.fieldName, fieldValue: a.fieldValue, url: a.url })) };
             this.#cache.set(key, cached);
             while (this.#cache.size > (this.options.maxCachedPages ?? 3))
@@ -3877,6 +4237,7 @@ class PdfSource {
         const page = await this.pdf.getPage(pageNumber), viewport = page.getViewport({ scale });
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
+        (0, model_1.checkAbort)(signal);
         const ctx = canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' });
         const task = page.render({ canvasContext: ctx, viewport, background, optionalContentConfigPromise: Promise.resolve(this.optionalContent), annotationMode: annotationMode ?? this.lib.AnnotationMode.ENABLE });
         const abort = () => task.cancel();
@@ -4736,7 +5097,9 @@ function binarize(raster, { method = 'otsu', window = 31, k = .2, invert = false
 function binaryRgba(binary, width, height) { if (binary.length !== width * height)
     throw new RangeError('Binary size mismatch'); const data = new Uint8ClampedArray(binary.length * 4); for (let i = 0; i < binary.length; i++) {
     const v = binary[i] ? 0 : 255;
-    data.set([v, v, v, 255], i * 4);
+    const j = i * 4;
+    data[j] = data[j + 1] = data[j + 2] = v;
+    data[j + 3] = 255;
 } return { data, width, height }; }
 /** Plan disjoint rectangular crops around visible raster marks in displayed-page coordinates.
  * Shape/clip masks are applied later, not approximated by these bounding boxes. */
@@ -4906,13 +5269,14 @@ async function traceRasterPaths(binary, width, height, input = {}) {
         if (grid[p])
             pixels[i++] = p;
     const offsets = DIRS.map(([dx, dy]) => dy * stride + dx), remove = new Uint32Array(foreground);
-    let iterations = 0, converged = false;
+    let iterations = 0, converged = false, activeCount = foreground;
     for (; iterations < o.maxIterations; iterations++) {
         let changed = 0;
         for (let phase = 0; phase < 2; phase++) {
             spend(foreground);
             let count = 0;
-            for (const p of pixels) {
+            for (let pi = 0; pi < activeCount; pi++) {
+                const p = pixels[pi];
                 if (!grid[p])
                     continue;
                 const n = grid[p - stride], ne = grid[p - stride + 1], e = grid[p + 1], se = grid[p + stride + 1], s = grid[p + stride], sw = grid[p + stride - 1], w = grid[p - 1], nw = grid[p - stride - 1];
@@ -4936,13 +5300,19 @@ async function traceRasterPaths(binary, width, height, input = {}) {
             iterations++;
             break;
         }
+        let alive = 0;
+        for (let i = 0; i < activeCount; i++)
+            if (grid[pixels[i]])
+                pixels[alive++] = pixels[i];
+        activeCount = alive;
     }
     if (!converged)
         throw new RangeError('Raster thinning did not converge within its iteration budget');
     const adjacency = new Uint8Array(grid.length), degree = new Uint8Array(grid.length), visited = new Uint8Array(grid.length);
     let skeletonPixels = 0, junctionPixels = 0, endpoints = 0, isolatedPixels = 0, graphEdges = 0;
     spend(foreground * 8);
-    for (const p of pixels) {
+    for (let pi = 0; pi < activeCount; pi++) {
+        const p = pixels[pi];
         if (!grid[p])
             continue;
         skeletonPixels++;
@@ -5020,14 +5390,16 @@ async function traceRasterPaths(binary, width, height, input = {}) {
         paths.push({ points: reduced, closed, samples: points.length, maxDeviationPixels: o.tolerance,
             startDegree: degree[start], endDegree: closed ? degree[start] : degree[p + offsets[d]], touchesBorder: points.some(([x, y]) => x < 1 || y < 1 || x > width - 1 || y > height - 1) });
     };
-    for (const p of pixels) {
+    for (let pi = 0; pi < activeCount; pi++) {
+        const p = pixels[pi];
         if (!grid[p] || degree[p] === 2)
             continue;
         for (let d = 0; d < 8; d++)
             if ((adjacency[p] & (1 << d)) && !(visited[p] & (1 << d)))
                 walk(p, d);
     }
-    for (const p of pixels) {
+    for (let pi = 0; pi < activeCount; pi++) {
+        const p = pixels[pi];
         if (!grid[p])
             continue;
         for (let d = 0; d < 8; d++)
@@ -5702,6 +6074,7 @@ exports.cadRules = [curves_js_1.curveRecoveryRule,
             return out;
         } },
     { id: 'cad.repeated-symbols', title: 'Repeated vector symbols', version: '1.0.0', stage: 30, description: 'Create shared BLOCKs for translation-equivalent connected components; no invented original block names.', run: ({ document, checkAbort }) => {
+            const paintOrder = new Map(document.entities.map((e, i) => [e, i]));
             const eligible = document.entities.filter(e => ['LINE', 'LWPOLYLINE', 'SPLINE'].includes(e.type) && !e.dash?.length), components = (0, topology_1.connectedComponents)(eligible, topology_1.endpoints, 1e-8), groups = new Map();
             for (const component of components) {
                 checkAbort();
@@ -5726,7 +6099,7 @@ exports.cadRules = [curves_js_1.curveRecoveryRule,
                 if (matching.length < 3)
                     continue;
                 const name = `RV_SYMBOL_${key.toUpperCase()}`, members = matching.flatMap(o => o.component.map(e => e.id)), block = { name, origin: [0, 0], entities: matching[0].local.map((e, i) => ({ ...e, id: `${name}-${i}` })), source: { inference: 'translation-equivalent-connected-components' } };
-                out.push({ title: `Recover ${matching.length} instances of a repeated symbol`, members, confidence: .995, exact: true, evidence: [{ kind: 'repeated-component', instances: matching.length, coordinateTolerance: 1e-8 }, { kind: 'style-and-geometry-equality' }], proposal: { remove: members, blocks: [block], placements: Object.fromEntries(matching.map((o, i) => [`${name}-ref-${i}`, o.component.reduce((a, e) => document.entities.indexOf(a) < document.entities.indexOf(e) ? a : e).id])), add: matching.map((o, i) => ({ id: `${name}-ref-${i}`, type: 'INSERT', name, position: o.origin, rotation: 0, scale: [1, 1], layer: o.component[0].layer, color: o.component[0].color, lineweight: o.component[0].lineweight, opacity: o.component[0].opacity, attributes: [], source: { ids: [...new Set(o.component.flatMap(e => e.source?.ids || []))] }, semantic: { class: 'repeated-symbol', method: 'geometric-repetition' } })) } });
+                out.push({ title: `Recover ${matching.length} instances of a repeated symbol`, members, confidence: .995, exact: true, evidence: [{ kind: 'repeated-component', instances: matching.length, coordinateTolerance: 1e-8 }, { kind: 'style-and-geometry-equality' }], proposal: { remove: members, blocks: [block], placements: Object.fromEntries(matching.map((o, i) => [`${name}-ref-${i}`, o.component.reduce((a, e) => paintOrder.get(a) < paintOrder.get(e) ? a : e).id])), add: matching.map((o, i) => ({ id: `${name}-ref-${i}`, type: 'INSERT', name, position: o.origin, rotation: 0, scale: [1, 1], layer: o.component[0].layer, color: o.component[0].color, lineweight: o.component[0].lineweight, opacity: o.component[0].opacity, attributes: [], source: { ids: [...new Set(o.component.flatMap(e => e.source?.ids || []))] }, semantic: { class: 'repeated-symbol', method: 'geometric-repetition' } })) } });
             }
             return out;
         } },
@@ -5860,12 +6233,13 @@ exports.detectConcentric = detectConcentric;
 exports.detectLeaders = detectLeaders;
 exports.detectBorderlessTables = detectBorderlessTables;
 exports.detectLists = detectLists;
+const model_1 = require("@revector/model");
 const junctions_js_1 = require("@revector/rules-document/junctions.js");
 var junctions_js_2 = require("@revector/rules-document/junctions.js");
 Object.defineProperty(exports, "detectJunctions", { enumerable: true, get: function () { return junctions_js_2.detectJunctions; } });
 Object.defineProperty(exports, "junctionRule", { enumerable: true, get: function () { return junctions_js_2.junctionRule; } });
 const regions_js_1 = require("@revector/rules-document/regions.js");
-const model_1 = require("@revector/model");
+const model_2 = require("@revector/model");
 const geometry_1 = require("@revector/geometry");
 const topology_1 = require("@revector/topology");
 const textTypes = new Set(['TEXT', 'MTEXT', 'ATTRIB']);
@@ -5873,17 +6247,24 @@ const median = a => a.length ? [...a].sort((a, b) => a - b)[a.length >> 1] : 1;
 const expand = (b, d) => [b[0] - d, b[1] - d, b[2] + d, b[3] + d];
 const center = b => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
 const unique = es => [...new Map(es.map(e => [e.id, e])).values()];
+const contexts = new WeakMap(), segmentCache = new WeakMap();
 function context(document, options = {}) {
-    (0, model_1.checkAbort)(options.signal);
+    (0, model_2.checkAbort)(options.signal);
     if (document.entities.length > (options.maxAnalysisEntities ?? 150000))
         throw new RangeError('Document analysis entity budget exceeded');
+    const reusable = (0, model_1._isImmutableSnapshot)(document);
+    const prior = reusable ? contexts.get(document.entities) : null;
+    if (prior && prior.blocks === document.blocks && prior.pageBox === document.pageBox && prior.semanticTolerance === options.semanticTolerance)
+        return prior.context;
     const texts = document.entities.filter(e => textTypes.has(e.type) && String(e.text || '').trim()), h = median(texts.map(e => e.height).filter(h => h > 0));
     const span = Math.hypot(document.pageBox[2] - document.pageBox[0], document.pageBox[3] - document.pageBox[1]);
     const tolerance = options.semanticTolerance ?? Math.max(1e-7, span * 1e-6);
     if (!Number.isFinite(tolerance) || tolerance <= 0)
         throw new RangeError('Invalid semantic tolerance');
-    const index = new topology_1.SpatialIndex(texts, e => (0, model_1.entityBox)(e, document));
-    return { document, texts, h, tolerance, index };
+    const index = new topology_1.SpatialIndex(texts, e => (0, model_2.entityBox)(e, document)), result = { document, texts, h, tolerance, index };
+    if (reusable)
+        contexts.set(document.entities, { blocks: document.blocks, pageBox: document.pageBox, semanticTolerance: options.semanticTolerance, context: result });
+    return result;
 }
 function proposal(kind, title, entities, metadata, confidence = .9, evidence = []) {
     const members = unique(entities).map(e => e.id);
@@ -5895,14 +6276,16 @@ function proposal(kind, title, entities, metadata, confidence = .9, evidence = [
 function bounded(out, value, max = 5000) { if (value)
     out.push(value); if (out.length > max)
     throw new RangeError('Document feature budget exceeded'); }
-function segments(document) { const out = []; for (const e of document.entities) {
+function segments(document) { const reusable = (0, model_1._isImmutableSnapshot)(document); if (reusable && segmentCache.has(document.entities))
+    return segmentCache.get(document.entities); const out = []; for (const e of document.entities) {
     if (!['LINE', 'LWPOLYLINE'].includes(e.type) || e.bulges?.some(Boolean))
         continue;
-    for (const p of (0, model_1.entityPaths)(e))
+    for (const p of (0, model_2.entityPaths)(e))
         for (const edge of (0, geometry_1.pathEdges)(p))
             if (edge.kind === 'L' && (0, geometry_1.distance)(...edge.points) > 1e-9)
                 out.push({ e, a: edge.points[0], b: edge.points[1], box: [Math.min(edge.points[0][0], edge.points[1][0]), Math.min(edge.points[0][1], edge.points[1][1]), Math.max(edge.points[0][0], edge.points[1][0]), Math.max(edge.points[0][1], edge.points[1][1])] });
-} return out; }
+} if (reusable)
+    segmentCache.set(document.entities, out); return out; }
 function cluster(values, tolerance) { const result = []; for (const value of [...values].sort((a, b) => a - b))
     if (!result.length || value - result.at(-1) > tolerance)
         result.push(value); return result; }
@@ -5913,7 +6296,7 @@ function detectTables(document, options = {}) {
     const index = new topology_1.SpatialIndex(axis, s => expand(s.box, tol)), seen = new Set();
     let checks = 0;
     for (const seed of axis) {
-        (0, model_1.checkAbort)(options.signal);
+        (0, model_2.checkAbort)(options.signal);
         if (seen.has(seed))
             continue;
         const queue = [seed], component = [];
@@ -5958,7 +6341,7 @@ function detectTables(document, options = {}) {
         const box = [xs[0], ys[0], xs.at(-1), ys.at(-1)];
         if (component.some(s => !(0, geometry_1.containsBox)(box, s.box, tol)))
             continue;
-        const inside = c.index.search(box).filter(e => (0, geometry_1.containsBox)(box, (0, model_1.entityBox)(e, document), tol));
+        const inside = c.index.search(box).filter(e => (0, geometry_1.containsBox)(box, (0, model_2.entityBox)(e, document), tol));
         if (!inside.length)
             continue;
         const columns = xs.length - 1, rows = ys.length - 1, sets = new topology_1.DisjointSet(columns * rows), barriers = [];
@@ -6000,7 +6383,7 @@ function detectTables(document, options = {}) {
             continue;
         const cells = [...regions.values()].map(r => {
             const b = [xs[r.x0], ys[r.y0], xs[r.x1], ys[r.y1]], texts = inside.filter(e => {
-                const p = center((0, model_1.entityBox)(e, document));
+                const p = center((0, model_2.entityBox)(e, document));
                 return p[0] >= b[0] && p[0] < b[2] && p[1] >= b[1] && p[1] < b[3];
             }).sort((a, b) => b.position[1] - a.position[1] || a.position[0] - b.position[0]);
             return { row: rows - r.y1, column: r.x0, rowSpan: r.y1 - r.y0, columnSpan: r.x1 - r.x0, bounds: b, text: texts.map(e => e.text).join(' '), entities: texts.map(e => e.id) };
@@ -6018,7 +6401,7 @@ function detectTextFlows(document, options = {}) {
         const angle = (seed.rotation || 0) * Math.PI / 180, u = [Math.cos(angle), Math.sin(angle)], n = [-u[1], u[0]], height = seed.height || c.h, items = [seed], queue = [seed];
         visited.add(seed.id);
         while (queue.length && items.length <= 256) {
-            const e = queue.pop(), b = (0, model_1.entityBox)(e, document);
+            const e = queue.pop(), b = (0, model_2.entityBox)(e, document);
             for (const next of c.index.search(expand(b, height * 1.6))) {
                 if (visited.has(next.id) || Math.abs(Math.sin(((next.rotation || 0) - (seed.rotation || 0)) * Math.PI / 180)) > .025 || Math.abs(next.height - height) > height * .3)
                     continue;
@@ -6060,7 +6443,7 @@ function detectFields(document, options = {}) {
     for (const e of c.texts) {
         if (!vocabulary.test(String(e.text).trim()))
             continue;
-        const b = (0, model_1.entityBox)(e, document), h = e.height || c.h, candidates = c.index.search([b[2] - h * .2, b[1] - h * .5, b[2] + h * 18, b[3] + h * .5]).filter(t => t.id !== e.id && !vocabulary.test(t.text)).sort((a, b) => (0, geometry_1.distance)(e.position, a.position) - (0, geometry_1.distance)(e.position, b.position));
+        const b = (0, model_2.entityBox)(e, document), h = e.height || c.h, candidates = c.index.search([b[2] - h * .2, b[1] - h * .5, b[2] + h * 18, b[3] + h * .5]).filter(t => t.id !== e.id && !vocabulary.test(t.text)).sort((a, b) => (0, geometry_1.distance)(e.position, a.position) - (0, geometry_1.distance)(e.position, b.position));
         const value = candidates[0];
         if (value)
             bounded(out, proposal('labeled-field', `${e.text} → ${value.text}`, [e, value], { label: e.text, value: value.text, relation: 'nearest right-hand baseline field' }, .86));
@@ -6074,7 +6457,7 @@ function detectDiagram(document, options = {}) {
     const c = context(document, options), out = [], links = [];
     let work = 0;
     const spend = n => { work += n; if (work > 2_000_000)
-        throw new RangeError('Diagram geometry budget exceeded'); (0, model_1.checkAbort)(options.signal); };
+        throw new RangeError('Diagram geometry budget exceeded'); (0, model_2.checkAbort)(options.signal); };
     const nodes = [];
     for (const e of document.entities) {
         if (!['CIRCLE', 'ELLIPSE', 'LWPOLYLINE'].includes(e.type))
@@ -6086,7 +6469,7 @@ function detectDiagram(document, options = {}) {
     const index = new topology_1.SpatialIndex(nodes, n => n.box), labels = new Map();
     for (const text of c.texts) {
         spend(1);
-        const box = (0, model_1.entityBox)(text, document);
+        const box = (0, model_2.entityBox)(text, document);
         const possible = index.search(box).filter(n => { spend(1); return (0, geometry_1.containsBox)(n.box, box, c.tolerance) && n.contains(box); }).sort((a, b) => a.area - b.area);
         if (!possible.length || possible[1] && Math.abs(possible[1].area - possible[0].area) <= c.tolerance * c.tolerance)
             continue;
@@ -6184,7 +6567,7 @@ function detectLeaders(document, options = {}) {
             const a = wings.find(w => w.sign > 0), b = wings.find(w => w.sign < 0);
             if (!a || !b || a.len / b.len < .6 || a.len / b.len > 1.67)
                 continue;
-            const texts = c.index.search(expand([...tail, ...tail], c.h * 3)), label = texts.sort((a, b) => (0, geometry_1.distance)(center((0, model_1.entityBox)(a, document)), tail) - (0, geometry_1.distance)(center((0, model_1.entityBox)(b, document)), tail))[0];
+            const texts = c.index.search(expand([...tail, ...tail], c.h * 3)), label = texts.sort((a, b) => (0, geometry_1.distance)(center((0, model_2.entityBox)(a, document)), tail) - (0, geometry_1.distance)(center((0, model_2.entityBox)(b, document)), tail))[0];
             if (!label)
                 continue;
             const key = [s.e.id, a.t.e.id, b.t.e.id, label.id].sort().join('|');
@@ -6202,9 +6585,9 @@ function detectLeaders(document, options = {}) {
 function detectBorderlessTables(document, options = {}) {
     const c = context(document, options), out = [], rows = [];
     const source = c.texts.filter(e => Math.abs(((e.rotation || 0) % 360 + 360) % 360) < .5)
-        .map(e => ({ e, box: (0, model_1.entityBox)(e, document) })).sort((a, b) => b.e.position[1] - a.e.position[1] || a.box[0] - b.box[0]);
+        .map(e => ({ e, box: (0, model_2.entityBox)(e, document) })).sort((a, b) => b.e.position[1] - a.e.position[1] || a.box[0] - b.box[0]);
     for (const item of source) {
-        (0, model_1.checkAbort)(options.signal);
+        (0, model_2.checkAbort)(options.signal);
         const last = rows.at(-1), h = item.e.height || c.h;
         if (last && Math.abs(item.e.position[1] - last.y) <= Math.min(h, last.h) * .25)
             last.items.push(item);
@@ -6253,7 +6636,7 @@ function detectBorderlessTables(document, options = {}) {
                     gutters = false;
             const entities = chunk.flatMap(r => r.cells.flatMap(cell => cell.items.map(i => i.e))), bounds = (0, geometry_1.emptyBox)();
             for (const e of entities)
-                (0, geometry_1.union)(bounds, (0, model_1.entityBox)(e, document));
+                (0, geometry_1.union)(bounds, (0, model_2.entityBox)(e, document));
             if (gutters)
                 bounded(out, proposal('borderless-table', `Unruled schedule · ${chunk.length} rows × ${columns} columns`, entities, { bounds, rows: chunk.length, columns, cells: chunk.flatMap((r, row) => r.cells.map((cell, column) => ({ row, column, rowSpan: 1, columnSpan: 1, bounds: cell.box,
                         text: cell.items.map(i => i.e.text).join(' '), entities: cell.items.map(i => i.e.id) }))),
@@ -6272,7 +6655,7 @@ function detectLists(document, options = {}) {
         const match = String(e.text).trim().match(/^(?:(\d{1,4})[.)]|([•●▪◦]))(?:\s+(.+))?$/u);
         if (!match || Math.abs(e.rotation || 0) > .5)
             continue;
-        const box = (0, model_1.entityBox)(e, document), h = e.height || c.h;
+        const box = (0, model_2.entityBox)(e, document), h = e.height || c.h;
         const companions = match[3] ? [] : c.index.search([box[2], box[1] - h * .2, box[2] + h * 24, box[3] + h * .2])
             .filter(t => t !== e && Math.abs(t.position[1] - e.position[1]) < h * .25)
             .sort((a, b) => a.position[0] - b.position[0]);
@@ -6283,7 +6666,7 @@ function detectLists(document, options = {}) {
     rows.sort((a, b) => b.e.position[1] - a.e.position[1] || a.e.position[0] - b.e.position[0]);
     const used = new Set();
     for (const row of rows) {
-        (0, model_1.checkAbort)(options.signal);
+        (0, model_2.checkAbort)(options.signal);
         if (used.has(row.e.id))
             continue;
         const chain = [row];
@@ -6530,8 +6913,9 @@ exports.RuleEngine = void 0;
 exports.commitCandidate = commitCandidate;
 exports.safeRegex = safeRegex;
 exports.compileRuleSet = compileRuleSet;
-const geometry_1 = require("@revector/geometry");
 const model_1 = require("@revector/model");
+const geometry_1 = require("@revector/geometry");
+const model_2 = require("@revector/model");
 const clone = x => structuredClone(x);
 function deepFreeze(value) {
     if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -6570,7 +6954,16 @@ function sanitizeCandidate(c, rule) {
 }
 /** Apply a proposal to a clone, validate, and atomically return the new document. */
 function commitCandidate(document, candidate) {
-    const next = clone(document), existing = new Map(next.entities.map(e => [e.id, e])), p = candidate.proposal;
+    // Public callers receive a fully detached document, including unchanged entities.
+    return applyCandidate(clone(document), candidate);
+}
+/** Private copy-on-write transaction. The rule run owns its source document; unchanged
+ * branches are shared only inside that run, never exposed to plugins or public callers. */
+function applyCandidate(document, candidate, validate = model_2.validateDocument) {
+    const next = { ...document, entities: document.entities.slice(), blocks: document.blocks.slice(),
+        layers: document.layers.slice(), groups: document.groups.slice(),
+        history: document.history.slice(), diagnostics: document.diagnostics.slice() };
+    const existing = new Map(next.entities.map((e, i) => [e.id, { e, i }])), p = candidate.proposal;
     for (const id of candidate.members)
         if (!existing.has(id))
             throw new Error(`Stale candidate ${candidate.id}: entity ${id} no longer exists`);
@@ -6580,12 +6973,15 @@ function commitCandidate(document, candidate) {
             throw new Error(`Cannot remove missing entity ${id}`);
     const removed = next.entities.filter(e => remove.has(e.id)), updated = [];
     for (const u of p.update || []) {
-        const e = existing.get(u.id);
-        if (!e)
+        const entry = existing.get(u.id);
+        if (!entry)
             throw new Error(`Cannot update missing entity ${u.id}`);
         if (u.patch?.id && u.patch.id !== u.id)
             throw Error('Rule patches may not change identity');
-        updated.push({ id: u.id, before: clone(e) });
+        const e = clone(entry.e);
+        updated.push({ id: u.id, before: clone(entry.e) });
+        next.entities[entry.i] = e;
+        existing.set(u.id, { e, i: entry.i });
         Object.assign(e, clone(u.patch));
         if (u.appendAttributes)
             e.attributes = [...(e.attributes || []), ...clone(u.appendAttributes)];
@@ -6597,13 +6993,18 @@ function commitCandidate(document, candidate) {
         e.semantic = { ...e.semantic, rule: candidate.rule, confidence: candidate.confidence, exact: candidate.exact };
     }
     if (p.placements) {
-        const placed = new Set(), out = [];
+        const placed = new Set(), out = [], anchors = new Map();
+        for (const a of additions) {
+            const anchor = p.placements[a.id];
+            if (!anchors.has(anchor))
+                anchors.set(anchor, []);
+            anchors.get(anchor).push(a);
+        }
         for (const e of original) {
-            for (const a of additions)
-                if (p.placements[a.id] === e.id) {
-                    out.push(a);
-                    placed.add(a.id);
-                }
+            for (const a of anchors.get(e.id) || []) {
+                out.push(a);
+                placed.add(a.id);
+            }
             if (!remove.has(e.id))
                 out.push(e);
         }
@@ -6617,10 +7018,10 @@ function commitCandidate(document, candidate) {
         next.entities.splice(firstIndex < 0 ? next.entities.length : firstIndex, 0, ...additions);
     }
     // Keep semantic GROUP references valid when later extensions replace members.
-    for (const g of next.groups) {
-        if (g.members.some(id => remove.has(id)))
-            g.members = [...new Set(g.members.flatMap(id => remove.has(id) ? additions.map(e => e.id) : [id]))];
-    }
+    if (remove.size)
+        next.groups = next.groups.map(g => g.members.some(id => remove.has(id))
+            ? { ...g, members: [...new Set(g.members.flatMap(id => remove.has(id) ? additions.map(e => e.id) : [id]))] }
+            : g);
     next.groups = next.groups.filter(g => g.members.length > 0);
     for (const b of p.blocks || []) {
         if (next.blocks.some(x => x.name === b.name))
@@ -6628,16 +7029,16 @@ function commitCandidate(document, candidate) {
         next.blocks.push(clone(b));
     }
     for (const l of p.layers || [])
-        (0, model_1.ensureLayer)(next, l.name, l.color, l.visible);
+        (0, model_2.ensureLayer)(next, l.name, l.color, l.visible);
     for (const g of p.groups || [])
         next.groups.push(clone(g));
-    const check = (0, model_1.validateDocument)(next);
+    const check = validate(next);
     if (!check.valid)
         throw Error(`Rule transaction failed validation: ${check.errors.slice(0, 4).join('; ')}`);
     next.revision++;
     next.history.push({ candidate: candidate.id, rule: candidate.rule, revision: next.revision, removed, updated, added: additions.map(e => e.id), blocks: (p.blocks || []).map(b => b.name) });
     if (!candidate.exact)
-        next.diagnostics.push((0, model_1.diagnostic)('SEMANTIC_GEOMETRY_CHANGE', `Accepted inference: ${candidate.title}. Original primitives are retained in the conversion history.`, 'warning', { rule: candidate.rule, candidate: candidate.id, errorBound: candidate.errorBound }));
+        next.diagnostics.push((0, model_2.diagnostic)('SEMANTIC_GEOMETRY_CHANGE', `Accepted inference: ${candidate.title}. Original primitives are retained in the conversion history.`, 'warning', { rule: candidate.rule, candidate: candidate.id, errorBound: candidate.errorBound }));
     return next;
 }
 class RuleEngine {
@@ -6656,21 +7057,46 @@ class RuleEngine {
         let doc = clone(document);
         const minConfidence = options.minConfidence ?? .98, maxCandidates = options.maxCandidates ?? 20000, decisions = options.decisions || {}, disabled = new Set(options.disabledRules || []), stats = [];
         const rules = orderRules([...this.#rules.values()].filter(r => !disabled.has(r.id)));
+        const candidateIds = new Set(doc.candidates.map(c => c.id)), validate = (0, model_2.createImmutableDocumentValidator)();
+        // Reuse detached frozen branches across rules. A transaction replaces each
+        // modified branch, so WeakMap identity is a safe invalidation key here.
+        const frozen = new WeakMap();
+        const snapshotBranch = value => {
+            if (!value || typeof value !== 'object')
+                return value;
+            let result = frozen.get(value);
+            if (!result) {
+                result = deepFreeze(clone(value));
+                frozen.set(value, result);
+            }
+            return result;
+        };
+        const snapshotList = list => {
+            let result = frozen.get(list);
+            if (!result) {
+                result = Object.freeze(list.map(snapshotBranch));
+                frozen.set(list, result);
+            }
+            return result;
+        };
         for (let index = 0; index < rules.length; index++) {
-            (0, model_1.checkAbort)(options.signal);
+            (0, model_2.checkAbort)(options.signal);
             const rule = rules[index], start = performance.now();
             options.onProgress?.({ phase: 'semantics', rule: rule.id, done: index, total: rules.length });
-            const snapshot = deepFreeze(clone({ entities: doc.entities, blocks: doc.blocks, layers: doc.layers, groups: doc.groups, source: doc.source, pageBox: doc.pageBox, units: doc.units, revision: doc.revision }));
-            const context = Object.freeze({ document: snapshot, options, signal: options.signal, checkAbort: () => (0, model_1.checkAbort)(options.signal) });
+            const snapshot = Object.freeze({ entities: snapshotList(doc.entities), blocks: snapshotList(doc.blocks),
+                layers: snapshotList(doc.layers), groups: snapshotList(doc.groups), source: snapshotBranch(doc.source),
+                pageBox: snapshotBranch(doc.pageBox), units: doc.units, revision: doc.revision });
+            (0, model_1._markImmutableSnapshot)(snapshot);
+            const context = Object.freeze({ document: snapshot, options, signal: options.signal, checkAbort: () => (0, model_2.checkAbort)(options.signal) });
             let proposed = 0, accepted = 0;
             try {
                 const output = await rule.run(context);
                 for await (const raw of output || []) {
-                    (0, model_1.checkAbort)(options.signal);
+                    (0, model_2.checkAbort)(options.signal);
                     if (doc.candidates.length >= maxCandidates)
                         throw new RangeError('Semantic candidate budget exceeded');
                     const c = sanitizeCandidate(raw, rule);
-                    if (doc.candidates.some(x => x.id === c.id))
+                    if (candidateIds.has(c.id))
                         continue;
                     proposed++;
                     const decision = decisions[c.id];
@@ -6679,7 +7105,7 @@ class RuleEngine {
                     const auto = c.confidence >= minConfidence && (c.exact || options.fidelity === 'inferred');
                     if (decision === 'accept' || (decision !== 'reject' && auto)) {
                         try {
-                            doc = commitCandidate(doc, c);
+                            doc = applyCandidate(doc, c, validate);
                             c.status = 'accepted';
                             c.result = (c.proposal.add || []).map(e => e.id);
                             accepted++;
@@ -6690,15 +7116,16 @@ class RuleEngine {
                         }
                     }
                     doc.candidates.push(c);
+                    candidateIds.add(c.id);
                 }
             }
             catch (error) {
                 if (error.name === 'AbortError')
                     throw error;
-                doc.diagnostics.push((0, model_1.diagnostic)('RULE_FAILURE', `Rule ${rule.id}: ${error.message}`, 'error', { rule: rule.id }));
+                doc.diagnostics.push((0, model_2.diagnostic)('RULE_FAILURE', `Rule ${rule.id}: ${error.message}`, 'error', { rule: rule.id }));
             }
             stats.push({ rule: rule.id, proposed, accepted, elapsedMs: performance.now() - start });
-            await (0, model_1.yieldTask)();
+            await (0, model_2.yieldTask)();
         }
         doc.ruleStats = stats;
         options.onProgress?.({ phase: 'semantics', done: rules.length, total: rules.length });
@@ -6791,38 +7218,9 @@ exports.connectedComponents = connectedComponents;
 exports.endpoints = endpoints;
 exports.joinLineChains = joinLineChains;
 const geometry_1 = require("@revector/geometry");
+const geometry_2 = require("@revector/geometry");
 /** Immutable median-split BVH, used for queries and picking. No giant-grid pathology. */
-class SpatialIndex {
-    constructor(items = [], getBox = x => x.bounds) { this.items = items; this.getBox = getBox; this.root = this.#build(items.map((item, index) => ({ item, index, box: getBox(item) }))); }
-    #build(items) {
-        if (!items.length)
-            return null;
-        const box = (0, geometry_1.emptyBox)();
-        for (const i of items)
-            (0, geometry_1.union)(box, i.box);
-        if (items.length <= 12)
-            return { box, items };
-        const axis = box[2] - box[0] >= box[3] - box[1] ? 0 : 1;
-        items.sort((a, b) => (a.box[axis] + a.box[axis + 2]) - (b.box[axis] + b.box[axis + 2]) || a.index - b.index);
-        const mid = items.length >> 1;
-        return { box, left: this.#build(items.slice(0, mid)), right: this.#build(items.slice(mid)) };
-    }
-    search(box) {
-        const out = [], stack = [this.root];
-        while (stack.length) {
-            const n = stack.pop();
-            if (!n || !(0, geometry_1.intersects)(n.box, box))
-                continue;
-            if (n.items) {
-                for (const i of n.items)
-                    if ((0, geometry_1.intersects)(i.box, box))
-                        out.push(i.item);
-            }
-            else
-                stack.push(n.left, n.right);
-        }
-        return out;
-    }
+class SpatialIndex extends geometry_1.BoxIndex {
 }
 exports.SpatialIndex = SpatialIndex;
 class DisjointSet {
@@ -6859,7 +7257,7 @@ function connectedComponents(entities, getEndpoints, tolerance = 1e-7) {
             for (let dx = -1; dx <= 1; dx++)
                 for (let dy = -1; dy <= 1; dy++)
                     for (const q of grid.get(`${x + dx},${y + dy}`) || [])
-                        if ((0, geometry_1.distance)(p, q.p) <= tolerance)
+                        if ((0, geometry_2.distance)(p, q.p) <= tolerance)
                             ds.union(i, q.i);
             const key = `${x},${y}`;
             if (!grid.has(key))
@@ -6901,7 +7299,7 @@ function joinLineChains(lines, tolerance = 1e-9) {
         while (l && !used.has(l.id)) {
             used.add(l.id);
             members.push(l);
-            const q = (0, geometry_1.near)(l.start, p, tolerance) ? l.end : l.start;
+            const q = (0, geometry_2.near)(l.start, p, tolerance) ? l.end : l.start;
             points.push(q);
             const links = graph.get(key(q)) || [];
             if (links.length !== 2)
@@ -6912,7 +7310,7 @@ function joinLineChains(lines, tolerance = 1e-9) {
             p = q;
             l = n;
         }
-        return { points, members, closed: points.length > 2 && (0, geometry_1.near)(points[0], points.at(-1), tolerance) };
+        return { points, members, closed: points.length > 2 && (0, geometry_2.near)(points[0], points.at(-1), tolerance) };
     };
     for (const l of lines) {
         if (used.has(l.id))
@@ -7227,6 +7625,10 @@ class Workbench {
     async openBytes(bytes, name, project = null) {
         this.cancel();
         await this.source?.dispose();
+        if (this.pdfReference) {
+            this.pdfReference.image.width = this.pdfReference.image.height = 1;
+            this.pdfReference = null;
+        }
         this.source = null;
         this.bytes = new Uint8Array(bytes);
         this.fileName = name;
@@ -7265,7 +7667,7 @@ class Workbench {
     async run(extract = false) {
         if (!this.source)
             return;
-        const id = ++this.job;
+        const id = ++this.job, pipelineStart = performance.now();
         this.jobAbort?.abort();
         this.worker?.cancel();
         const controller = this.jobAbort = new AbortController();
@@ -7280,6 +7682,7 @@ class Workbench {
                 if (id === this.job)
                     this.setStatus(`${p.phase}${p.rule ? ' · ' + p.rule : ''}${p.total ? ' · ' + Math.round(p.done / p.total * 100) + '%' : ''}`);
             };
+            const extractionStart = performance.now();
             if (extract || !this.scene) {
                 let next = await this.source.extract(this.page, { signal: controller.signal, onProgress: progress });
                 if (this.retainImages.checked)
@@ -7294,7 +7697,7 @@ class Workbench {
             }
             if (id !== this.job)
                 return;
-            const scene = this.scene;
+            const scene = this.scene, extractionMs = performance.now() - extractionStart;
             let result;
             try {
                 result = this.worker ? await this.worker.convert(scene, options, { signal: controller.signal, onProgress: progress }) : await this.engine.convertScene(scene, { ...options, signal: controller.signal, onProgress: progress });
@@ -7312,11 +7715,30 @@ class Workbench {
                 return;
             this.result = result;
             this.cadView.setDocument(result.preview);
-            const image = document.createElement('canvas');
-            await this.source.render(this.page, image, { scale: Math.min(3, Math.max(1.5, 1400 / scene.pageSize[0])), signal: controller.signal });
-            if (id !== this.job)
-                return;
-            this.pdfView.setImage(image, result.document.pageBox);
+            const renderStart = performance.now();
+            // This one-entry cache belongs to the workbench's extracted scene, not a
+            // mutable public input cache. Extraction, document or page changes invalidate it.
+            const cached = this.pdfReference;
+            const reuse = cached?.scene === scene && cached.source === this.source && cached.page === this.page;
+            let image = reuse ? cached.image : document.createElement('canvas'), adopted = reuse;
+            try {
+                if (!reuse)
+                    await this.source.render(this.page, image, { scale: Math.min(3, Math.max(1.5, 1400 / scene.pageSize[0])), signal: controller.signal });
+                if (id !== this.job)
+                    return;
+                this.pdfView.setImage(image, result.document.pageBox);
+                this.pdfReference = { scene, source: this.source, page: this.page, image };
+                adopted = true;
+                if (cached && cached.image !== image)
+                    cached.image.width = cached.image.height = 1;
+            }
+            finally {
+                if (!adopted)
+                    image.width = image.height = 1;
+            }
+            result.report.timings.pdfPreparationMs = extractionMs;
+            result.report.timings.pdfReferenceMs = performance.now() - renderStart;
+            result.report.timings.pdfReferenceReused = reuse ? 1 : 0;
             this.pdfView.overlays = [];
             this.cadView.selection.clear();
             this.refresh();
@@ -7324,7 +7746,8 @@ class Workbench {
             this.exportButton.disabled = false;
             this.exportReady = true;
             const s = (0, model_1.summary)(result.document), warnings = result.report.diagnostics.filter(d => d.severity !== 'info').length;
-            this.setStatus(`Converted · ${fmt(s.entities)} entities · ${fmt(result.document.blocks.length)} blocks · ${fmt(result.report.timings.totalMs)} ms${warnings ? ' · ' + warnings + ' review notice' + (warnings === 1 ? '' : 's') : ''}`);
+            result.report.timings.uiTotalMs = performance.now() - pipelineStart;
+            this.setStatus(`Converted · ${fmt(s.entities)} entities · ${fmt(result.document.blocks.length)} blocks · ${fmt(result.report.timings.uiTotalMs)} ms${warnings ? ' · ' + warnings + ' review notice' + (warnings === 1 ? '' : 's') : ''}`);
             this.config.onConverted?.(result);
             return result;
         }
@@ -7649,7 +8072,10 @@ class Workbench {
             this.status.textContent = text;
     }
     error(e) { console.error(e); this.setStatus(`Error: ${e.message}`); (0, ui_1.toast)(e.message, { error: true, timeout: 10000 }); this.config.onError?.(e); }
-    async dispose() { this.cancel(); this.abort.abort(); this.unlink?.(); this.disposables.dispose(); this.worker?.dispose(); this.pdfView.dispose(); this.cadView.dispose(); await this.source?.dispose(); this.root.replaceChildren(); }
+    async dispose() { this.cancel(); this.abort.abort(); this.unlink?.(); this.disposables.dispose(); this.worker?.dispose(); this.pdfView.dispose(); if (this.pdfReference) {
+        this.pdfReference.image.width = this.pdfReference.image.height = 1;
+        this.pdfReference = null;
+    } this.cadView.dispose(); await this.source?.dispose(); this.root.replaceChildren(); }
 }
 exports.Workbench = Workbench;
 function mountWorkbench(root, config = {}) {

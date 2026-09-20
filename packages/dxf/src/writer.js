@@ -4,24 +4,18 @@ import { ACI } from './aci.js';
 const UNIT_CODES = { unitless: 0, in: 1, mm: 4, cm: 5, m: 6, pt: 0 };
 const LINEWEIGHTS = [0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, 53, 60, 70, 80, 90, 100, 106, 120, 140, 158, 200, 211];
 export function dxfString(value) {
-    let out = '';
-    for (let i = 0; i < String(value ?? '').length; i++) {
-        const c = String(value ?? '').charCodeAt(i);
-        if (c === 10 || c === 13 || c < 32)
-            out += ' ';
-        else if (c > 126)
-            out += '\\U+' + c.toString(16).toUpperCase().padStart(4, '0');
-        else
-            out += String.fromCharCode(c);
-    }
-    return out;
+    const text = String(value ?? '');
+    // Most tags and provenance JSON are ASCII; do not allocate one character at a time.
+    return /[\x00-\x1f\x7f-\uffff]/.test(text)
+        ? text.replace(/[\x00-\x1f\x7f-\uffff]/g, c => c.charCodeAt(0)<32?' ':'\\U+'+c.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0'))
+        : text;
 }
 function name(value) { const n = String(value).replace(/[<>\/\\":;?*|=,\x00-\x1f]/g, '_'); return n.slice(0, 240) || '0'; }
 function blockName(value) { return value.startsWith('*') ? '*' + name(value.slice(1)) : name(value); }
 export function nearestACI(rgb) {
     let best = 7, error = Infinity;
     for (let i = 1; i < 256; i++) {
-        const v = ACI[i], c = [v >>> 16 & 255, v >>> 8 & 255, v & 255], d = c.reduce((s, x, j) => s + (x - rgb[j]) ** 2, 0);
+        const v = ACI[i], dr = (v >>> 16 & 255) - rgb[0], dg = (v >>> 8 & 255) - rgb[1], db = (v & 255) - rgb[2], d = dr*dr + dg*dg + db*db;
         if (d < error) {
             error = d;
             best = i;
@@ -88,7 +82,11 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
     const layerHandles = new Map(doc.layers.map(l => [l.name, h()]));
     const appids = [{ name: 'ACAD', handle: h() }, { name: 'REVECTOR', handle: h() }];
     const dimStyle = h(), vport = h();
-    const groupHandles = new Map(doc.groups.map(g => [g.name, h()]));
+    const groupHandles = new Map(doc.groups.map(g => [g.name, h()])), groupMembership = new Map();
+    for (const g of doc.groups) for (const id of new Set(g.members)) {
+        if (!groupMembership.has(id)) groupMembership.set(id, []);
+        groupMembership.get(id).push(g);
+    }
     for (const e of allEntities(doc)) {
         handles.set(e.id, h());
         if (e.type === 'INSERT' && e.attributes?.length) {
@@ -98,7 +96,8 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
         }
     }
     const imageEntities=allEntities(doc).filter(e=>e.type==='IMAGE');
-    const usedAssets=(doc.assets||[]).filter(a=>imageEntities.some(e=>e.imageId===a.id));
+    const usedAssetIds=new Set(imageEntities.map(e=>e.imageId));
+    const usedAssets=(doc.assets||[]).filter(a=>usedAssetIds.has(a.id));
     const imageDict=imageEntities.length?h():null, rasterVariables=imageEntities.length?h():null;
     const imageDefs=new Map(usedAssets.map(a=>[a.id,h()]));
     const imageReactors=new Map(imageEntities.map(e=>[e.id,h()]));
@@ -106,6 +105,7 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
     const num = n => {
         if (!Number.isFinite(n))
             throw Error(`Non-finite DXF numeric value ${n}`);
+        if (Number.isInteger(n)) return String(n);
         const v = Math.abs(n) < 10 ** (-precision) / 2 ? 0 : n;
         return Number(v.toFixed(precision)).toString();
     };
@@ -125,15 +125,21 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
             tag(100, s);
     };
     const table = (type, count, fn) => { record('TABLE', tables[type], null); tag(2, type); tag(100, 'AcDbSymbolTable'); tag(70, count); fn(); tag(0, 'ENDTAB'); };
+    const paletteCache = new Map();
     function color(rgb, hidden = false) {
-        const aci = nearestACI(rgb);
+        const key = rgb.join(',');
+        let aci = paletteCache.get(key);
+        if (aci === undefined) {
+            aci = nearestACI(rgb);
+            if (paletteCache.size < 4096) paletteCache.set(key, aci);
+        }
         tag(62, hidden ? -aci : aci);
         if (modern)
             tag(420, rgbInt(rgb));
     }
     function common(e, owner, handle = handles.get(e.id)) {
         record(e.type, handle, null);
-        const reactors = doc.groups.filter(g => g.members.includes(e.id));
+        const reactors = groupMembership.get(e.id) || [];
         if (reactors.length) {
             tag(102, '{ACAD_REACTORS');
             for (const g of reactors)
@@ -161,6 +167,10 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
             value = JSON.stringify({id:e.id,source:{ref:stableHash(e.source||{})},semantic:{class:e.semantic?.class,confidence:e.semantic?.confidence,detailHash:stableHash(e.semantic||{}),truncated:true}});
         }
         tag(1001, 'REVECTOR');
+        if (!/[\x00-\x1f\x7f-\uffff]/.test(value)) {
+            for (let start=0; start<value.length; start+=240) tag(1000, value.slice(start,start+240));
+            return;
+        }
         let chunk = '';
         for (const c of value) {
             const text = dxfString(c);

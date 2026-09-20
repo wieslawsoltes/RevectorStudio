@@ -77,6 +77,7 @@ export const cadRules = [curveRecoveryRule,
             return out;
         } },
     { id: 'cad.repeated-symbols', title: 'Repeated vector symbols', version: '1.0.0', stage: 30, description: 'Create shared BLOCKs for translation-equivalent connected components; no invented original block names.', run: ({ document, checkAbort }) => {
+            const paintOrder = new Map(document.entities.map((e, i) => [e, i]));
             const eligible = document.entities.filter(e => ['LINE', 'LWPOLYLINE', 'SPLINE'].includes(e.type) && !e.dash?.length), components = connectedComponents(eligible, endpoints, 1e-8), groups = new Map();
             for (const component of components) {
                 checkAbort();
@@ -101,7 +102,7 @@ export const cadRules = [curveRecoveryRule,
                 if (matching.length < 3)
                     continue;
                 const name = `RV_SYMBOL_${key.toUpperCase()}`, members = matching.flatMap(o => o.component.map(e => e.id)), block = { name, origin: [0, 0], entities: matching[0].local.map((e, i) => ({ ...e, id: `${name}-${i}` })), source: { inference: 'translation-equivalent-connected-components' } };
-                out.push({ title: `Recover ${matching.length} instances of a repeated symbol`, members, confidence: .995, exact: true, evidence: [{ kind: 'repeated-component', instances: matching.length, coordinateTolerance: 1e-8 }, { kind: 'style-and-geometry-equality' }], proposal: { remove: members, blocks: [block], placements: Object.fromEntries(matching.map((o, i) => [`${name}-ref-${i}`, o.component.reduce((a, e) => document.entities.indexOf(a) < document.entities.indexOf(e) ? a : e).id])), add: matching.map((o, i) => ({ id: `${name}-ref-${i}`, type: 'INSERT', name, position: o.origin, rotation: 0, scale: [1, 1], layer: o.component[0].layer, color: o.component[0].color, lineweight: o.component[0].lineweight, opacity: o.component[0].opacity, attributes: [], source: { ids: [...new Set(o.component.flatMap(e => e.source?.ids || []))] }, semantic: { class: 'repeated-symbol', method: 'geometric-repetition' } })) } });
+                out.push({ title: `Recover ${matching.length} instances of a repeated symbol`, members, confidence: .995, exact: true, evidence: [{ kind: 'repeated-component', instances: matching.length, coordinateTolerance: 1e-8 }, { kind: 'style-and-geometry-equality' }], proposal: { remove: members, blocks: [block], placements: Object.fromEntries(matching.map((o, i) => [`${name}-ref-${i}`, o.component.reduce((a, e) => paintOrder.get(a) < paintOrder.get(e) ? a : e).id])), add: matching.map((o, i) => ({ id: `${name}-ref-${i}`, type: 'INSERT', name, position: o.origin, rotation: 0, scale: [1, 1], layer: o.component[0].layer, color: o.component[0].color, lineweight: o.component[0].lineweight, opacity: o.component[0].opacity, attributes: [], source: { ids: [...new Set(o.component.flatMap(e => e.source?.ids || []))] }, semantic: { class: 'repeated-symbol', method: 'geometric-repetition' } })) } });
             }
             return out;
         } },

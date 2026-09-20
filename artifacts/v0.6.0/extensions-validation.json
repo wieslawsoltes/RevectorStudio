@@ -1,0 +1,748 @@
+{
+  "colors": {
+    "samples": [
+      {
+        "name": "near-black",
+        "point": [
+          52,
+          55
+        ],
+        "pdf": [
+          1,
+          0,
+          0
+        ],
+        "dxf": [
+          1,
+          0,
+          0
+        ],
+        "error": 0
+      },
+      {
+        "name": "navy",
+        "point": [
+          137,
+          55
+        ],
+        "pdf": [
+          5,
+          20,
+          36
+        ],
+        "dxf": [
+          5,
+          20,
+          36
+        ],
+        "error": 0
+      },
+      {
+        "name": "RGB",
+        "point": [
+          222,
+          55
+        ],
+        "pdf": [
+          51,
+          178,
+          102
+        ],
+        "dxf": [
+          51,
+          178,
+          102
+        ],
+        "error": 0
+      },
+      {
+        "name": "gray",
+        "point": [
+          307,
+          55
+        ],
+        "pdf": [
+          64,
+          64,
+          64
+        ],
+        "dxf": [
+          64,
+          64,
+          64
+        ],
+        "error": 0
+      },
+      {
+        "name": "CMYK cyan",
+        "point": [
+          52,
+          130
+        ],
+        "pdf": [
+          0,
+          185,
+          242
+        ],
+        "dxf": [
+          0,
+          185,
+          242
+        ],
+        "error": 0
+      },
+      {
+        "name": "CMYK composite",
+        "point": [
+          137,
+          130
+        ],
+        "pdf": [
+          200,
+          106,
+          143
+        ],
+        "dxf": [
+          200,
+          106,
+          143
+        ],
+        "error": 0
+      },
+      {
+        "name": "ICC RGB",
+        "point": [
+          222,
+          130
+        ],
+        "pdf": [
+          59,
+          112,
+          199
+        ],
+        "dxf": [
+          59,
+          112,
+          199
+        ],
+        "error": 0
+      },
+      {
+        "name": "CalRGB",
+        "point": [
+          307,
+          130
+        ],
+        "pdf": [
+          56,
+          113,
+          200
+        ],
+        "dxf": [
+          56,
+          113,
+          200
+        ],
+        "error": 0
+      },
+      {
+        "name": "Lab",
+        "point": [
+          52,
+          205
+        ],
+        "pdf": [
+          147,
+          103,
+          195
+        ],
+        "dxf": [
+          147,
+          103,
+          195
+        ],
+        "error": 0
+      },
+      {
+        "name": "Separation",
+        "point": [
+          137,
+          205
+        ],
+        "pdf": [
+          224,
+          117,
+          148
+        ],
+        "dxf": [
+          224,
+          117,
+          148
+        ],
+        "error": 0
+      },
+      {
+        "name": "Normal alpha",
+        "point": [
+          222,
+          205
+        ],
+        "pdf": [
+          140,
+          153,
+          229
+        ],
+        "dxf": [
+          140,
+          153,
+          229
+        ],
+        "error": 0
+      }
+    ],
+    "audit": {
+      "rasterImages": 0,
+      "imagePixelsAudited": false,
+      "space": "sRGB",
+      "metric": "CIEDE2000 / D65",
+      "compared": 11,
+      "changed": 0,
+      "missing": 0,
+      "invalid": 0,
+      "unresolved": 0,
+      "complete": true,
+      "rgbExact": true,
+      "maxChannelError": 0,
+      "maxDeltaE": 0,
+      "opacityCompared": 11,
+      "opacityChanged": 1,
+      "maxOpacityError": 0.0019607843137254832,
+      "opacityExact": false,
+      "samples": [
+        {
+          "id": "e11",
+          "reason": "opacity-quantization-or-loss",
+          "sourceOpacity": 0.5,
+          "exportedOpacity": 0.5019607843137255,
+          "error": 0.0019607843137254832
+        }
+      ],
+      "exact": false,
+      "profilePolicy": "PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.",
+      "scope": "Explicit entity RGB and opacity; not a proof of PDF blend modes, overprint, image profiles, or inherited CAD colors.",
+      "source": {
+        "engine": "PDF.js",
+        "version": "6.4.172",
+        "output": "sRGB",
+        "useWasm": true,
+        "iccResourcesConfigured": true,
+        "policy": "Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied."
+      }
+    },
+    "diagnostics": [],
+    "policy": {
+      "engine": "PDF.js",
+      "version": "6.4.172",
+      "output": "sRGB",
+      "useWasm": true,
+      "iccResourcesConfigured": true,
+      "policy": "Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied."
+    }
+  },
+  "ocr": {
+    "before": [
+      "NATIVE-42"
+    ],
+    "ocr": {
+      "engine": "tesseract.js",
+      "version": "7.0.0",
+      "options": {
+        "scope": "raster",
+        "languages": "eng",
+        "dpi": 250,
+        "minConfidence": 60,
+        "preprocess": "none",
+        "rotation": 0,
+        "traceLines": true,
+        "traceMode": "axis",
+        "traceTolerance": 0.65,
+        "maxTracePixels": 4000000,
+        "maxPixels": 24000000,
+        "maxRegions": 128,
+        "maxWords": 25000,
+        "timeoutMs": 120000,
+        "tileSize": 2048,
+        "tileOverlap": 96,
+        "maxTiles": 256,
+        "deskew": false,
+        "assetBase": "http://127.0.0.1:44929/vendor/ocr/"
+      },
+      "accepted": 5,
+      "rejected": 0,
+      "duplicates": 1,
+      "regions": 1,
+      "lines": 5,
+      "rejectedWords": [],
+      "tiles": 1,
+      "tileDuplicates": 0,
+      "deskew": [],
+      "effectiveDpi": 250
+    },
+    "texts": [
+      {
+        "id": "e1",
+        "text": "NATIVE-42",
+        "source": {
+          "ids": [
+            "p1-2"
+          ],
+          "page": 1,
+          "operator": 10,
+          "formPath": [],
+          "kind": "text",
+          "font": "g_d2_f1",
+          "textMatrix": [
+            7.055555555555555,
+            0,
+            0,
+            7.055555555555555,
+            14.11111111111111,
+            26.458333333333332
+          ],
+          "originalText": "NATIVE-42"
+        },
+        "semantic": {
+          "class": null,
+          "confidence": 1,
+          "method": "source"
+        },
+        "position": [
+          14.11111111111111,
+          26.458333333333332
+        ],
+        "height": 5.065888888888889
+      },
+      {
+        "id": "e2",
+        "text": "P-101",
+        "source": {
+          "ids": [
+            "ocr-1-236038c2"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.91,
+            "box": [
+              309,
+              149,
+              457,
+              192
+            ],
+            "pixelToPdf": [
+              0.288,
+              0,
+              0,
+              -0.288,
+              0,
+              260
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": null
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            4.267199999999999,
+            0,
+            0,
+            4.267199999999999,
+            31.394399999999994,
+            72.31662222222222
+          ],
+          "originalText": "P-101"
+        },
+        "semantic": {
+          "class": "ocr-text",
+          "confidence": 0.91,
+          "method": "ocr"
+        },
+        "position": [
+          31.394399999999994,
+          72.31662222222222
+        ],
+        "height": 4.267199999999999
+      },
+      {
+        "id": "e3",
+        "text": "PUMP",
+        "source": {
+          "ids": [
+            "ocr-1-f588708d"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.93,
+            "box": [
+              136,
+              150,
+              284,
+              192
+            ],
+            "pixelToPdf": [
+              0.288,
+              0,
+              0,
+              -0.288,
+              0,
+              260
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": null
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            4.1655999999999995,
+            0,
+            0,
+            4.1655999999999995,
+            13.817599999999999,
+            72.31662222222222
+          ],
+          "originalText": "PUMP"
+        },
+        "semantic": {
+          "class": "ocr-text",
+          "confidence": 0.93,
+          "method": "ocr"
+        },
+        "position": [
+          13.817599999999999,
+          72.31662222222222
+        ],
+        "height": 4.1655999999999995
+      },
+      {
+        "id": "e4",
+        "text": "FLOW",
+        "source": {
+          "ids": [
+            "ocr-1-cd8055b6"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.96,
+            "box": [
+              136,
+              288,
+              288,
+              331
+            ],
+            "pixelToPdf": [
+              0.288,
+              0,
+              0,
+              -0.288,
+              0,
+              260
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": null
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            4.267199999999999,
+            0,
+            0,
+            4.267199999999999,
+            13.817599999999999,
+            58.19422222222222
+          ],
+          "originalText": "FLOW"
+        },
+        "semantic": {
+          "class": "ocr-text",
+          "confidence": 0.96,
+          "method": "ocr"
+        },
+        "position": [
+          13.817599999999999,
+          58.19422222222222
+        ],
+        "height": 4.267199999999999
+      },
+      {
+        "id": "e5",
+        "text": "120",
+        "source": {
+          "ids": [
+            "ocr-1-6a3d70c7"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.96,
+            "box": [
+              313,
+              288,
+              410,
+              331
+            ],
+            "pixelToPdf": [
+              0.288,
+              0,
+              0,
+              -0.288,
+              0,
+              260
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": null
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            4.267199999999999,
+            0,
+            0,
+            4.267199999999999,
+            31.800799999999995,
+            58.19422222222222
+          ],
+          "originalText": "120"
+        },
+        "semantic": {
+          "class": "ocr-text",
+          "confidence": 0.96,
+          "method": "ocr"
+        },
+        "position": [
+          31.800799999999995,
+          58.19422222222222
+        ],
+        "height": 4.267199999999999
+      },
+      {
+        "id": "e6",
+        "text": "L/MIN",
+        "source": {
+          "ids": [
+            "ocr-1-910f28c0"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.95,
+            "box": [
+              437,
+              289,
+              581,
+              335
+            ],
+            "pixelToPdf": [
+              0.288,
+              0,
+              0,
+              -0.288,
+              0,
+              260
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": null
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            4.1655999999999995,
+            0,
+            0,
+            4.1655999999999995,
+            44.39919999999999,
+            58.19422222222222
+          ],
+          "originalText": "L/MIN"
+        },
+        "semantic": {
+          "class": "ocr-text",
+          "confidence": 0.95,
+          "method": "ocr"
+        },
+        "position": [
+          44.39919999999999,
+          58.19422222222222
+        ],
+        "height": 4.1655999999999995
+      }
+    ],
+    "lines": 5
+  },
+  "rotated": {
+    "ocr": {
+      "engine": "tesseract.js",
+      "version": "7.0.0",
+      "options": {
+        "scope": "raster",
+        "languages": "eng",
+        "dpi": 250,
+        "minConfidence": 60,
+        "preprocess": "none",
+        "rotation": 270,
+        "traceLines": false,
+        "traceMode": "axis",
+        "traceTolerance": 0.65,
+        "maxTracePixels": 4000000,
+        "maxPixels": 24000000,
+        "maxRegions": 128,
+        "maxWords": 25000,
+        "timeoutMs": 120000,
+        "tileSize": 2048,
+        "tileOverlap": 96,
+        "maxTiles": 256,
+        "deskew": false,
+        "assetBase": "http://127.0.0.1:44929/vendor/ocr/"
+      },
+      "accepted": 5,
+      "rejected": 0,
+      "duplicates": 1,
+      "regions": 1,
+      "lines": 0,
+      "rejectedWords": [],
+      "tiles": 1,
+      "tileDuplicates": 0,
+      "deskew": [],
+      "effectiveDpi": 250
+    },
+    "texts": [
+      {
+        "text": "NATIVE-42",
+        "rotation": -90,
+        "position": [
+          26.458333333333332,
+          112.88888888888887
+        ]
+      },
+      {
+        "text": "P-101",
+        "rotation": -90,
+        "position": [
+          72.33919999999999,
+          95.6056
+        ]
+      },
+      {
+        "text": "PUMP",
+        "rotation": -90,
+        "position": [
+          72.33919999999999,
+          113.18239999999999
+        ]
+      },
+      {
+        "text": "FLOW",
+        "rotation": -90,
+        "position": [
+          58.216799999999985,
+          113.18239999999999
+        ]
+      },
+      {
+        "text": "120",
+        "rotation": -90,
+        "position": [
+          58.216799999999985,
+          95.19919999999999
+        ]
+      },
+      {
+        "text": "L/MIN",
+        "rotation": -90,
+        "position": [
+          58.216799999999985,
+          82.60079999999999
+        ]
+      }
+    ]
+  },
+  "url": "http://127.0.0.1:44929/",
+  "passed": 21,
+  "checks": [
+    "Both original and expanded rule packs are available",
+    "Faithful colors and white paper are the default",
+    "All eleven source color-space swatches match DXF preview within two channel levels",
+    "Near-black RGB bytes are not mistaken for normalized unit components",
+    "True-color DXF round trip has no quantization",
+    "ICC resources are configured for the PDF engine",
+    "Raster OCR recognizes editable words from an embedded PDF image",
+    "Native text exists before OCR and overlapping recognition is suppressed",
+    "OCR confidence, pixel transform and source image references survive conversion",
+    "Opt-in raster rule-line detection creates explicitly inferred entities",
+    "Recognized baseline maps back to the image location in drawing units",
+    "OCR DXF 2000 passes an independent entity/ownership audit",
+    "OCR DXF 2004 passes an independent entity/ownership audit",
+    "OCR DXF 2007 passes an independent entity/ownership audit",
+    "OCR DXF 2010 passes an independent entity/ownership audit",
+    "OCR DXF 2013 passes an independent entity/ownership audit",
+    "OCR DXF 2018 passes an independent entity/ownership audit",
+    "Rotated PDF page OCR recovers text after a quarter-turn correction",
+    "Rotated OCR retains the transformed text direction",
+    "OCR runtime, WASM and language data are self-hosted",
+    "OCR finishes with no uncaught browser exceptions"
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "browserVersion": "152.0.7977.0"
+}

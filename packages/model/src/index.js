@@ -1,3 +1,4 @@
+export {markImmutableSnapshot as _markImmutableSnapshot, isImmutableSnapshot as _isImmutableSnapshot} from './snapshot.js';
 export {sha256Bytes} from './sha256.js';
 import { emptyBox, extend, union, transformBox, pathBox, insertMatrix, validBox, cubicBox, transform, I, compose } from '@revector/geometry';
 export const MODEL_SCHEMA = 'revector.cad/1';
@@ -102,7 +103,19 @@ export function entityPaths(e) {
         default: return [];
     }
 }
-export function validateDocument(doc) {
+export function validateDocument(doc) { return validate(doc); }
+/** A private ownership session for copy-on-write model pipelines. Entity objects and
+ * their descendants MUST NOT be mutated after validation. Public mutable documents
+ * must use validateDocument instead. Names, references and IDs are always rechecked. */
+export function createImmutableDocumentValidator() {
+    const entities = new WeakMap();
+    return doc => validate(doc, entities);
+}
+function* validationEntities(doc) {
+    for (const list of [doc.entities, ...doc.blocks.map(b => b.entities)])
+        for (const e of list) { yield e; yield* e.attributes || []; }
+}
+function validate(doc, entityCache) {
     const errors = [];
     const ids = new Set(), blocks = new Map(doc.blocks.map(b => [b.name, b]));
     const layers = new Set(doc.layers.map(l => l.name));
@@ -126,7 +139,7 @@ export function validateDocument(doc) {
         errors.push('Duplicate block names');
     if (layers.size !== doc.layers.length)
         errors.push('Duplicate layer names');
-    for (const e of allEntities(doc).flatMap(e => [e, ...(e.attributes || [])])) {
+    for (const e of validationEntities(doc)) {
         if (!e.id)
             errors.push('Entity has no id');
         else if (ids.has(e.id))
@@ -147,25 +160,34 @@ export function validateDocument(doc) {
             else if (Math.abs(e.uPixel[0]*e.vPixel[1]-e.uPixel[1]*e.vPixel[0]) < 1e-30) errors.push(`Singular image placement ${e.id}`);
             if (!Array.isArray(e.imageSize) || e.imageSize.length !== 2 || !e.imageSize.every(n => Number.isInteger(n) && n > 0) || a && (a.width !== e.imageSize[0] || a.height !== e.imageSize[1])) errors.push(`Image dimensions disagree with asset ${e.id}`);
         }
-        check(e, e.id);
+        const previous = entityCache?.get(e);
+        if (previous) {
+            for (const error of previous) errors.push(error);
+        } else {
+            const start = errors.length;
+            check(e, e.id);
+            entityCache?.set(e, errors.slice(start));
+        }
     }
     for (const g of doc.groups) {
         for (const id of g.members)
             if (!ids.has(id))
                 errors.push(`Group ${g.name} references missing entity ${id}`);
     }
-    const visit = (name, stack = new Set()) => {
-        if (stack.has(name)) {
-            errors.push(`Cyclic block reference ${name}`);
-            return;
+    // Iterative tri-color DFS visits each block/edge once without copying ancestor
+    // sets or overflowing the JavaScript call stack on deeply nested block DAGs.
+    const states = new Map();
+    for (const root of blocks.keys()) {
+        if (states.has(root)) continue;
+        const stack = [{name:root, index:0}]; states.set(root,1);
+        while (stack.length) {
+            const frame=stack[stack.length-1], entities=blocks.get(frame.name)?.entities || [];
+            if (frame.index===entities.length) {states.set(frame.name,2);stack.pop();continue;}
+            const entity=entities[frame.index++]; if(entity.type!=='INSERT')continue;
+            if(states.get(entity.name)===1)errors.push(`Cyclic block reference ${entity.name}`);
+            else if(!states.has(entity.name)){states.set(entity.name,1);stack.push({name:entity.name,index:0});}
         }
-        const next = new Set([...stack, name]);
-        for (const e of blocks.get(name)?.entities || [])
-            if (e.type === 'INSERT')
-                visit(e.name, next);
-    };
-    for (const name of blocks.keys())
-        visit(name);
+    }
     return { valid: !errors.length, errors };
 }
 export function countTypes(doc) {
@@ -191,7 +213,11 @@ export function checkAbort(signal) {
     if (signal?.aborted)
         throw new AbortConversionError();
 }
-export const yieldTask = () => new Promise(resolve => setTimeout(resolve, 0));
+export const yieldTask = () => {
+    if (globalThis.scheduler?.yield) return globalThis.scheduler.yield();
+    if (typeof globalThis.setImmediate === 'function') return new Promise(resolve => globalThis.setImmediate(resolve));
+    return new Promise(resolve => setTimeout(resolve, 0));
+};
 
 /** Portable relative paths only: never implicitly fetch URLs or escape an export directory. */
 export function isSafeAssetPath(value) {

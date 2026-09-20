@@ -2,9 +2,17 @@
 
 **Vector-first PDF → semantic DXF. Inspect the source. Recover structure. Keep the evidence.**
 
-Revector Studio 0.4.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
+Revector Studio 0.6.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
 
 The converter reads vector painting instructions and encoded text. Raster OCR is opt-in through a self-hosted Tesseract.js integration. No remote AI service receives document data. The bundled two-page P&ID/feature fixture is an actual PDF, and is processed by the same path as an opened document.
+
+## New in 0.6.0 — measured performance
+
+Conversion now uses ownership-safe copy-on-write semantic transactions, reusable immutable rule snapshots, prepared vector clipping queries, indexed form folding, a median-selection BVH, indexed/streamed DXF handling and bounded concurrent PDF resource resolution. The workbench reuses idle workers and unchanged PDF reference images, while cancellation still hard-terminates busy work. Resolution, geometric tolerances, rule coverage and correctness checks are not reduced. See [performance architecture, benchmarks and reproduction](docs/PERFORMANCE.md).
+
+## New in 0.5.0
+
+Twenty built-in rules include bounded sampled-curve reconstruction and evidence-bearing crossing/junction alternatives. **Appearance + CAD** retains difficult PDF.js-composited effects as an explicitly sampled IMAGE layer alongside independently editable geometry. Exact source archival, SHA-pinned corpus checking and a licensed-CAD adapter contract are available. See [0.5 contracts](docs/RECOVERY-0.5.md).
 
 ## New in 0.4.0
 

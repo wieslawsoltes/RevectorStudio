@@ -2,21 +2,22 @@ import { createDocument, diagnostic } from '@revector/model';
 import { near, distance } from '@revector/geometry';
 import { ACI } from './aci.js';
 export const decodeDxfString = s => String(s).replace(/\\U\+([0-9A-Fa-f]{4})/g, (_, v) => String.fromCharCode(parseInt(v, 16)));
-function pairs(text, maxPairs) {
-    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/), out = [];
-    if (lines.at(-1) === '')
-        lines.pop();
-    if (lines.length % 2)
-        throw new Error('DXF group/value line count is odd');
-    if (lines.length / 2 > maxPairs)
-        throw new RangeError('DXF pair budget exceeded');
-    for (let i = 0; i < lines.length; i += 2) {
-        const code = Number(lines[i].trim());
-        if (!Number.isInteger(code) || code < 0 || code > 1071)
-            throw new Error(`Invalid DXF group code on line ${i + 1}`);
-        out.push([code, lines[i + 1]]);
+function* pairs(text, maxPairs) {
+    let offset=text.charCodeAt(0)===0xFEFF?1:0, lineNumber=1, count=0;
+    const readLine=()=>{const end=text.indexOf('\n',offset);let value;
+        if(end<0){value=text.slice(offset);offset=text.length;}
+        else{value=text.slice(offset,end>offset&&text.charCodeAt(end-1)===13?end-1:end);offset=end+1;}
+        return value;
+    };
+    while(offset<text.length) {
+        const codeText=readLine();
+        if(offset>=text.length)throw new Error('DXF group/value line count is odd');
+        const value=readLine();
+        if(++count>maxPairs)throw new RangeError('DXF pair budget exceeded');
+        const code=Number(codeText.trim());
+        if(!Number.isInteger(code)||code<0||code>1071)throw new Error(`Invalid DXF group code on line ${lineNumber}`);
+        yield [code,value];lineNumber+=2;
     }
-    return out;
 }
 function records(data) {
     const out = [];
@@ -28,7 +29,16 @@ function records(data) {
     }
     return out;
 }
-const get = (r, code, def) => r.tags.find(t => t[0] === code)?.[1] ?? def;
+function get(r, code, def) {
+    // Most records ask for dozens of distinct tags. Index first occurrences once;
+    // repeated point/edge codes remain in tags for ordered multi-value decoding.
+    let values = r.firstValues;
+    if (!values) {
+        values = r.firstValues = new Map();
+        for (const [c,v] of r.tags) if (!values.has(c)) values.set(c,v);
+    }
+    return values.get(code) ?? def;
+}
 const n = (r, c, d = 0) => Number(get(r, c, d));
 const p = (r, c, d = [0, 0]) => [n(r, c, d[0]), n(r, c + 10, d[1])];
 function readColor(r, layer) {
@@ -142,23 +152,18 @@ function readHatch(r) {
 }
 /** Reads the writer's complete entity subset. It is not advertised as a universal DXF importer. */
 export function readDxf(text, { maxPairs = 10000000 } = {}) {
-    const data = pairs(text, maxPairs), sections = new Map();
-    let name = null;
-    for (let i = 0; i < data.length; i++) {
-        const [c, v] = data[i];
-        if (c === 0 && v === 'SECTION') {
-            if (data[i + 1]?.[0] !== 2)
-                throw Error('DXF SECTION has no name');
-            name = data[++i][1];
-            sections.set(name, []);
-        }
-        else if (c === 0 && v === 'ENDSEC')
-            name = null;
-        else if (name)
-            sections.get(name).push(data[i]);
+    const iterator=pairs(text,maxPairs),sections=new Map();
+    let name=null,last=null;
+    for(const pair of iterator) {
+        const [c,v]=pair;last=pair;
+        if(c===0&&v==='SECTION') {
+            const next=iterator.next();
+            if(next.done||next.value[0]!==2)throw Error('DXF SECTION has no name');
+            last=next.value;name=next.value[1];sections.set(name,[]);
+        } else if(c===0&&v==='ENDSEC')name=null;
+        else if(name)sections.get(name).push(pair);
     }
-    if (data.at(-1)?.[1] !== 'EOF')
-        throw Error('DXF has no EOF marker');
+    if(last?.[1]!=='EOF')throw Error('DXF has no EOF marker');
     const doc = createDocument({ name: 'DXF round trip', layers: [] });
     const header = sections.get('HEADER') || [];
     for (let i = 0; i < header.length; i++)
@@ -182,6 +187,7 @@ export function readDxf(text, { maxPairs = 10000000 } = {}) {
     }
     if (!doc.layers.some(l => l.name === '0'))
         doc.layers.push({ name: '0', color: [0, 0, 0], visible: true });
+    const layerIndex=new Map(doc.layers.map(l=>[l.name,l]));
     const imageDefs=new Map();
     for(const r of records(sections.get('OBJECTS')||[]))if(r.type==='IMAGEDEF') {
         const meta=parseXdata(r),a={id:meta?.id||'image-'+get(r,5,''),path:decodeDxfString(get(r,1,'')),
@@ -190,7 +196,7 @@ export function readDxf(text, { maxPairs = 10000000 } = {}) {
     }
     let next = 0;
     function entity(r) {
-        const layer = decodeDxfString(get(r, 8, '0')), l = doc.layers.find(l => l.name === layer), meta = parseXdata(r);
+        const layer = decodeDxfString(get(r, 8, '0')), l = layerIndex.get(layer), meta = parseXdata(r);
         const e = { id: meta?.id || `dxf-${++next}`, handle: get(r, 5, ''), type: r.type, layer, color: readColor(r, l), lineweight: Math.max(0, n(r, 370, 0)) / 100, opacity: get(r, 440, null) !== null ? (n(r, 440) & 255) / 255 : 1, dash: linetypes.get(get(r, 6, 'CONTINUOUS')) || [], source: meta?.source || {}, semantic: meta?.semantic || {} };
         switch (r.type) {
             case 'IMAGE': {

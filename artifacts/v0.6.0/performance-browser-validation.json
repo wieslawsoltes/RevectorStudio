@@ -1,0 +1,34 @@
+{
+  "url": "http://127.0.0.1:36437/",
+  "passed": 11,
+  "checks": [
+    "Conversion uses a dedicated browser worker",
+    "Version changes reuse the idle worker",
+    "Version changes do not rerender the unchanged PDF",
+    "UI reports end-to-end elapsed time rather than kernel-only time",
+    "Cached PDF reference follows changed CAD units and drawing scale",
+    "Explicit extraction invalidates the reference cache",
+    "Replaced reference canvas allocations are released",
+    "All requested conversions retain a valid serialized-DXF preview",
+    "Busy cancellation hard-terminates the worker",
+    "A fresh worker recovers after cancellation",
+    "No uncaught browser exceptions"
+  ],
+  "errors": [],
+  "timings": {
+    "geometryMs": 4.2000000000116415,
+    "semanticsMs": 17.599999999976717,
+    "representationMs": 0,
+    "validationMs": 0.7000000000116415,
+    "serializeMs": 3.7000000000116415,
+    "roundtripMs": 4.199999999982538,
+    "colorAuditMs": 0.8999999999941792,
+    "totalMs": 31.39999999999418,
+    "pdfPreparationMs": 5.2000000000116415,
+    "pdfReferenceMs": 13.900000000023283,
+    "pdfReferenceReused": 0,
+    "uiTotalMs": 71.20000000001164
+  },
+  "browserVersion": "152.0.7977.0",
+  "transport": "real HTTP(S), dedicated worker, no injected conversion results"
+}

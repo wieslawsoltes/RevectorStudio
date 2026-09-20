@@ -130,3 +130,19 @@ export function booleanPaths(subject: Path[], clip?: Path[], options?: BooleanOp
 export interface CurveFitOptions {tolerance?:number;closed?:boolean;maxPoints?:number;maxSegments?:number;maxWork?:number;signal?:AbortSignal}
 export function fitCircularPolyline(points:Point[],options?:CurveFitOptions):({type:'CIRCLE'|'ARC';center:Point;radius:number;startAngle?:number;endAngle?:number;evidence:Record<string,any>})|null;
 export function fitCubicPolyline(points:Point[],options?:CurveFitOptions):{curves:{controlPoints:Cubic;errorBound:number;sourceRange:[number,number]}[];evidence:Record<string,any>};
+
+/** Captures a detached immutable path snapshot for repeated exact-primitive queries. */
+export function preparePathQuery(paths: Parameters<typeof pathWinding>[1]): {
+    winding(point: Parameters<typeof pathWinding>[0]): number;
+    contains(point: Parameters<typeof pathWinding>[0], rule?: 'nonzero' | 'evenodd'): boolean;
+    clip(edge: Parameters<typeof clipCurveToPaths>[0], rule?: 'nonzero' | 'evenodd', options?: Parameters<typeof clipCurveToPaths>[3]): ReturnType<typeof clipCurveToPaths>;
+};
+
+/** Static BVH with deterministic query order. Do not mutate indexed bounds. */
+export declare class BoxIndex<T = unknown> {
+    constructor(items?: T[], getBox?: (item: T) => Box);
+    items: T[];
+    getBox: (item: T) => Box;
+    visit(box: Box, callback: (item: T) => void): void;
+    search(box: Box): T[];
+}

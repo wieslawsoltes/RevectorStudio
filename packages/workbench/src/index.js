@@ -174,6 +174,7 @@ export class Workbench {
     async openBytes(bytes, name, project = null) {
         this.cancel();
         await this.source?.dispose();
+        if(this.pdfReference){this.pdfReference.image.width=this.pdfReference.image.height=1;this.pdfReference=null;}
         this.source = null;
         this.bytes = new Uint8Array(bytes);
         this.fileName = name;
@@ -212,7 +213,7 @@ export class Workbench {
     async run(extract = false) {
         if (!this.source)
             return;
-        const id = ++this.job;
+        const id = ++this.job, pipelineStart = performance.now();
         this.jobAbort?.abort();
         this.worker?.cancel();
         const controller = this.jobAbort = new AbortController();
@@ -227,6 +228,7 @@ export class Workbench {
                 if (id === this.job)
                     this.setStatus(`${p.phase}${p.rule ? ' · ' + p.rule : ''}${p.total ? ' · ' + Math.round(p.done / p.total * 100) + '%' : ''}`);
             };
+            const extractionStart = performance.now();
             if (extract || !this.scene) {
                 let next = await this.source.extract(this.page, { signal: controller.signal, onProgress: progress });
                 if(this.retainImages.checked)next=await this.source.preserveRasterImages(next,{signal:controller.signal});
@@ -237,7 +239,7 @@ export class Workbench {
             }
             if (id !== this.job)
                 return;
-            const scene = this.scene;
+            const scene = this.scene, extractionMs = performance.now() - extractionStart;
             let result;
             try {
                 result = this.worker ? await this.worker.convert(scene, options, { signal: controller.signal, onProgress: progress }) : await this.engine.convertScene(scene, { ...options, signal: controller.signal, onProgress: progress });
@@ -255,11 +257,23 @@ export class Workbench {
                 return;
             this.result = result;
             this.cadView.setDocument(result.preview);
-            const image = document.createElement('canvas');
-            await this.source.render(this.page, image, { scale: Math.min(3, Math.max(1.5, 1400 / scene.pageSize[0])), signal: controller.signal });
-            if (id !== this.job)
-                return;
-            this.pdfView.setImage(image, result.document.pageBox);
+            const renderStart = performance.now();
+            // This one-entry cache belongs to the workbench's extracted scene, not a
+            // mutable public input cache. Extraction, document or page changes invalidate it.
+            const cached = this.pdfReference;
+            const reuse = cached?.scene === scene && cached.source === this.source && cached.page === this.page;
+            let image = reuse ? cached.image : document.createElement('canvas'), adopted = reuse;
+            try {
+                if (!reuse) await this.source.render(this.page, image, { scale: Math.min(3, Math.max(1.5, 1400 / scene.pageSize[0])), signal: controller.signal });
+                if (id !== this.job) return;
+                this.pdfView.setImage(image, result.document.pageBox);
+                this.pdfReference = {scene, source:this.source, page:this.page, image};
+                adopted = true;
+                if (cached && cached.image !== image) cached.image.width = cached.image.height = 1;
+            } finally { if (!adopted) image.width = image.height = 1; }
+            result.report.timings.pdfPreparationMs = extractionMs;
+            result.report.timings.pdfReferenceMs = performance.now() - renderStart;
+            result.report.timings.pdfReferenceReused = reuse ? 1 : 0;
             this.pdfView.overlays = [];
             this.cadView.selection.clear();
             this.refresh();
@@ -267,7 +281,8 @@ export class Workbench {
             this.exportButton.disabled = false;
             this.exportReady = true;
             const s = summary(result.document), warnings = result.report.diagnostics.filter(d => d.severity !== 'info').length;
-            this.setStatus(`Converted · ${fmt(s.entities)} entities · ${fmt(result.document.blocks.length)} blocks · ${fmt(result.report.timings.totalMs)} ms${warnings ? ' · ' + warnings + ' review notice' + (warnings === 1 ? '' : 's') : ''}`);
+            result.report.timings.uiTotalMs = performance.now() - pipelineStart;
+            this.setStatus(`Converted · ${fmt(s.entities)} entities · ${fmt(result.document.blocks.length)} blocks · ${fmt(result.report.timings.uiTotalMs)} ms${warnings ? ' · ' + warnings + ' review notice' + (warnings === 1 ? '' : 's') : ''}`);
             this.config.onConverted?.(result);
             return result;
         }
@@ -584,7 +599,7 @@ export class Workbench {
             this.status.textContent = text;
     }
     error(e) { console.error(e); this.setStatus(`Error: ${e.message}`); toast(e.message, { error: true, timeout: 10000 }); this.config.onError?.(e); }
-    async dispose() { this.cancel(); this.abort.abort(); this.unlink?.(); this.disposables.dispose(); this.worker?.dispose(); this.pdfView.dispose(); this.cadView.dispose(); await this.source?.dispose(); this.root.replaceChildren(); }
+    async dispose() { this.cancel(); this.abort.abort(); this.unlink?.(); this.disposables.dispose(); this.worker?.dispose(); this.pdfView.dispose(); if(this.pdfReference){this.pdfReference.image.width=this.pdfReference.image.height=1;this.pdfReference=null;} this.cadView.dispose(); await this.source?.dispose(); this.root.replaceChildren(); }
 }
 export function mountWorkbench(root, config = {}) {
     const workbench = new Workbench(root, config);

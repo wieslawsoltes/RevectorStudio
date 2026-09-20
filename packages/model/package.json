@@ -1,6 +1,6 @@
 {
   "name": "@revector/model",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "description": "Versioned CAD and paint models for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -23,7 +23,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.5.0"
+    "@revector/geometry": "0.6.0"
   },
   "repository": {
     "type": "git",

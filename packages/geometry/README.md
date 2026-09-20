@@ -1,6 +1,6 @@
 # @revector/geometry
 
-**Affine and cubic geometry kernel** — Revector Studio 0.5.0.
+**Affine and cubic geometry kernel** — Revector Studio 0.6.0.
 
 Affine matrix composition/inversion; analytic cubic evaluation, bounds and subdivision; line/cubic intersections; curve-preserving clipping and Boolean regions. IEEE-754/tolerance-based, not certified exact arithmetic.
 
@@ -23,3 +23,5 @@ The declaration file is the authoritative signature reference; source implementa
 Use explicit diagnostics and source provenance when handling partially supported PDF content. A confidence score is not a calibrated probability; geometry preservation does not prove original CAD intent. Native conversion remains vector-first. Optional @revector/ocr adds inferred raster text and ruled lines with confidence and provenance.
 
 Original package code: MIT; see `LICENSE`. Any included third-party notice remains applicable.
+
+Performance ownership contracts and reproducible benchmarks: `docs/PERFORMANCE.md` in the repository.

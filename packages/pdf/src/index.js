@@ -17,16 +17,20 @@ export async function loadPdfJs({ moduleUrl, workerUrl } = {}) {
         lib.GlobalWorkerOptions.workerSrc = workerUrl;
     return lib;
 }
-function getObject(store, id, timeout = 15000) {
+function getObject(store, id, timeout = 15000, signal) {
+    checkAbort(signal);
     return new Promise((resolve, reject) => {
-        let timer = setTimeout(() => reject(new Error(`PDF resource ${id} did not resolve`)), timeout);
-        try {
-            store.get(id, value => { clearTimeout(timer); resolve(value); });
-        }
-        catch (e) {
-            clearTimeout(timer);
-            reject(e);
-        }
+        let settled = false;
+        const finish = (error, value) => {
+            if (settled) return;
+            settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort);
+            if (error) reject(error); else resolve(value);
+        };
+        const abort = () => finish(Object.assign(new Error('Conversion cancelled'), {name:'AbortError'}));
+        const timer = setTimeout(() => finish(new Error(`PDF resource ${id} did not resolve`)), timeout);
+        signal?.addEventListener('abort', abort, {once:true});
+        try { checkAbort(signal); store.get(id, value => finish(null, value)); }
+        catch (error) { finish(error); }
     });
 }
 function snapshotFont(f) {
@@ -61,8 +65,7 @@ export class PdfSource {
         task.onProgress = p => options.onProgress?.({ phase: 'load', done: p.loaded, total: p.total });
         const pdf = await task.promise;
         const source = new PdfSource(lib, task, pdf, options);
-        source.metadata = await pdf.getMetadata().catch(() => ({ info: {} }));
-        source.optionalContent = await pdf.getOptionalContentConfig({ intent: 'display' }).catch(() => null);
+        [source.metadata, source.optionalContent] = await Promise.all([pdf.getMetadata().catch(() => ({info:{}})), pdf.getOptionalContentConfig({intent:'display'}).catch(() => null)]);
         source.ocgs = source.optionalContent?.[Symbol.iterator] ? Object.fromEntries(source.optionalContent) : source.optionalContent?.getGroups?.() || {};
         return source;
     }
@@ -74,6 +77,7 @@ export class PdfSource {
         const annotationMode = options.includeAnnotations === false ? this.lib.AnnotationMode.DISABLE : this.lib.AnnotationMode.ENABLE;
         const key = `${pageNumber}:${annotationMode}`;
         let cached = this.#cache.get(key);
+        if (cached) { this.#cache.delete(key); this.#cache.set(key,cached); }
         if (!cached) {
             // `any` and the immutable snapshot are essential: PDF.js display rendering
             // replaces packed path buffers with Path2D instances in its cached list.
@@ -88,17 +92,26 @@ export class PdfSource {
                         if (k === 'Font')
                             fontIds.add(v[0]);
             }
-            const fonts = {};
-            for (const id of fontIds) {
-                try {
-                    fonts[id] = snapshotFont(await getObject(page.commonObjs, id));
+            // Resolve independent font resources concurrently, with a bounded fan-out.
+            // Assign in source order, not completion order, for deterministic scene output.
+            const concurrency = this.options.fontConcurrency ?? 8, timeout = this.options.resourceTimeoutMs ?? 15000;
+            if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 32 || !Number.isFinite(timeout) || timeout <= 0 || timeout > 120000)
+                throw new RangeError('Invalid PDF font concurrency or resource timeout');
+            const ids = [...fontIds], values = new Array(ids.length); let cursor = 0;
+            const resolveFonts = async () => {
+                for (;;) {
+                    const index = cursor++; if (index >= ids.length) return;
+                    checkAbort(options.signal);
+                    try { values[index] = snapshotFont(await getObject(page.commonObjs, ids[index], timeout, options.signal)); }
+                    catch (error) { if (error.name === 'AbortError') throw error; values[index] = {name:ids[index],missingFile:true}; }
                 }
-                catch {
-                    fonts[id] = { name: id, missingFile: true };
-                }
-            }
-            const structure = await page.getStructTree().catch(() => null);
-            const annotations = await page.getAnnotations({ intent: 'any' }).catch(() => []);
+            };
+            const [,structure,annotations] = await Promise.all([
+                Promise.all(Array.from({length:Math.min(concurrency,ids.length)},resolveFonts)),
+                page.getStructTree().catch(() => null), page.getAnnotations({intent:'any'}).catch(() => [])
+            ]);
+            checkAbort(options.signal);
+            const fonts = Object.fromEntries(ids.map((id,i) => [id,values[i]]));
             cached = { list, fonts, structure, annotations: annotations.map(a => ({ id: a.id, subtype: a.subtype, rect: a.rect, contents: a.contentsObj?.str || '', fieldName: a.fieldName, fieldValue: a.fieldValue, url: a.url })) };
             this.#cache.set(key, cached);
             while (this.#cache.size > (this.options.maxCachedPages ?? 3))
@@ -127,6 +140,7 @@ export class PdfSource {
         const page = await this.pdf.getPage(pageNumber), viewport = page.getViewport({ scale });
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
+        checkAbort(signal);
         const ctx = canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' });
         const task = page.render({ canvasContext: ctx, viewport, background, optionalContentConfigPromise: Promise.resolve(this.optionalContent), annotationMode: annotationMode ?? this.lib.AnnotationMode.ENABLE });
         const abort = () => task.cancel();

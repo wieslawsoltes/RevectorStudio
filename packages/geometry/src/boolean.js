@@ -1,3 +1,4 @@
+import {BoxIndex} from './spatial.js';
 import { EPS, sub, add, mul, dot, cross, length, distance, lerp, near, emptyBox, extend, intersects, cubicPoint, splitCubic, subCubic, cubicBox, pathEdges, polynomialRoots01 } from './index.js';
 const point = (e, t) => e.kind === 'L' ? lerp(...e.points, t) : cubicPoint(e.points, t);
 function derivative(e, t) {
@@ -101,10 +102,8 @@ export function intersectEdges(a, b, { tolerance = 1e-8, maxSubdivisions = 20000
     return uniqueRoots(roots, 1e-6);
 }
 /** Exact polynomial ray tests, using half-open crossings to avoid vertex double counts. */
-export function pathWinding(p, paths) {
-    let winding = 0;
-    for (const path of paths)
-        for (const e of pathEdges({ ...path, closed: true })) {
+function edgeWinding(p, e) {
+    let winding=0;
             if (e.kind === 'L') {
                 const [a, b] = e.points;
                 if (a[1] <= p[1] && b[1] > p[1] && cross(sub(b, a), sub(p, a)) > 0)
@@ -131,24 +130,46 @@ export function pathWinding(p, paths) {
                     }
                 }
             }
-        }
+    return winding;
+}
+function prepareEdges(paths) {
+    const edges=paths.flatMap(path=>pathEdges({...path,closed:true}));
+    // Control hulls are conservative for cubic ray tests, including near-tangent roots.
+    const records=edges.map(e=>{
+        const box=[Infinity,Infinity,-Infinity,-Infinity];
+        for(const p of e.points){box[0]=Math.min(box[0],p[0]);box[1]=Math.min(box[1],p[1]);box[2]=Math.max(box[2],p[0]);box[3]=Math.max(box[3],p[1]);}
+        if(e.kind==='C'){const pad=1e-7*Math.max(1,...box.map(Math.abs));box[0]-=pad;box[1]-=pad;box[2]+=pad;box[3]+=pad;}
+        return {e,box};
+    });
+    const tree=records.length>24?new BoxIndex(records,x=>x.box):null;
+    const visit=(box,fn)=>{if(tree)tree.visit(box,r=>fn(r.e));else for(const r of records)if(intersects(r.box,box))fn(r.e);};
+    const winding=p=>{let result=0;visit([p[0],p[1],Infinity,p[1]],e=>{result+=edgeWinding(p,e);});return result;};
+    const contains=(p,rule='nonzero')=>{const w=winding(p);return rule==='evenodd'?Math.abs(w)%2===1:w!==0;};
+    const clip=(edge,rule='nonzero',options={})=>{
+        const ts=[0,1];
+        visit(bounds(edge),other=>{for(const [t] of intersectEdges(edge,other,options))ts.push(t);});
+        ts.sort((a,b)=>a-b);
+        const cuts=ts.filter((t,i)=>!i||t-ts[i-1]>1e-9),out=[];
+        for(let i=1;i<cuts.length;i++)if(contains(point(edge,(cuts[i]+cuts[i-1])/2),rule))out.push(edgePart(edge,cuts[i-1],cuts[i]));
+        return out;
+    };
+    return {edges,winding,contains,clip};
+}
+/** Detached, immutable query snapshot for repeated winding and curve clipping. */
+export function preparePathQuery(paths) {
+    const {winding,contains,clip}=prepareEdges(structuredClone(paths));
+    return Object.freeze({winding,contains,clip});
+}
+export function pathWinding(p,paths) {
+    let winding=0;
+    for(const path of paths)for(const e of pathEdges({...path,closed:true}))winding+=edgeWinding(p,e);
     return winding;
 }
 export function insidePaths(p, paths, rule = 'nonzero') { const w = pathWinding(p, paths); return rule === 'evenodd' ? Math.abs(w) % 2 === 1 : w !== 0; }
 function edgePart(e, a, b) { return { kind: e.kind, points: e.kind === 'L' ? [point(e, a), point(e, b)] : subCubic(e.points, a, b) }; }
 function reverseEdge(e) { return { kind: e.kind, points: [...e.points].reverse() }; }
 export function clipCurveToPaths(edge, paths, rule = 'nonzero', options = {}) {
-    const ts = [0, 1];
-    for (const p of paths)
-        for (const other of pathEdges({ ...p, closed: true }))
-            for (const [t] of intersectEdges(edge, other, options))
-                ts.push(t);
-    ts.sort((a, b) => a - b);
-    const cuts = ts.filter((t, i) => !i || t - ts[i - 1] > 1e-9), out = [];
-    for (let i = 1; i < cuts.length; i++)
-        if (insidePaths(point(edge, (cuts[i] + cuts[i - 1]) / 2), paths, rule))
-            out.push(edgePart(edge, cuts[i - 1], cuts[i]));
-    return out;
+    return prepareEdges(paths).clip(edge, rule, options);
 }
 function edgeToSegment(e) { return e.kind === 'L' ? { kind: 'L', to: e.points[1] } : { kind: 'C', c1: e.points[1], c2: e.points[2], to: e.points[3] }; }
 /**
@@ -158,31 +179,24 @@ function edgeToSegment(e) { return e.kind === 'L' ? { kind: 'L', to: e.points[1]
  * Ambiguous/degenerate arrangements throw rather than fabricate geometry.
  */
 export function booleanPaths(subject, clip = [], { operation = 'intersection', subjectRule = 'nonzero', clipRule = 'nonzero', tolerance = 1e-8, maxPairs = 250000 } = {}) {
-    const edges = [...subject.flatMap(p => pathEdges({ ...p, closed: true })), ...clip.flatMap(p => pathEdges({ ...p, closed: true }))].filter(e => e.kind === 'C' || distance(...e.points) > tolerance);
+    const subjectQuery=prepareEdges(subject),clipQuery=prepareEdges(clip);
+    const edges = [...subjectQuery.edges, ...clipQuery.edges].filter(e => e.kind === 'C' || distance(...e.points) > tolerance);
     if (!edges.length)
         return [];
     const boxes = edges.map(bounds), cuts = edges.map(() => [0, 1]);
     let pairs = 0;
-    // Sweep on min-X; avoids the quadratic empty-pair scan of naive booleans.
+    // BVH broad phase avoids scanning disjoint pairs, including many shared min-X bounds.
     const order = edges.map((_, i) => i).sort((a, b) => boxes[a][0] - boxes[b][0]);
-    const active = [];
-    for (const i of order) {
-        for (let k = active.length - 1; k >= 0; k--)
-            if (boxes[active[k]][2] < boxes[i][0] - tolerance)
-                active.splice(k, 1);
-        for (const j of active) {
-            if (!intersects(boxes[i], boxes[j]))
-                continue;
-            if (++pairs > maxPairs)
-                throw new RangeError('Vector boolean intersection budget exceeded');
-            for (const [t, u] of intersectEdges(edges[i], edges[j], { tolerance })) {
-                cuts[i].push(t);
-                cuts[j].push(u);
-            }
+    const rank=new Uint32Array(edges.length);order.forEach((id,index)=>{rank[id]=index;});
+    const pairIndex=new BoxIndex(order,i=>boxes[i]);
+    for(const i of order) {
+        for(const j of pairIndex.search(boxes[i])) {
+            if(rank[j]>=rank[i])continue;
+            if(++pairs>maxPairs)throw new RangeError('Vector boolean intersection budget exceeded');
+            for(const [t,u] of intersectEdges(edges[i],edges[j],{tolerance})) {cuts[i].push(t);cuts[j].push(u);}
         }
-        active.push(i);
     }
-    const predicate = p => { const a = insidePaths(p, subject, subjectRule), b = insidePaths(p, clip, clipRule); return operation === 'normalize' ? a : operation === 'union' ? a || b : operation === 'difference' ? a && !b : operation === 'xor' ? a !== b : a && b; };
+    const predicate = p => { const a = subjectQuery.contains(p, subjectRule), b = clipQuery.contains(p, clipRule); return operation === 'normalize' ? a : operation === 'union' ? a || b : operation === 'difference' ? a && !b : operation === 'xor' ? a !== b : a && b; };
     const kept = [], seen = new Set();
     for (let i = 0; i < edges.length; i++) {
         const ts = cuts[i].sort((a, b) => a - b).filter((t, j, a) => !j || t - a[j - 1] > 1e-9);

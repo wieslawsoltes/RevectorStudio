@@ -30,12 +30,12 @@ export async function traceRasterPaths(binary,width,height,input={}) {
     // Foreground index list avoids scanning blank margins on every thinning iteration.
     const pixels=new Uint32Array(foreground);for(let p=0,i=0;p<grid.length;p++)if(grid[p])pixels[i++]=p;
     const offsets=DIRS.map(([dx,dy])=>dy*stride+dx),remove=new Uint32Array(foreground);
-    let iterations=0,converged=false;
+    let iterations=0,converged=false,activeCount=foreground;
     for(;iterations<o.maxIterations;iterations++){
         let changed=0;
         for(let phase=0;phase<2;phase++){
             spend(foreground);let count=0;
-            for(const p of pixels){if(!grid[p])continue;
+            for(let pi=0;pi<activeCount;pi++){const p=pixels[pi];if(!grid[p])continue;
                 const n=grid[p-stride],ne=grid[p-stride+1],e=grid[p+1],se=grid[p+stride+1],s=grid[p+stride],sw=grid[p+stride-1],w=grid[p-1],nw=grid[p-stride-1];
                 const countInk=n+ne+e+se+s+sw+w+nw;if(countInk<2||countInk>6)continue;
                 const transitions=(!n&&ne)+(!ne&&e)+(!e&&se)+(!se&&s)+(!s&&sw)+(!sw&&w)+(!w&&nw)+(!nw&&n);
@@ -46,12 +46,14 @@ export async function traceRasterPaths(binary,width,height,input={}) {
             await yieldTask();checkAbort(o.signal);
         }
         if(!changed){converged=true;iterations++;break;}
+        let alive=0;for(let i=0;i<activeCount;i++)if(grid[pixels[i]])pixels[alive++]=pixels[i];
+        activeCount=alive;
     }
     if(!converged)throw new RangeError('Raster thinning did not converge within its iteration budget');
     const adjacency=new Uint8Array(grid.length),degree=new Uint8Array(grid.length),visited=new Uint8Array(grid.length);
     let skeletonPixels=0,junctionPixels=0,endpoints=0,isolatedPixels=0,graphEdges=0;
     spend(foreground*8);
-    for(const p of pixels){if(!grid[p])continue;skeletonPixels++;
+    for(let pi=0;pi<activeCount;pi++){const p=pixels[pi];if(!grid[p])continue;skeletonPixels++;
         for(let d=0;d<8;d++){if(!grid[p+offsets[d]])continue;
             // Diagonal links are necessary for diagonal strokes, but are redundant
             // shortcuts when an orthogonal step already joins the two pixels.
@@ -81,8 +83,8 @@ export async function traceRasterPaths(binary,width,height,input={}) {
         paths.push({points:reduced,closed,samples:points.length,maxDeviationPixels:o.tolerance,
             startDegree:degree[start],endDegree:closed?degree[start]:degree[p+offsets[d]],touchesBorder:points.some(([x,y])=>x<1||y<1||x>width-1||y>height-1)});
     };
-    for(const p of pixels){if(!grid[p]||degree[p]===2)continue;for(let d=0;d<8;d++)if((adjacency[p]&(1<<d))&&!(visited[p]&(1<<d)))walk(p,d);}
-    for(const p of pixels){if(!grid[p])continue;for(let d=0;d<8;d++)if((adjacency[p]&(1<<d))&&!(visited[p]&(1<<d)))walk(p,d);}
+    for(let pi=0;pi<activeCount;pi++){const p=pixels[pi];if(!grid[p]||degree[p]===2)continue;for(let d=0;d<8;d++)if((adjacency[p]&(1<<d))&&!(visited[p]&(1<<d)))walk(p,d);}
+    for(let pi=0;pi<activeCount;pi++){const p=pixels[pi];if(!grid[p])continue;for(let d=0;d<8;d++)if((adjacency[p]&(1<<d))&&!(visited[p]&(1<<d)))walk(p,d);}
     if(tracedEdges!==graphEdges)throw new Error('Raster graph edge coverage mismatch');
     return {paths,stats:{foreground,skeletonPixels,iterations,junctionPixels,endpoints,isolatedPixels,graphEdges,tracedEdges,work},method:'zhang-suen/pixel-graph/rdp',inferred:true};
 }

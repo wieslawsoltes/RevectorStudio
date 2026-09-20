@@ -1,4 +1,4 @@
-import { I, compose, transform, vector, inverse, mapPaths, pathBox, pathEdges, pathPolygons, rectPath, containsBox, intersects, near, stableHash, decomposeInsert, booleanPaths, clipCurveToPaths, insidePaths, emptyBox, extend, validBox } from '@revector/geometry';
+import { I, compose, transform, vector, inverse, mapPaths, pathBox, pathEdges, pathPolygons, rectPath, containsBox, intersects, near, stableHash, decomposeInsert, booleanPaths, preparePathQuery, clipCurveToPaths, insidePaths, emptyBox, extend, validBox } from '@revector/geometry';
 import { createDocument, ensureLayer, diagnostic, entityBox, checkAbort, yieldTask } from '@revector/model';
 const unitFactor = { mm: 25.4 / 72, cm: 2.54 / 72, m: .0254 / 72, in: 1 / 72, pt: 1, unitless: 1 };
 const cleanName = s => String(s || '0').replace(/[<>\/\\":;?*|=,\x00-\x1f]/g, '_').slice(0, 240) || '0';
@@ -60,7 +60,8 @@ export async function lowerScene(scene, userOptions = {}) {
         throw new RangeError('Unsupported output units');
     const scale = factor * options.drawingScale, M = compose([scale, 0, 0, scale, 0, 0], scene.pageTransform || I);
     const doc = createDocument({ name: scene.source?.name || `Page ${scene.pageNumber}`, units: options.units, source: { ...scene.source, page: scene.pageNumber, coordinateTransform: M, options: evidenceOptions(options), irSchema: scene.schema }, pageBox: [0, 0, (scene.pageSize?.[0] ?? (scene.box[2] - scene.box[0])) * scale, (scene.pageSize?.[1] ?? (scene.box[3] - scene.box[1])) * scale], diagnostics: structuredClone(scene.diagnostics || []) });
-    const records = new Map(), styleNames = new Map(), sourceEntities = new Map();
+    const records = new Map(), styleNames = new Map(), sourceEntities = new Map(), clipCache = new WeakMap();
+    const pageClip = {id:'page-crop', paths:[rectPath(doc.pageBox)], rule:'nonzero', box:doc.pageBox, axisRect:true};
     let counter = 0;
     const addReport = (code, msg, severity = 'warning', id) => doc.diagnostics.push(diagnostic(code, msg, severity, { sourceId: id, page: scene.pageNumber }));
     const makeId = () => `e${++counter}`;
@@ -93,10 +94,18 @@ export async function lowerScene(scene, userOptions = {}) {
     }
     function edgeEntity(edge, item) { const base = common(item); return edge.kind === 'L' ? { ...base, type: 'LINE', start: edge.points[0], end: edge.points[1] } : { ...base, type: 'SPLINE', degree: 3, controlPoints: edge.points, knots: [0, 0, 0, 0, 1, 1, 1, 1], weights: [], closed: false }; }
     function effectiveClips(item) {
-        const clips = (item.clips || []).map(c => ({ ...c, paths: mapPaths(c.paths || [], M) }));
-        if (options.clip)
-            clips.unshift({ id: 'page-crop', paths: [rectPath(doc.pageBox)], rule: 'nonzero' });
-        return options.clip ? clips : [];
+        if (!options.clip) return [];
+        const clips = [pageClip];
+        for (const c of item.clips || []) {
+            let prepared = clipCache.get(c);
+            if (!prepared) {
+                const paths = mapPaths(c.paths || [], M);
+                prepared = { ...c, paths, box:pathBox(paths), axisRect:paths.length===1&&isAxisRect(paths[0]) };
+                clipCache.set(c, prepared);
+            }
+            clips.push(prepared);
+        }
+        return clips;
     }
     function clippedStroke(edge, clips, item) {
         let parts = [edge];
@@ -109,15 +118,16 @@ export async function lowerScene(scene, userOptions = {}) {
                 parts = [];
                 break;
             }
-            const cb = pathBox(c.paths);
+            const cb = c.box;
             parts = parts.flatMap(e => {
                 const eb = pathBox([{ start: e.points[0], segments: [e.kind === 'L' ? { kind: 'L', to: e.points[1] } : { kind: 'C', c1: e.points[1], c2: e.points[2], to: e.points[3] }], closed: false }]);
                 if (!intersects(eb, cb))
                     return [];
                 // Rectangular enclosing clips can be skipped without changing the geometry.
-                if (c.paths.length === 1 && c.paths[0].segments.every(s => s.kind === 'L') && isAxisRect(c.paths[0]) && containsBox(cb, eb, 1e-9))
+                if (c.axisRect && containsBox(cb, eb, 1e-9))
                     return [e];
-                return clipCurveToPaths(e, c.paths, c.rule, { tolerance: options.booleanTolerance });
+                c.query ||= preparePathQuery(c.paths);
+                return c.query.clip(e, c.rule, { tolerance: options.booleanTolerance });
             });
         }
         return parts;
@@ -144,10 +154,10 @@ export async function lowerScene(scene, userOptions = {}) {
                 }
                 if (!c.paths.length)
                     return [];
-                const a = pathBox(result), b = pathBox(c.paths);
+                const a = pathBox(result), b = c.box;
                 if (!intersects(a, b))
                     return [];
-                if (c.paths.length === 1 && isAxisRect(c.paths[0]) && containsBox(b, a, 1e-9))
+                if (c.axisRect && containsBox(b, a, 1e-9))
                     continue;
                 result = booleanPaths(result, c.paths, { operation: 'intersection', subjectRule: rule, clipRule: c.rule, tolerance: options.booleanTolerance });
                 if (!result.length)
@@ -274,11 +284,11 @@ export async function lowerScene(scene, userOptions = {}) {
                 if (c.text)
                     continue;
                 const box = entityBox(e, doc);
-                if (!intersects(box, pathBox(c.paths))) {
+                if (!intersects(box, c.box)) {
                     visible = false;
                     break;
                 }
-                if (!containsBox(pathBox(c.paths), box))
+                if (!containsBox(c.box, box))
                     addReport('PARTIAL_TEXT_CLIP', 'A partially clipped editable text run is preserved whole. Switch to glyph positioning for finer granularity; font-outline clipping is not inferred.', 'error', item.id);
             }
             if (visible)
@@ -314,9 +324,18 @@ export async function lowerScene(scene, userOptions = {}) {
     if (options.preserveForms) {
         // Leaf forms are converted first. Only exact INSERT-representable transforms
         // are folded; shears or unresolved clipped forms remain exploded.
-        const consumed = new Set(), definitions = new Map();
+        const consumed = new Set(), definitions = new Map(), formMembers = new Map(), order = new Map();
+        const placements = new Map();
+        const indexForm = (entity, position) => {
+            order.set(entity, position);
+            for (const id of new Set(entity.source?.formPath || [])) {
+                if (!formMembers.has(id)) formMembers.set(id, []);
+                formMembers.get(id).push(entity);
+            }
+        };
+        doc.entities.forEach(indexForm);
         for (const form of [...(scene.forms || [])].reverse()) {
-            const members = doc.entities.filter(e => !consumed.has(e.id) && e.source?.formPath?.includes(form.id));
+            const members = (formMembers.get(form.id) || []).filter(e => !consumed.has(e.id)).sort((a,b)=>order.get(a)-order.get(b));
             if (members.length < 2 || members.some(e => e.type === 'INSERT' || e.type === 'DIMENSION'))
                 continue;
             const fm = compose(M, form.transform), decomp = decomposeInsert(fm);
@@ -347,13 +366,19 @@ export async function lowerScene(scene, userOptions = {}) {
                 doc.blocks.push(block);
             }
             const first = members[0], insert = { id: makeId(), type: 'INSERT', name: block.name, ...decomp, layer: first.layer, color: first.color, lineweight: first.lineweight, opacity: first.opacity, source: { ids: [...new Set(members.flatMap(e => e.source?.ids || []))], page: scene.pageNumber, form: form.id, formPath: (first.source?.formPath || []).filter(x => x !== form.id) }, semantic: { class: 'form-xobject', confidence: 1, method: 'source' }, attributes: [] };
-            const index = doc.entities.indexOf(first);
-            for (const e of members)
-                consumed.add(e.id);
-            doc.entities.splice(index, 0, insert);
+            for (const e of members) consumed.add(e.id);
+            const anchor = order.get(first);
+            indexForm(insert, anchor);
+            if (!placements.has(first.id)) placements.set(first.id, []);
+            placements.get(first.id).push(insert);
             doc.candidates.push({ id: `source-${form.id}`, rule: 'pdf.forms', title: `Preserve Form XObject as ${block.name}`, confidence: 1, exact: true, status: 'accepted', members: members.map(e => e.id), evidence: [{ kind: 'pdf-form-scope', form: form.id, operatorCount: form.end - form.start }], result: [insert.id] });
         }
-        doc.entities = doc.entities.filter(e => !consumed.has(e.id));
+        const retained = [];
+        for (const e of doc.entities) {
+            for (const insert of placements.get(e.id) || []) retained.push(insert);
+            if (!consumed.has(e.id)) retained.push(e);
+        }
+        doc.entities = retained;
         for (const b of doc.blocks)
             delete b.signature;
     }

@@ -1,0 +1,22 @@
+{
+  "version": "0.6.0",
+  "sourceRefinement": "Snapshot and BVH helpers are routed through mapped package entry points; the browser module graph is regression-tested.",
+  "sourceBase": "3b3bf2101c92da8f50773fe62f14c092cf31b935",
+  "sourcePayloadSha256": "6faebc48ba62072cd5c8f2c6c0f53e4bbe8106211c72fbcf7a84286e6b1e93e7",
+  "workflowRun": "35511017059",
+  "nodeTests": 206,
+  "nodeFailures": 0,
+  "differentialChecks": 746,
+  "benchmarkCases": 13,
+  "benchmarkOutputEquality": true,
+  "originalBrowserChecks": 35,
+  "ocrColorChecks": 21,
+  "tiledOcrChecks": 14,
+  "imageBrowserChecks": 23,
+  "appearanceBrowserChecks": 14,
+  "performanceBrowserChecks": 11,
+  "baselineDxfFiles": 35,
+  "isolatedNpmImports": 16,
+  "npmPublication": "not-attempted; archives and dry run only",
+  "qualification": "Authored same-machine workloads, not measurements of user-supplied slow PDFs. OCR accuracy/settings, geometric tolerances, rules, diagnostics and validation remain unchanged."
+}

@@ -299,3 +299,11 @@ export function isSafeAssetPath(value:unknown):boolean;
 
 /** Deterministic SHA-256 of the supplied byte view for portable asset integrity. */
 export function sha256Bytes(bytes:Uint8Array):string;
+
+/** Only for owned copy-on-write graphs: never mutate a previously validated entity or its descendants. */
+export function createImmutableDocumentValidator(): typeof validateDocument;
+
+/** @internal Owned snapshot identity shared between package entry points. */
+export declare function _markImmutableSnapshot<T extends object>(document: T): T;
+/** @internal Only marks produced by the rule engine qualify for memoization. */
+export declare function _isImmutableSnapshot(document: object): boolean;

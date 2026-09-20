@@ -1,37 +1,7 @@
+import { BoxIndex } from '@revector/geometry';
 import { intersects, emptyBox, union, distance, near, sub, dot, cross, length } from '@revector/geometry';
 /** Immutable median-split BVH, used for queries and picking. No giant-grid pathology. */
-export class SpatialIndex {
-    constructor(items = [], getBox = x => x.bounds) { this.items = items; this.getBox = getBox; this.root = this.#build(items.map((item, index) => ({ item, index, box: getBox(item) }))); }
-    #build(items) {
-        if (!items.length)
-            return null;
-        const box = emptyBox();
-        for (const i of items)
-            union(box, i.box);
-        if (items.length <= 12)
-            return { box, items };
-        const axis = box[2] - box[0] >= box[3] - box[1] ? 0 : 1;
-        items.sort((a, b) => (a.box[axis] + a.box[axis + 2]) - (b.box[axis] + b.box[axis + 2]) || a.index - b.index);
-        const mid = items.length >> 1;
-        return { box, left: this.#build(items.slice(0, mid)), right: this.#build(items.slice(mid)) };
-    }
-    search(box) {
-        const out = [], stack = [this.root];
-        while (stack.length) {
-            const n = stack.pop();
-            if (!n || !intersects(n.box, box))
-                continue;
-            if (n.items) {
-                for (const i of n.items)
-                    if (intersects(i.box, box))
-                        out.push(i.item);
-            }
-            else
-                stack.push(n.left, n.right);
-        }
-        return out;
-    }
-}
+export class SpatialIndex extends BoxIndex {}
 export class DisjointSet {
     constructor(n) { this.parents = Int32Array.from({ length: n }, (_, i) => i); this.rank = new Uint8Array(n); }
     find(x) {

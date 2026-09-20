@@ -1,3 +1,4 @@
+import {_isImmutableSnapshot as isImmutableSnapshot} from '@revector/model';
 import {junctionRule} from './junctions.js';
 export {detectJunctions,junctionRule} from './junctions.js';
 import {diagramRegion} from './regions.js';
@@ -9,14 +10,20 @@ const median = a => a.length ? [...a].sort((a,b)=>a-b)[a.length>>1] : 1;
 const expand=(b,d)=>[b[0]-d,b[1]-d,b[2]+d,b[3]+d];
 const center=b=>[(b[0]+b[2])/2,(b[1]+b[3])/2];
 const unique=es=>[...new Map(es.map(e=>[e.id,e])).values()];
+const contexts = new WeakMap(), segmentCache = new WeakMap();
 function context(document,options={}) {
     abortAnalysis(options.signal);
     if(document.entities.length>(options.maxAnalysisEntities??150000))throw new RangeError('Document analysis entity budget exceeded');
+    const reusable=isImmutableSnapshot(document);
+    const prior=reusable?contexts.get(document.entities):null;
+    if(prior&&prior.blocks===document.blocks&&prior.pageBox===document.pageBox&&prior.semanticTolerance===options.semanticTolerance)return prior.context;
     const texts=document.entities.filter(e=>textTypes.has(e.type)&&String(e.text||'').trim()),h=median(texts.map(e=>e.height).filter(h=>h>0));
     const span=Math.hypot(document.pageBox[2]-document.pageBox[0],document.pageBox[3]-document.pageBox[1]);
     const tolerance=options.semanticTolerance??Math.max(1e-7,span*1e-6);
     if(!Number.isFinite(tolerance)||tolerance<=0)throw new RangeError('Invalid semantic tolerance');
-    const index=new SpatialIndex(texts,e=>entityBox(e,document));return {document,texts,h,tolerance,index};
+    const index=new SpatialIndex(texts,e=>entityBox(e,document)),result={document,texts,h,tolerance,index};
+    if(reusable)contexts.set(document.entities,{blocks:document.blocks,pageBox:document.pageBox,semanticTolerance:options.semanticTolerance,context:result});
+    return result;
 }
 function proposal(kind,title,entities,metadata,confidence=.9,evidence=[]) {
     const members=unique(entities).map(e=>e.id);if(!members.length)return null;
@@ -24,7 +31,7 @@ function proposal(kind,title,entities,metadata,confidence=.9,evidence=[]) {
     return {title,members,confidence,exact:true,evidence:[{kind,...metadata},...evidence],proposal:{groups:[{name,description:title,members,semantic:{class:kind,confidence,geometryPreserved:true,...metadata}}]}};
 }
 function bounded(out,value,max=5000){if(value)out.push(value);if(out.length>max)throw new RangeError('Document feature budget exceeded');}
-function segments(document){const out=[];for(const e of document.entities){if(!['LINE','LWPOLYLINE'].includes(e.type)||e.bulges?.some(Boolean))continue;for(const p of entityPaths(e))for(const edge of pathEdges(p))if(edge.kind==='L'&&distance(...edge.points)>1e-9)out.push({e,a:edge.points[0],b:edge.points[1],box:[Math.min(edge.points[0][0],edge.points[1][0]),Math.min(edge.points[0][1],edge.points[1][1]),Math.max(edge.points[0][0],edge.points[1][0]),Math.max(edge.points[0][1],edge.points[1][1])]});}return out;}
+function segments(document){const reusable=isImmutableSnapshot(document);if(reusable&&segmentCache.has(document.entities))return segmentCache.get(document.entities);const out=[];for(const e of document.entities){if(!['LINE','LWPOLYLINE'].includes(e.type)||e.bulges?.some(Boolean))continue;for(const p of entityPaths(e))for(const edge of pathEdges(p))if(edge.kind==='L'&&distance(...edge.points)>1e-9)out.push({e,a:edge.points[0],b:edge.points[1],box:[Math.min(edge.points[0][0],edge.points[1][0]),Math.min(edge.points[0][1],edge.points[1][1]),Math.max(edge.points[0][0],edge.points[1][0]),Math.max(edge.points[0][1],edge.points[1][1])]});}if(reusable)segmentCache.set(document.entities,out);return out;}
 function cluster(values,tolerance){const result=[];for(const value of [...values].sort((a,b)=>a-b))if(!result.length||value-result.at(-1)>tolerance)result.push(value);return result;}
 /** Connected, closed rectangular grids: actual line coverage is required at every border.
  * This deliberately does not call unrelated page-wide horizontal rules a table. */

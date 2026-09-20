@@ -1,0 +1,167 @@
+{
+  "schema": "revector.corpus-result/1",
+  "passed": true,
+  "manifestSha256": "3d7c662862d6e656a3fe2a2f5d72da7d23f6c3aa7f1e7a247878b4eaea9c1113",
+  "cases": [
+    {
+      "id": "vector-native",
+      "status": "passed",
+      "commercialRegeneration": {
+        "status": "not-run"
+      },
+      "sourceSha256": "4e055df2a8b7d6acd7250f23d67c59bbe4abb6a81d715ea9f7e0bd33ba9453fa",
+      "output": {
+        "version": "AC1032",
+        "types": {
+          "LWPOLYLINE": 9,
+          "LINE": 46,
+          "TEXT": 42,
+          "SPLINE": 27,
+          "INSERT": 6,
+          "HATCH": 7
+        },
+        "layers": 8,
+        "auditErrors": 0,
+        "auditFixes": 0,
+        "sha256": "21028236365e6bad0c04674c1699293cd6b6360b2b9222314fb0cc0abf78b3a1"
+      },
+      "diagnostics": [
+        "FONT_SUBSTITUTION"
+      ]
+    },
+    {
+      "id": "raster-affine",
+      "status": "passed",
+      "commercialRegeneration": {
+        "status": "not-run"
+      },
+      "sourceSha256": "75fa92cd6c9d7d737b0067a099d8a350c5373d7de88ce0ea460784ec5263f57c",
+      "output": {
+        "version": "AC1032",
+        "types": {
+          "IMAGE": 4,
+          "LINE": 1
+        },
+        "layers": 4,
+        "auditErrors": 0,
+        "auditFixes": 0,
+        "sha256": "8bbd5adce31c94bdc4e3257a00bf8395fb405a40b723cd480086301bf4f9739f"
+      },
+      "diagnostics": [
+        "DXF_EXTERNAL_IMAGES",
+        "RASTER_IMAGE_RETAINED"
+      ]
+    },
+    {
+      "id": "appearance-effects",
+      "status": "passed",
+      "commercialRegeneration": {
+        "status": "not-run"
+      },
+      "sourceSha256": "1dbc678c26486747e30aeff742558a2a300999ab361fcdf6088dad26d2f2f831",
+      "output": {
+        "version": "AC1032",
+        "types": {
+          "HATCH": 5,
+          "INSERT": 2,
+          "TEXT": 1,
+          "LINE": 1,
+          "IMAGE": 1
+        },
+        "layers": 14,
+        "auditErrors": 0,
+        "auditFixes": 0,
+        "sha256": "a080de8cee15552d5b8a6d16a3ac0a69fbe162a2da58f926ad5463de438baef3"
+      },
+      "diagnostics": [
+        "APPEARANCE_REPRESENTATION",
+        "BLEND_MODE",
+        "DXF_EXTERNAL_IMAGES",
+        "FONT_SUBSTITUTION",
+        "RASTER_CONTENT",
+        "SHADING",
+        "SOFT_MASK",
+        "TEXT_CLIP",
+        "TRANSFER_FUNCTION",
+        "TRANSPARENCY_GROUP",
+        "TYPE3_FONT",
+        "UNRESOLVED_TEXT_CLIP"
+      ]
+    },
+    {
+      "id": "appearance-rotated",
+      "status": "passed",
+      "commercialRegeneration": {
+        "status": "not-run"
+      },
+      "sourceSha256": "1dbc678c26486747e30aeff742558a2a300999ab361fcdf6088dad26d2f2f831",
+      "output": {
+        "version": "AC1032",
+        "types": {
+          "HATCH": 5,
+          "INSERT": 2,
+          "TEXT": 1,
+          "LINE": 1,
+          "IMAGE": 1
+        },
+        "layers": 14,
+        "auditErrors": 0,
+        "auditFixes": 0,
+        "sha256": "d22902df8ab866593b5504d240ee72fa2f0c99c6d2f0cfa6accb70988a39af13"
+      },
+      "diagnostics": [
+        "APPEARANCE_REPRESENTATION",
+        "BLEND_MODE",
+        "DXF_EXTERNAL_IMAGES",
+        "FONT_SUBSTITUTION",
+        "RASTER_CONTENT",
+        "SHADING",
+        "SOFT_MASK",
+        "TEXT_CLIP",
+        "TRANSFER_FUNCTION",
+        "TRANSPARENCY_GROUP",
+        "TYPE3_FONT",
+        "UNRESOLVED_TEXT_CLIP"
+      ]
+    },
+    {
+      "id": "appearance-r2000",
+      "status": "passed",
+      "commercialRegeneration": {
+        "status": "not-run"
+      },
+      "sourceSha256": "1dbc678c26486747e30aeff742558a2a300999ab361fcdf6088dad26d2f2f831",
+      "output": {
+        "version": "AC1015",
+        "types": {
+          "HATCH": 5,
+          "INSERT": 2,
+          "TEXT": 1,
+          "LINE": 1,
+          "IMAGE": 1
+        },
+        "layers": 14,
+        "auditErrors": 0,
+        "auditFixes": 0,
+        "sha256": "0465d8c8c1d9d6282db21eaccc822e165419e917d18155c23297d2856a690067"
+      },
+      "diagnostics": [
+        "APPEARANCE_REPRESENTATION",
+        "BLEND_MODE",
+        "DXF2000_TRANSPARENCY",
+        "DXF2000_TRUECOLOR",
+        "DXF_EXTERNAL_IMAGES",
+        "FONT_SUBSTITUTION",
+        "RASTER_CONTENT",
+        "SHADING",
+        "SOFT_MASK",
+        "TEXT_CLIP",
+        "TRANSFER_FUNCTION",
+        "TRANSPARENCY_GROUP",
+        "TYPE3_FONT",
+        "UNRESOLVED_TEXT_CLIP"
+      ]
+    }
+  ],
+  "qualification": "SHA-pinned authored/customer corpus checks; absence of a commercial executable is not a passing commercial CAD test."
+}

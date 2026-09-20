@@ -1,5 +1,6 @@
+import {_markImmutableSnapshot as markImmutableSnapshot} from '@revector/model';
 import { stableHash } from '@revector/geometry';
-import { validateDocument, ensureLayer, diagnostic, checkAbort, yieldTask } from '@revector/model';
+import { validateDocument, createImmutableDocumentValidator, ensureLayer, diagnostic, checkAbort, yieldTask } from '@revector/model';
 const clone = x => structuredClone(x);
 function deepFreeze(value) {
     if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -38,7 +39,16 @@ function sanitizeCandidate(c, rule) {
 }
 /** Apply a proposal to a clone, validate, and atomically return the new document. */
 export function commitCandidate(document, candidate) {
-    const next = clone(document), existing = new Map(next.entities.map(e => [e.id, e])), p = candidate.proposal;
+    // Public callers receive a fully detached document, including unchanged entities.
+    return applyCandidate(clone(document), candidate);
+}
+/** Private copy-on-write transaction. The rule run owns its source document; unchanged
+ * branches are shared only inside that run, never exposed to plugins or public callers. */
+function applyCandidate(document, candidate, validate = validateDocument) {
+    const next = { ...document, entities: document.entities.slice(), blocks: document.blocks.slice(),
+        layers: document.layers.slice(), groups: document.groups.slice(),
+        history: document.history.slice(), diagnostics: document.diagnostics.slice() };
+    const existing = new Map(next.entities.map((e, i) => [e.id, {e, i}])), p = candidate.proposal;
     for (const id of candidate.members)
         if (!existing.has(id))
             throw new Error(`Stale candidate ${candidate.id}: entity ${id} no longer exists`);
@@ -48,12 +58,15 @@ export function commitCandidate(document, candidate) {
             throw new Error(`Cannot remove missing entity ${id}`);
     const removed = next.entities.filter(e => remove.has(e.id)), updated = [];
     for (const u of p.update || []) {
-        const e = existing.get(u.id);
-        if (!e)
+        const entry = existing.get(u.id);
+        if (!entry)
             throw new Error(`Cannot update missing entity ${u.id}`);
         if (u.patch?.id && u.patch.id !== u.id)
             throw Error('Rule patches may not change identity');
-        updated.push({ id: u.id, before: clone(e) });
+        const e = clone(entry.e);
+        updated.push({ id: u.id, before: clone(entry.e) });
+        next.entities[entry.i] = e;
+        existing.set(u.id, {e, i:entry.i});
         Object.assign(e, clone(u.patch));
         if (u.appendAttributes)
             e.attributes = [...(e.attributes || []), ...clone(u.appendAttributes)];
@@ -65,13 +78,14 @@ export function commitCandidate(document, candidate) {
         e.semantic = { ...e.semantic, rule: candidate.rule, confidence: candidate.confidence, exact: candidate.exact };
     }
     if (p.placements) {
-        const placed = new Set(), out = [];
+        const placed = new Set(), out = [], anchors = new Map();
+        for (const a of additions) {
+            const anchor = p.placements[a.id];
+            if (!anchors.has(anchor)) anchors.set(anchor, []);
+            anchors.get(anchor).push(a);
+        }
         for (const e of original) {
-            for (const a of additions)
-                if (p.placements[a.id] === e.id) {
-                    out.push(a);
-                    placed.add(a.id);
-                }
+            for (const a of anchors.get(e.id) || []) { out.push(a); placed.add(a.id); }
             if (!remove.has(e.id))
                 out.push(e);
         }
@@ -85,10 +99,9 @@ export function commitCandidate(document, candidate) {
         next.entities.splice(firstIndex < 0 ? next.entities.length : firstIndex, 0, ...additions);
     }
     // Keep semantic GROUP references valid when later extensions replace members.
-    for (const g of next.groups) {
-        if (g.members.some(id => remove.has(id)))
-            g.members = [...new Set(g.members.flatMap(id => remove.has(id) ? additions.map(e => e.id) : [id]))];
-    }
+    if (remove.size) next.groups = next.groups.map(g => g.members.some(id => remove.has(id))
+        ? { ...g, members: [...new Set(g.members.flatMap(id => remove.has(id) ? additions.map(e => e.id) : [id]))] }
+        : g);
     next.groups = next.groups.filter(g => g.members.length > 0);
     for (const b of p.blocks || []) {
         if (next.blocks.some(x => x.name === b.name))
@@ -99,7 +112,7 @@ export function commitCandidate(document, candidate) {
         ensureLayer(next, l.name, l.color, l.visible);
     for (const g of p.groups || [])
         next.groups.push(clone(g));
-    const check = validateDocument(next);
+    const check = validate(next);
     if (!check.valid)
         throw Error(`Rule transaction failed validation: ${check.errors.slice(0, 4).join('; ')}`);
     next.revision++;
@@ -124,11 +137,29 @@ export class RuleEngine {
         let doc = clone(document);
         const minConfidence = options.minConfidence ?? .98, maxCandidates = options.maxCandidates ?? 20000, decisions = options.decisions || {}, disabled = new Set(options.disabledRules || []), stats = [];
         const rules = orderRules([...this.#rules.values()].filter(r => !disabled.has(r.id)));
+        const candidateIds = new Set(doc.candidates.map(c => c.id)), validate = createImmutableDocumentValidator();
+        // Reuse detached frozen branches across rules. A transaction replaces each
+        // modified branch, so WeakMap identity is a safe invalidation key here.
+        const frozen = new WeakMap();
+        const snapshotBranch = value => {
+            if (!value || typeof value !== 'object') return value;
+            let result = frozen.get(value);
+            if (!result) { result = deepFreeze(clone(value)); frozen.set(value, result); }
+            return result;
+        };
+        const snapshotList = list => {
+            let result = frozen.get(list);
+            if (!result) { result = Object.freeze(list.map(snapshotBranch)); frozen.set(list, result); }
+            return result;
+        };
         for (let index = 0; index < rules.length; index++) {
             checkAbort(options.signal);
             const rule = rules[index], start = performance.now();
             options.onProgress?.({ phase: 'semantics', rule: rule.id, done: index, total: rules.length });
-            const snapshot = deepFreeze(clone({ entities: doc.entities, blocks: doc.blocks, layers: doc.layers, groups: doc.groups, source: doc.source, pageBox: doc.pageBox, units: doc.units, revision: doc.revision }));
+            const snapshot = Object.freeze({ entities: snapshotList(doc.entities), blocks: snapshotList(doc.blocks),
+                layers: snapshotList(doc.layers), groups: snapshotList(doc.groups), source: snapshotBranch(doc.source),
+                pageBox: snapshotBranch(doc.pageBox), units: doc.units, revision: doc.revision });
+            markImmutableSnapshot(snapshot);
             const context = Object.freeze({ document: snapshot, options, signal: options.signal, checkAbort: () => checkAbort(options.signal) });
             let proposed = 0, accepted = 0;
             try {
@@ -138,7 +169,7 @@ export class RuleEngine {
                     if (doc.candidates.length >= maxCandidates)
                         throw new RangeError('Semantic candidate budget exceeded');
                     const c = sanitizeCandidate(raw, rule);
-                    if (doc.candidates.some(x => x.id === c.id))
+                    if (candidateIds.has(c.id))
                         continue;
                     proposed++;
                     const decision = decisions[c.id];
@@ -147,7 +178,7 @@ export class RuleEngine {
                     const auto = c.confidence >= minConfidence && (c.exact || options.fidelity === 'inferred');
                     if (decision === 'accept' || (decision !== 'reject' && auto)) {
                         try {
-                            doc = commitCandidate(doc, c);
+                            doc = applyCandidate(doc, c, validate);
                             c.status = 'accepted';
                             c.result = (c.proposal.add || []).map(e => e.id);
                             accepted++;
@@ -158,6 +189,7 @@ export class RuleEngine {
                         }
                     }
                     doc.candidates.push(c);
+                    candidateIds.add(c.id);
                 }
             }
             catch (error) {

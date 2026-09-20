@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "version": "2000",
+      "page": 1,
+      "auditErrors": 0,
+      "auditFixes": 0,
+      "sourceArchiveExact": true,
+      "strict": false
+    },
+    {
+      "version": "2000",
+      "page": 2,
+      "auditErrors": 0,
+      "auditFixes": 0,
+      "sourceArchiveExact": true,
+      "strict": false
+    },
+    {
+      "version": "2018",
+      "page": 1,
+      "auditErrors": 0,
+      "auditFixes": 0,
+      "sourceArchiveExact": true,
+      "strict": true
+    },
+    {
+      "version": "2018",
+      "page": 2,
+      "auditErrors": 0,
+      "auditFixes": 0,
+      "sourceArchiveExact": true,
+      "strict": true
+    }
+  ],
+  "strictSemanticsRejectsUnresolvedEffects": true,
+  "qualification": "Real Node PDF.js/Canvas and independent ezdxf audit; not a commercial CAD importer."
+}

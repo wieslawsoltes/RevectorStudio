@@ -16,6 +16,10 @@ export interface PdfOptions {
     onProgress?: (progress: Progress) => void;
     maxBytes?: number;
     maxCachedPages?: number;
+    /** Independent font waits, 1..32. Default 8. */
+    fontConcurrency?: number;
+    /** Per-resource deadline, default 15000ms, maximum 120000ms. */
+    resourceTimeoutMs?: number;
     signal?: AbortSignal;
     includeAnnotations?: boolean;
     maxOperators?: number;

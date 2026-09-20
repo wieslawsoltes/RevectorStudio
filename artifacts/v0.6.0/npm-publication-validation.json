@@ -1,0 +1,106 @@
+{
+  "schema": "revector.npm-release/1",
+  "mode": "dry-run",
+  "registry": "https://registry.npmjs.org",
+  "tag": "next",
+  "commit": "d6bb463923361e2828a1f78844266d046c423bfe",
+  "packages": [
+    {
+      "name": "@revector/geometry",
+      "version": "0.6.0",
+      "integrity": "sha512-tTxoF/83Akl8T/Sr3cA+s/PdoSqgFeEeJ3RuNBjenMUAWRD0DB1t/qWKuvfb8kh5foYDFUVqG+ro6UTVqoPYBw==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/model",
+      "version": "0.6.0",
+      "integrity": "sha512-ruBtJYHpmcjEZTpT2YyphL4i8Ngtjt5QdmRsJ20UwLAsmZ67sktBg4XMW7F8vMU3GCxAmM9sYxIV8mM88KUgkw==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/raster",
+      "version": "0.6.0",
+      "integrity": "sha512-UlLhRN6/Ea25ETN1zeNBqvrd/Wp7ai6e5LcTlnPJQ2OTUDd9+aN8BCk82oXpuMIMhmvG2MPjjsCXTm5AcLx4bg==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/topology",
+      "version": "0.6.0",
+      "integrity": "sha512-rkNTj1gIAq9zvaZm5M+zhlcu0ajlrt9XIETYYNfPve8QVSMEuRDYq1Tva6MbYkUWeceXIky8zJ17NIH3x43kUw==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/ui",
+      "version": "0.6.0",
+      "integrity": "sha512-dUFGJIl/12mlE7ZPMY4K1xaip2CfzGzzENjXCqpY+GRb5oIXtGr/kezJlUF0bgq/QmB5rAooMZM5MYS0NQFlwA==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/color",
+      "version": "0.6.0",
+      "integrity": "sha512-ss5LrqfrJ+3gTCgjmJdA8mdVYIAN9Eb1E5TgiSYLEqNHpxnSz7n+HCLj02qRmw7WBQSH24CD36dmlxDTYgPUtg==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/dxf",
+      "version": "0.6.0",
+      "integrity": "sha512-+9UF5o/Yn6O+c1sebEyTBqc4BjgXQoIIuWRNJV/So+fYqmqlOJ1P8lKjJUQ2MyVc53Yk65mqiYsRbB9krEsc0A==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/ocr",
+      "version": "0.6.0",
+      "integrity": "sha512-51HbKqixbFSx4OGqMnKvSXqKth0Di8b4t5cQHikLdv1faGjlZ/zapCgwC32XHDxm0Dy2eIujGuznjm15SWDvrA==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/pdf",
+      "version": "0.6.0",
+      "integrity": "sha512-Fldi+eGiYFlWvkYvQQBXSGVVKlYdS63Kht3Kpf9tQI1e8WDs/cU6SO8/NPKycbhoYXmE2DqipFoZtKUL47EiWA==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/renderer",
+      "version": "0.6.0",
+      "integrity": "sha512-GH8SqJffYNYqJM9taQ52S6XsKFNlGfo19uaFtI4wL51x6/pwAs39j/aBr2schJ7e+m3RdTF0ICHiUAaR78u95g==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/semantics",
+      "version": "0.6.0",
+      "integrity": "sha512-DZMmluubUuuEE+O+4om5B+IF7Kpwb3g5x/lAJpj3t9sVurz9odw/9wqy/PhWRlQ3/q+4m1JayUDoznIOnvuyxA==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/cad",
+      "version": "0.6.0",
+      "integrity": "sha512-RabXz6YnBx8k2rk0ZeYAzhapmnpZQFcL6vZmDhprQRvu4W8zM5LDfKmvxZVwi2+9nSIt4iiNb510BOhZ4EniGA==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/rules-cad",
+      "version": "0.6.0",
+      "integrity": "sha512-9V41jCCHk0+VKmxYokPaLWpoFwbqxTMWX9PX7d3wck0DF5F02Le5R2okvRKUnYBxNlxysxq4vwxYoedZMYSBCA==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/rules-document",
+      "version": "0.6.0",
+      "integrity": "sha512-+w4d941//TQCcaXRP6n562UJFoWkVy+/hxPv1n5r5Aquh3t8KZ3eSH14/cHtjKNyjSChh44XVI13FwfFgK08jA==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/engine",
+      "version": "0.6.0",
+      "integrity": "sha512-UEyGp/m9FLSEmhsEdk/uzfhjcJDfAWQ0fxNJniPqlyPAp6Tll48Dclus636w3hEoZpJbOZJ/e/nbNLBU/+oIlw==",
+      "status": "dry-run-passed"
+    },
+    {
+      "name": "@revector/workbench",
+      "version": "0.6.0",
+      "integrity": "sha512-1JmeHdy3F2yC2SIbtGkx49KxZZj4f+iJ861pcKeoud3Q/QiXXVD/eAI2B9Nq5Bc8Xe0noSyMHpnPxjdP7ij6eg==",
+      "status": "dry-run-passed"
+    }
+  ],
+  "complete": true
+}

@@ -1,6 +1,6 @@
 # @revector/dxf
 
-**DXF 2000–2018 writer and reader** — Revector Studio 0.5.0.
+**DXF 2000–2018 writer and reader** — Revector Studio 0.6.0.
 
 Version-aware DXF serialization with tables, handles, owners, blocks, supported entities, groups and metadata; reader for the writer-supported subset, not a universal DXF parser.
 
@@ -27,3 +27,5 @@ Original package code: MIT; see `LICENSE`. Any included third-party notice remai
 ## Portable raster assets
 
 `packageDxf(document, options)` returns the DXF, verified PNG bytes and manifest as a file collection. Images remain external DXF references; preserve all relative paths. See `docs/RECOVERY-0.4.md` in the repository.
+
+Performance ownership contracts and reproducible benchmarks: `docs/PERFORMANCE.md` in the repository.
