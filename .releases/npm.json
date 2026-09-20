@@ -1,0 +1,9 @@
+{
+  "schema": "revector.npm-release/1",
+  "version": "0.5.0",
+  "scope": "@revector",
+  "tag": "next",
+  "testedCommit": "a600fc68e26706a9d91a3c877d221fd51d800e4b",
+  "acceptanceRun": "35506816594",
+  "intent": "Publish the sixteen accepted package archives in dependency order with provenance; verify registry integrity and record actual outcomes."
+}

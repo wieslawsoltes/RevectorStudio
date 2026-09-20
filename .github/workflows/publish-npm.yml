@@ -1,0 +1,53 @@
+name: Publish verified npm archives
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.releases/npm.json]
+permissions:
+  contents: read
+concurrency:
+  group: revector-npm-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' && github.repository == 'wieslawsoltes/RevectorStudio'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install pinned OIDC-capable npm CLI without release caches
+        run: npm install --global npm@11.5.1 --ignore-scripts --no-audit --no-fund
+      - name: Require explicit release intent and the accepted source revision
+        run: |
+          rm -f artifacts/npm-publication/validation.json
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';import {execFileSync} from 'node:child_process';
+          const intent=JSON.parse(fs.readFileSync('.releases/npm.json','utf8'));
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const evidence=JSON.parse(fs.readFileSync('artifacts/v0.5.0/summary.json','utf8'));
+          if(intent.schema!=='revector.npm-release/1'||intent.version!==pkg.version||intent.version!==evidence.version||intent.tag!=='next'||intent.scope!=='@revector'||!/^[a-f0-9]{40}$/.test(intent.testedCommit)||evidence.nodeFailures!==0||evidence.nodeTests<177)throw Error('Release intent or acceptance evidence is inconsistent');
+          execFileSync('git',['diff','--exit-code',intent.testedCommit,'HEAD','--','packages','scripts','tests','package.json','package-lock.json','release/npm'],{stdio:'inherit'});
+          JS
+      - name: Publish and verify registry SHA-512 integrity
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_IGNORE_SCRIPTS: 'true'
+        run: node scripts/publish-npm.mjs --publish
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-publication
+          path: artifacts/npm-publication/validation.json
+          if-no-files-found: warn
+          retention-days: 30

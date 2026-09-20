@@ -28,9 +28,14 @@ jobs:
       - run: npm run test:recovery
       - run: npm run test:images
       - run: npm run test:images:cli
+      - run: npm run test:appearance
+      - run: npm run test:appearance:cli
+      - name: Validate SHA-pinned corpus without stale outputs
+        run: python scripts/validate-corpus.py examples/corpus.json --output "$RUNNER_TEMP/revector-corpus"
       - run: python tests/ocr_cli.py
       - run: npm run test:dxf
       - run: npm run pack:all
+      - run: node scripts/publish-npm.mjs --dry-run
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -39,4 +44,5 @@ jobs:
             artifacts/
             release/npm/
             vendor/ocr/manifest.json
+            ${{ runner.temp }}/revector-corpus/validation.json
           retention-days: 14
