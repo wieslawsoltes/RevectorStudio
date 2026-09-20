@@ -1,0 +1,458 @@
+{
+  "result": {
+    "ocr": {
+      "engine": "tesseract.js",
+      "version": "7.0.0",
+      "options": {
+        "scope": "raster",
+        "languages": "eng",
+        "dpi": 288,
+        "minConfidence": 65,
+        "preprocess": "none",
+        "rotation": 0,
+        "traceLines": false,
+        "traceMode": "axis",
+        "traceTolerance": 0.65,
+        "maxTracePixels": 4000000,
+        "maxPixels": 24000000,
+        "maxRegions": 128,
+        "maxWords": 25000,
+        "timeoutMs": 120000,
+        "tileSize": 768,
+        "tileOverlap": 96,
+        "maxTiles": 256,
+        "deskew": true,
+        "assetBase": "http://127.0.0.1:43483/vendor/ocr/"
+      },
+      "accepted": 6,
+      "rejected": 1,
+      "duplicates": 0,
+      "regions": 1,
+      "lines": 0,
+      "rejectedWords": [
+        {
+          "text": "=",
+          "confidence": 46,
+          "box": [
+            574,
+            480,
+            590,
+            501
+          ],
+          "region": 0
+        }
+      ],
+      "tiles": 6,
+      "tileDuplicates": 12,
+      "deskew": [
+        {
+          "region": 0,
+          "angle": 3.9,
+          "confidence": 0.21423589479671712,
+          "samples": 5966,
+          "reason": "projection-peak",
+          "scale": 1
+        }
+      ],
+      "effectiveDpi": 288
+    },
+    "words": [
+      {
+        "text": "P-101",
+        "rotation": -3.9,
+        "source": {
+          "ids": [
+            "ocr-1-94b8b16b"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.92,
+            "box": [
+              597,
+              241,
+              703,
+              272
+            ],
+            "pixelToPdf": [
+              0.24942106970890132,
+              -0.017003822666312042,
+              -0.017003822666312042,
+              -0.24942106970890132,
+              1.4410238465726577,
+              217.13770040664292
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 1,
+            "clippedEdges": [],
+            "deskew": {
+              "region": 0,
+              "angle": 3.9,
+              "confidence": 0.21423589479671712,
+              "samples": 5966,
+              "reason": "projection-peak",
+              "scale": 1
+            }
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            2.639706321085872,
+            -0.17995712321846907,
+            0.17995712321846907,
+            2.639706321085872,
+            51.41290430018738,
+            49.174861568709105
+          ],
+          "originalText": "P-101"
+        },
+        "position": [
+          51.41290430018738,
+          49.174861568709105
+        ]
+      },
+      {
+        "text": "PUMP",
+        "rotation": -3.9,
+        "source": {
+          "ids": [
+            "ocr-1-e0c5128b"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.91,
+            "box": [
+              472,
+              242,
+              579,
+              271
+            ],
+            "pixelToPdf": [
+              0.24942106970890132,
+              -0.017003822666312042,
+              -0.017003822666312042,
+              -0.24942106970890132,
+              1.4410238465726577,
+              217.13770040664292
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": {
+              "region": 0,
+              "angle": 3.9,
+              "confidence": 0.21423589479671712,
+              "samples": 5966,
+              "reason": "projection-peak",
+              "scale": 1
+            }
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            2.5517161103830097,
+            -0.17395855244452013,
+            0.17395855244452013,
+            2.5517161103830097,
+            40.41412796232957,
+            49.924682915452735
+          ],
+          "originalText": "PUMP"
+        },
+        "position": [
+          40.41412796232957,
+          49.924682915452735
+        ]
+      },
+      {
+        "text": "FLOW",
+        "rotation": -3.9,
+        "source": {
+          "ids": [
+            "ocr-1-afef35c1"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.96,
+            "box": [
+              472,
+              351,
+              582,
+              382
+            ],
+            "pixelToPdf": [
+              0.24942106970890132,
+              -0.017003822666312042,
+              -0.017003822666312042,
+              -0.24942106970890132,
+              1.4410238465726577,
+              217.13770040664292
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": {
+              "region": 0,
+              "angle": 3.9,
+              "confidence": 0.21423589479671712,
+              "samples": 5966,
+              "reason": "projection-peak",
+              "scale": 1
+            }
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            2.639706321085872,
+            -0.17995712321846907,
+            0.17995712321846907,
+            2.639706321085872,
+            39.754285177195186,
+            40.24575973813787
+          ],
+          "originalText": "FLOW"
+        },
+        "position": [
+          39.754285177195186,
+          40.24575973813787
+        ]
+      },
+      {
+        "text": "120",
+        "rotation": -3.9,
+        "source": {
+          "ids": [
+            "ocr-1-f94c87c4"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.95,
+            "box": [
+              601,
+              351,
+              670,
+              382
+            ],
+            "pixelToPdf": [
+              0.24942106970890132,
+              -0.017003822666312042,
+              -0.017003822666312042,
+              -0.24942106970890132,
+              1.4410238465726577,
+              217.13770040664292
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 1,
+            "clippedEdges": [],
+            "deskew": {
+              "region": 0,
+              "angle": 3.9,
+              "confidence": 0.21423589479671712,
+              "samples": 5966,
+              "reason": "projection-peak",
+              "scale": 1
+            }
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            2.639706321085872,
+            -0.17995712321846907,
+            0.17995712321846907,
+            2.639706321085872,
+            51.10502235786442,
+            39.47194410829845
+          ],
+          "originalText": "120"
+        },
+        "position": [
+          51.10502235786442,
+          39.47194410829845
+        ]
+      },
+      {
+        "text": "OPEN",
+        "rotation": -3.9,
+        "source": {
+          "ids": [
+            "ocr-1-88ecef48"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.96,
+            "box": [
+              605,
+              461,
+              710,
+              492
+            ],
+            "pixelToPdf": [
+              0.24942106970890132,
+              -0.017003822666312042,
+              -0.017003822666312042,
+              -0.24942106970890132,
+              1.4410238465726577,
+              217.13770040664292
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 1,
+            "clippedEdges": [],
+            "deskew": {
+              "region": 0,
+              "angle": 3.9,
+              "confidence": 0.21423589479671712,
+              "samples": 5966,
+              "reason": "projection-peak",
+              "scale": 1
+            }
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            2.639706321085872,
+            -0.17995712321846907,
+            0.17995712321846907,
+            2.639706321085872,
+            50.797140415541485,
+            29.769026647887788
+          ],
+          "originalText": "OPEN"
+        },
+        "position": [
+          50.797140415541485,
+          29.769026647887788
+        ]
+      },
+      {
+        "text": "VALVE",
+        "rotation": -3.9,
+        "source": {
+          "ids": [
+            "ocr-1-5d617c62"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "kind": "ocr",
+          "ocr": {
+            "engine": "tesseract.js",
+            "version": "7.0.0",
+            "confidence": 0.95,
+            "box": [
+              469,
+              462,
+              588,
+              492
+            ],
+            "pixelToPdf": [
+              0.24942106970890132,
+              -0.017003822666312042,
+              -0.017003822666312042,
+              -0.24942106970890132,
+              1.4410238465726577,
+              217.13770040664292
+            ],
+            "imageIds": [
+              "p1-1"
+            ],
+            "regionId": "0",
+            "geometry": "estimated text metrics",
+            "font": "substituted",
+            "tile": 0,
+            "clippedEdges": [],
+            "deskew": {
+              "region": 0,
+              "angle": 3.9,
+              "confidence": 0.21423589479671712,
+              "samples": 5966,
+              "reason": "projection-peak",
+              "scale": 1
+            }
+          },
+          "font": "ocr-substitute",
+          "textMatrix": [
+            2.5517161103830097,
+            -0.17395855244452013,
+            0.17395855244452013,
+            2.5517161103830097,
+            38.83047175995221,
+            30.58483227314486
+          ],
+          "originalText": "VALVE"
+        },
+        "position": [
+          38.83047175995221,
+          30.58483227314486
+        ]
+      }
+    ],
+    "sourceUnchanged": true,
+    "releasedOnSuccess": true,
+    "releasedOnFailure": true
+  },
+  "url": "http://127.0.0.1:43483/",
+  "passed": 14,
+  "checks": [
+    "OCR dialog upgrades partial project settings",
+    "OCR dialog exposes inversion independently of thresholding",
+    "Real PDF raster is processed in multiple overlapping OCR tiles",
+    "Image skew is estimated without PDF rotation metadata",
+    "Skewed raster text becomes editable CAD text",
+    "Overlapping tile duplicates and clipped fragments are suppressed",
+    "Deskew is inverted when mapping text back to the source drawing",
+    "Every inferred word carries its tile, skew and image provenance",
+    "Raster recovery leaves the extracted PDF scene unchanged",
+    "Temporary canvas allocations are released after successful recovery",
+    "Temporary canvas allocations are released when a provider fails",
+    "Deskewed OCR export passes independent DXF validation",
+    "All OCR requests stay on the application origin",
+    "No uncaught browser exceptions"
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "browserVersion": "152.0.7977.0"
+}

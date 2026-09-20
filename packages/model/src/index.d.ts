@@ -41,6 +41,13 @@ export interface EntityBase {
     semantic?: Semantic;
     handle?: string;
 }
+export interface RasterAsset {
+    id:string; path:string; width:number; height:number; mimeType:'image/png';
+    dataBase64?:string; sha256?:string; source?:Record<string,unknown>;
+}
+export interface ImageEntity extends EntityBase {
+    type:'IMAGE'; imageId:string; imageSize:Point; position:Point; uPixel:Point; vPixel:Point;
+}
 export interface LineEntity extends EntityBase {
     type: 'LINE';
     start: Point;
@@ -134,7 +141,7 @@ export interface DimensionEntity extends EntityBase {
     text: string;
     measurement: number;
 }
-export type Entity = LineEntity | PolylineEntity | CircleEntity | ArcEntity | EllipseEntity | SplineEntity | HatchEntity | SolidEntity | TextEntity | AttributeEntity | InsertEntity | DimensionEntity;
+export type Entity = ImageEntity | LineEntity | PolylineEntity | CircleEntity | ArcEntity | EllipseEntity | SplineEntity | HatchEntity | SolidEntity | TextEntity | AttributeEntity | InsertEntity | DimensionEntity;
 export interface Layer {
     name: string;
     color?: RGB;
@@ -187,6 +194,7 @@ export interface CadDocument {
     units: Units;
     pageBox: Box;
     entities: Entity[];
+    assets?: RasterAsset[];
     layers: Layer[];
     blocks: Block[];
     groups: Group[];
@@ -276,3 +284,8 @@ export class AbortConversionError extends Error {
 }
 export function checkAbort(signal?: AbortSignal): void;
 export function yieldTask(): Promise<void>;
+
+export function isSafeAssetPath(value:unknown):boolean;
+
+/** Deterministic SHA-256 of the supplied byte view for portable asset integrity. */
+export function sha256Bytes(bytes:Uint8Array):string;

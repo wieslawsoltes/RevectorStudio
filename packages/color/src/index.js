@@ -50,7 +50,9 @@ export function auditColors(original, preview, { maxSamples = 32 } = {}) {
     let compared=0,changed=0,missing=0,invalid=0,unresolved=0,maxDeltaE=0,maxChannelError=0,opacityCompared=0,opacityChanged=0,maxOpacityError=0;
     const samples=[],sample=value=>{if(samples.length<maxSamples)samples.push(value);};
     const valid=c=>(Array.isArray(c)||ArrayBuffer.isView(c))&&c.length===3&&Array.from(c).every(v=>Number.isFinite(v)&&v>=0&&v<=255);
+    let rasterImages=0;
     for (const e of all(original)) {
+        if(e.type==='IMAGE'){rasterImages++;continue;}
         const target=targets.get(e.id);
         if(!target){missing++;sample({id:e.id,reason:'missing-exported-entity'});continue;}
         if(e.color==null){unresolved++;sample({id:e.id,reason:'inherited-color-not-audited'});}
@@ -65,8 +67,8 @@ export function auditColors(original, preview, { maxSamples = 32 } = {}) {
         opacityCompared++;const error=Math.abs(a-b);maxOpacityError=Math.max(maxOpacityError,error);
         if(error>1e-12){opacityChanged++;sample({id:e.id,reason:'opacity-quantization-or-loss',sourceOpacity:a,exportedOpacity:b,error});}
     }
-    const complete=missing===0&&invalid===0&&unresolved===0,rgbExact=complete&&changed===0,opacityExact=opacityChanged===0&&missing===0&&invalid===0;
-    return {space:'sRGB',metric:'CIEDE2000 / D65',compared,changed,missing,invalid,unresolved,complete,rgbExact,
+    const complete=rasterImages===0&&missing===0&&invalid===0&&unresolved===0,rgbExact=complete&&changed===0,opacityExact=opacityChanged===0&&missing===0&&invalid===0;
+    return {rasterImages, imagePixelsAudited:false, space:'sRGB',metric:'CIEDE2000 / D65',compared,changed,missing,invalid,unresolved,complete,rgbExact,
         maxChannelError,maxDeltaE,opacityCompared,opacityChanged,maxOpacityError,opacityExact,samples,exact:rgbExact&&opacityExact,
         profilePolicy:'PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.',
         scope:'Explicit entity RGB and opacity; not a proof of PDF blend modes, overprint, image profiles, or inherited CAD colors.'};

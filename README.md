@@ -2,9 +2,13 @@
 
 **Vector-first PDF → semantic DXF. Inspect the source. Recover structure. Keep the evidence.**
 
-Revector Studio 0.3.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
+Revector Studio 0.4.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
 
 The converter reads vector painting instructions and encoded text. Raster OCR is opt-in through a self-hosted Tesseract.js integration. No remote AI service receives document data. The bundled two-page P&ID/feature fixture is an actual PDF, and is processed by the same path as an opened document.
+
+## New in 0.4.0
+
+**Keep images** preserves supported decoded PDF raster resources as native DXF IMAGE entities with portable PNG sidecars, shared definitions and exact affine placement. Opt-in centerline graph tracing adds diagonal paths, junctions and closed curves alongside OCR. Diagram semantics now use actual contour containment and boundary-touching connectors. Raster ICC/CMYK/interpolation tests and separate asset integrity prevent misleading vector-only color audits. See [0.4 algorithm and API contracts](docs/RECOVERY-0.4.md).
 
 ## New in 0.3.0
 
@@ -65,7 +69,7 @@ Custom extensions can be trusted JavaScript plugins or constrained declarative J
 | 2013 | AC1027 | Versioned drawing header and supported entity contracts |
 | 2018 | AC1032 | Versioned drawing header and supported entity contracts |
 
-The writer emits drawing headers, symbol tables, block records, owners/handles, model/paper layout objects, layer/style/linetype records, GROUP dictionaries/reactors, attributes/SEQEND, dimension display blocks and REVECTOR XDATA. The native entity model includes LINE, LWPOLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE, HATCH, SOLID, TEXT, MTEXT, INSERT, ATTRIB and DIMENSION. The reader is intended for this writer's subset, **not as a general-purpose importer for every DXF entity**.
+The writer emits drawing headers, symbol tables, block records, owners/handles, model/paper layout objects, layer/style/linetype records, GROUP dictionaries/reactors, attributes/SEQEND, dimension display blocks and REVECTOR XDATA. The native entity model includes LINE, LWPOLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE, HATCH, SOLID, TEXT, MTEXT, INSERT, ATTRIB, DIMENSION and IMAGE. The reader is intended for this writer's subset, **not as a general-purpose importer for every DXF entity**.
 
 ## Command line
 
@@ -134,7 +138,7 @@ The vector application runs without those installs because its dependencies and 
 
 The original 0.1.0 release validation included **51 passing Node tests**, **35 browser workflow assertions**, strict TypeScript consumer checking, and **35 independent DXF audits with ezdxf 1.4.4, with zero audit errors and zero automatic fixes**. The reports, generated DXFs and real UI screenshots are in `artifacts/`; [Validation](docs/VALIDATION.md) explains exactly what was executed.
 
-This is a functioning implementation, **not a claim of lossless support for all PDF features or certification against every CAD application's PDF printer**. Shading/mesh gradients, soft masks/blending, arbitrary clipped editable text, Type 3 glyph recovery, raster image export, general outlined-text recognition, original CAD constraints/associativity, 3D/multimedia and interactive PDF behaviors are not fully represented in the CAD exporter. The source viewer can show features that the converter diagnoses or omits. Raster OCR must be explicitly enabled; confidence and inference are recorded.
+This is a functioning implementation, **not a claim of lossless support for all PDF features or certification against every CAD application's PDF printer**. Shading/mesh gradients, soft masks/blending, arbitrary clipped editable text, Type 3 glyph recovery, unsupported raster masks/groups, general outlined-text recognition, original CAD constraints/associativity, 3D/multimedia and interactive PDF behaviors are not fully represented in the CAD exporter. The source viewer can show features that the converter diagnoses or omits. Raster OCR must be explicitly enabled; confidence and inference are recorded.
 
 Native DXF text uses available CAD/browser fonts; the original appearance is not guaranteed when font programs differ. Inferred dimensions are non-associative. Default conservative profiles leave geometry-changing hypotheses pending. See the [Capability matrix](docs/CAPABILITIES.md) before using results in engineering production.
 
@@ -144,4 +148,4 @@ Original Revector source: MIT. PDF.js and vendored data/decoders retain upstream
 
 ## Current validation
 
-See [version 0.2.0 validation](docs/VALIDATION-0.2.md) for real browser/CLI OCR, color swatches, rotation regressions and isolated npm installation. Historical 0.1.0 evidence is retained separately.
+See [version 0.4.0 validation](docs/VALIDATION-0.4.md) and [algorithm contracts](docs/RECOVERY-0.4.md) for native raster assets, general path inference, contour-aware semantics and browser/CLI verification. Historical 0.1–0.3 evidence is retained separately.

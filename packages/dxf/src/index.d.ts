@@ -21,3 +21,10 @@ export function readDxf(text: string, options?: {
 export function dxfString(value: unknown): string;
 export function decodeDxfString(value: string): string;
 export function nearestACI(rgb: RGB): number;
+
+export function assetBytes(asset:import('@revector/model').RasterAsset):Uint8Array;
+export function packageDxf(document:CadDocument,options?:Parameters<typeof exportDxf>[1] & {filename?:string;maxBytes?:number}): {
+    dxf:DxfResult;
+    files:Array<{name:string;data:string|Uint8Array}>;
+    manifest:{schema:'revector.dxf-package/1';drawing:string;version:DxfVersion;assets:Array<{id:string;path:string;width:number;height:number;bytes:number;sha256:string|null}>};
+};

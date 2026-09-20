@@ -1,6 +1,7 @@
 import { I, compose, insertMatrix, inverse, transform, transformBox, validBox, contains, distance, flattenPath, pointSegmentDistance, union, emptyBox } from '@revector/geometry';
 import { Signal, entityBox, entityPaths, documentBox } from '@revector/model';
 import { SpatialIndex } from '@revector/topology';
+import {assetBytes} from '@revector/dxf';
 import { displayColor } from '@revector/color';
 const TAU = Math.PI * 2;
 export class Camera {
@@ -110,8 +111,19 @@ function fontFamily(name) {
 }
 /** Retained command renderer; BVH culls offscreen roots, draw order is never sorted by style. */
 export class CadRenderer {
-    constructor() { this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.colorMode = 'faithful'; this.weights = true; this.drawn = 0; }
+    constructor() { this.images=new Map();this.imageErrors=[];this.imageGeneration=0;this.changed=new Signal();this.imagesReady=Promise.resolve();this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.colorMode = 'faithful'; this.weights = true; this.drawn = 0; }
     setDocument(doc) {
+        const generation=++this.imageGeneration;
+        for(const image of this.images.values())image.close?.();this.images.clear();this.imageErrors=[];
+        this.imagesReady=Promise.all((doc.assets||[]).map(async a=>{
+            if(!a.dataBase64){this.imageErrors.push({id:a.id,message:'Image bytes are missing'});return;}
+            try {
+                const bytes=assetBytes(a),blob=new Blob([bytes],{type:'image/png'});
+                const bitmap=await createImageBitmap(blob);
+                if(generation!==this.imageGeneration){bitmap.close();return;}
+                this.images.set(a.id,bitmap);this.changed.emit();
+            }catch(error){if(generation===this.imageGeneration){this.imageErrors.push({id:a.id,message:error.message});this.changed.emit();}}
+        }));
         this.doc = doc;
         this.paths = new WeakMap();
         this.commands.clear();
@@ -179,7 +191,20 @@ export class CadRenderer {
         ctx.lineJoin = 'miter';
         ctx.setLineDash((e.dash || []).map(v => Math.abs(v)));
         ctx.lineDashOffset = -(e.dashPhase || 0);
-        if (['TEXT', 'MTEXT', 'ATTRIB'].includes(e.type)) {
+        if(e.type==='IMAGE') {
+            const bitmap=this.images.get(e.imageId),[w,h]=e.imageSize;
+            ctx.transform(...e.uPixel,...e.vPixel,...e.position);
+            if(bitmap){
+                // PDF /Interpolate is a per-paint hint. Do not blur upscaled engineering
+                // scans by silently inheriting Canvas's default interpolation setting.
+                const t=ctx.getTransform(),ss=t.a*t.a+t.b*t.b+t.c*t.c+t.d*t.d,det=t.a*t.d-t.b*t.c;
+                const maximumScale=Math.sqrt((ss+Math.sqrt(Math.max(0,ss*ss-4*det*det)))/2);
+                ctx.imageSmoothingEnabled=!!e.source?.raster?.interpolate||maximumScale<=(globalThis.devicePixelRatio||1)*4/3;
+                ctx.translate(0,h);ctx.scale(1,-1);ctx.drawImage(bitmap,0,0,w,h);
+            }
+            else {ctx.strokeStyle='#d75575';ctx.strokeRect(0,0,w,h);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(w,h);ctx.moveTo(0,h);ctx.lineTo(w,0);ctx.stroke();}
+        }
+        else if (['TEXT', 'MTEXT', 'ATTRIB'].includes(e.type)) {
             this.drawText(ctx, e);
         }
         else {
@@ -238,6 +263,7 @@ export class CadRenderer {
             ctx.restore();
         }
     }
+    dispose() {this.imageGeneration++;for(const image of this.images.values())image.close?.();this.images.clear();this.changed.clear();}
     pick(point, camera) {
         if (!this.doc)
             return null;
@@ -251,7 +277,11 @@ export class CadRenderer {
                     continue;
                 const e = cmd.e, p = transform(inverse(cmd.m), point), factor = Math.sqrt(Math.abs(cmd.m[0] * cmd.m[3] - cmd.m[1] * cmd.m[2])) || 1;
                 let d = Infinity;
-                if (['TEXT', 'MTEXT', 'ATTRIB', 'HATCH', 'SOLID'].includes(e.type))
+                if(e.type==='IMAGE') {
+                    const local=transform(inverse([...e.uPixel,...e.vPixel,...e.position]),p);
+                    if(contains([0,0,...e.imageSize],local))d=0;
+                }
+                else if (['TEXT', 'MTEXT', 'ATTRIB', 'HATCH', 'SOLID'].includes(e.type))
                     d = 0;
                 else if (e.type === 'CIRCLE' || e.type === 'ARC')
                     d = Math.abs(distance(p, e.center) - e.radius) * factor;
@@ -280,6 +310,7 @@ export class CanvasViewport {
         this.kind = kind;
         this.camera = camera;
         this.renderer = kind === 'cad' ? new CadRenderer() : null;
+        this.imageSub=this.renderer?.changed.subscribe(()=>this.invalidate());
         this.selection = new Set();
         this.selectionChanged = new Signal();
         this.pointerMoved = new Signal();
@@ -445,6 +476,7 @@ export class CanvasViewport {
     dispose() {
         this.abort.abort();
         this.observer.disconnect();
+        this.imageSub?.();this.renderer?.dispose();
         this.sub();
         if (this.frame)
             cancelAnimationFrame(this.frame);

@@ -55,3 +55,17 @@ export async function recoverScan(source: PdfSource) {
 export const tilingExample = planRasterTiles(3000,2000,{tileSize:1024});
 export const affineExample = boundedRotation(-4,3000,2000,8000000);
 export const emptyScanSkew = estimateSkew(new Uint8Array(100),10,10);
+
+// Raster preservation is independent of OCR: IMAGE placement remains native DXF;
+// PNG bytes are returned to the embedding host as a portable file collection.
+import { packageDxf } from '@revector/dxf';
+import { traceRasterPaths } from '@revector/raster';
+export async function preserveImages(source:PdfSource) {
+    const scene = await source.preserveRasterImages(await source.extract(1),{maxPixels:16_000_000});
+    const converted = await new ConversionEngine().convertScene(scene,{version:'2018'});
+    return packageDxf(converted.document,{version:'2018',filename:'drawing.dxf'});
+}
+export async function traceBinary(binary:Uint8Array,width:number,height:number,signal?:AbortSignal) {
+    const result = await traceRasterPaths(binary,width,height,{tolerance:.65,signal});
+    return {paths:result.paths,graphEdges:result.stats.graphEdges,sourceIsInferred:result.inferred};
+}

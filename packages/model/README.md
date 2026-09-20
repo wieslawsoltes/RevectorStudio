@@ -1,6 +1,6 @@
 # @revector/model
 
-**Versioned CAD and paint models** — Revector Studio 0.2.0.
+**Versioned CAD and paint models** — Revector Studio 0.4.0.
 
 Discriminated entity declarations, layer/block/group contracts, provenance, validation, model bounds, signals and cancellation.
 

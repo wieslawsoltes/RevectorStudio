@@ -1,6 +1,6 @@
 # @revector/ui
 
-**DOM controls and local file primitives** — Revector Studio 0.2.0.
+**DOM controls and local file primitives** — Revector Studio 0.4.0.
 
 DOM-safe text/control construction, dialogs, toasts, downloads, CRC/ZIP32 packaging and lifecycle helpers.
 

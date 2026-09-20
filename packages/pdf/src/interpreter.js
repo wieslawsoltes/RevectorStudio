@@ -355,8 +355,10 @@ export async function interpretOperators(operatorList, options = {}) {
                         state.font = v[0];
                         state.fontSize = v[1];
                     }
-                    else if (k === 'TR' || k === 'TR2')
+                    else if (k === 'TR' || k === 'TR2') {
+                        state.transferFunction=!!v;
                         report('TRANSFER_FUNCTION', 'PDF transfer function retained only in the source representation.');
+                    }
                     else if (k === 'OP' || k === 'op' || k === 'OPM')
                         report('OVERPRINT', 'Overprint is a print-compositing property without a DXF equivalent.');
                 }
@@ -524,6 +526,7 @@ export async function interpretOperators(operatorList, options = {}) {
                 const g = a[0] || {};
                 if (g.bbox)
                     state.clips = [...state.clips, { id: `group-bbox-${opIndex}`, paths: mapPaths([rectPath(g.bbox)], compose(state.ctm, g.matrix || I)), rule: 'nonzero' }];
+                if(g.knockout||g.isolated)state.nonNormalGroup=true;
                 if (g.smask)
                     state.softMask = true;
                 if (g.knockout || g.isolated)
@@ -562,7 +565,7 @@ export async function interpretOperators(operatorList, options = {}) {
             case 'paintImageMaskXObjectRepeat':
             case 'paintImageMaskXObjectGroup':
             case 'paintSolidColorImageMask': {
-                const emit = (matrix = I, image = a[0]) => scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof image === 'string' ? image : null, transform: compose(state.ctm, matrix), width: image?.width, height: image?.height, ...metadata() });
+                const emit = (matrix = I, image = a[0]) => scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof image === 'string' ? image : null, transform: compose(state.ctm, matrix), style:clone(state.style),softMask:state.softMask,transferFunction:!!state.transferFunction,nonNormalGroup:!!state.nonNormalGroup, width: image?.width, height: image?.height, ...metadata() });
                 if (name === 'paintImageXObjectRepeat') {
                     for (let i=0;i<a[3].length;i+=2) emit([a[1],0,0,a[2],a[3][i],a[3][i+1]]);
                 } else if (name === 'paintImageMaskXObjectRepeat') {

@@ -45,7 +45,15 @@ export const OPS: Readonly<Record<string, number>>;
 export const DRAW_OPS: Readonly<Record<string, number>>;
 export function loadPdfJs(options?: Pick<PdfOptions, 'moduleUrl' | 'workerUrl'>): Promise<object>;
 export function interpretOperators(list: OperatorList, options?: InterpreterOptions): Promise<PdfScene>;
+export interface ImageOptions {
+    maxPixels?:number; maxTotalPixels?:number; maxBytes?:number; maxImages?:number;
+    signal?:AbortSignal; canvasFactory?:(width:number,height:number)=>any;
+}
+export const DEFAULT_IMAGE_OPTIONS:Readonly<Required<Omit<ImageOptions,'signal'|'canvasFactory'>>>;
+export function preserveRasterImages(source:PdfSource,scene:PdfScene,options?:ImageOptions):Promise<PdfScene>;
 export class PdfSource {
+    preserveRasterImages(scene:PdfScene,options?:ImageOptions):Promise<PdfScene>;
+    rasterResource(scene:PdfScene,item:import('@revector/model').PdfPaintItem):Promise<any>;
     static open(bytes: Uint8Array | ArrayBuffer, options?: PdfOptions): Promise<PdfSource>;
     numPages: number;
     metadata: unknown;

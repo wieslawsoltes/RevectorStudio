@@ -1,6 +1,6 @@
 {
   "name": "@revector/renderer",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "Retained CAD Canvas renderer for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -23,9 +23,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.3.0",
-    "@revector/model": "0.3.0",
-    "@revector/topology": "0.3.0",
-    "@revector/color": "0.3.0"
+    "@revector/geometry": "0.4.0",
+    "@revector/model": "0.4.0",
+    "@revector/topology": "0.4.0",
+    "@revector/color": "0.4.0",
+    "@revector/dxf": "0.4.0"
   }
 }

@@ -182,11 +182,25 @@ export function readDxf(text, { maxPairs = 10000000 } = {}) {
     }
     if (!doc.layers.some(l => l.name === '0'))
         doc.layers.push({ name: '0', color: [0, 0, 0], visible: true });
+    const imageDefs=new Map();
+    for(const r of records(sections.get('OBJECTS')||[]))if(r.type==='IMAGEDEF') {
+        const meta=parseXdata(r),a={id:meta?.id||'image-'+get(r,5,''),path:decodeDxfString(get(r,1,'')),
+            width:n(r,10),height:n(r,20),mimeType:'image/png',source:meta?.source||{}};
+        doc.assets.push(a);imageDefs.set(get(r,5,''),a);
+    }
     let next = 0;
     function entity(r) {
         const layer = decodeDxfString(get(r, 8, '0')), l = doc.layers.find(l => l.name === layer), meta = parseXdata(r);
         const e = { id: meta?.id || `dxf-${++next}`, handle: get(r, 5, ''), type: r.type, layer, color: readColor(r, l), lineweight: Math.max(0, n(r, 370, 0)) / 100, opacity: get(r, 440, null) !== null ? (n(r, 440) & 255) / 255 : 1, dash: linetypes.get(get(r, 6, 'CONTINUOUS')) || [], source: meta?.source || {}, semantic: meta?.semantic || {} };
         switch (r.type) {
+            case 'IMAGE': {
+                const a=imageDefs.get(get(r,340,''));
+                if(!a)throw Error('IMAGE references a missing IMAGEDEF');
+                e.imageId=a.id;e.position=p(r,10);e.uPixel=p(r,11);e.vPixel=p(r,12);e.imageSize=p(r,13);
+                if(n(r,280)||n(r,281,50)!==50||n(r,282,50)!==50||n(r,283,0)!==0||!(n(r,70,3)&1))
+                    doc.diagnostics.push(diagnostic('IMAGE_DISPLAY_UNSUPPORTED','External DXF image clipping/brightness/visibility is outside the generated-image reader contract.','error',{id:e.id}));
+                break;
+            }
             case 'LINE':
                 e.start = p(r, 10);
                 e.end = p(r, 11);

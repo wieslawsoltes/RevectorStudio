@@ -1,6 +1,6 @@
 # @revector/topology
 
-**Spatial and connectivity algorithms** — Revector Studio 0.2.0.
+**Spatial and connectivity algorithms** — Revector Studio 0.4.0.
 
 BVH queries, endpoint hashing, disjoint sets and straight-segment chains. No DOM dependency.
 

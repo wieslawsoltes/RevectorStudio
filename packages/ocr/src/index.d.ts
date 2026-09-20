@@ -1,5 +1,5 @@
 import type { PdfScene, PdfPaintItem } from '@revector/model';
-export interface OcrOptions {scope?:'raster'|'page';languages?:string;dpi?:number;minConfidence?:number;preprocess?:'none'|'otsu'|'sauvola';invert?:boolean;rotation?:0|90|180|270;traceLines?:boolean;deskew?:boolean;tileSize?:number;tileOverlap?:number;maxTiles?:number;maxPixels?:number;maxRegions?:number;maxWords?:number;timeoutMs?:number;assetBase?:string;signal?:AbortSignal;onProgress?:(progress:any)=>void;canvasFactory?:(width:number,height:number)=>any;provider?:{createWorker:Function}|{default:{createWorker:Function}};session?:TesseractOcr}
+export interface OcrOptions {scope?:'raster'|'page';languages?:string;dpi?:number;minConfidence?:number;preprocess?:'none'|'otsu'|'sauvola';invert?:boolean;rotation?:0|90|180|270;traceLines?:boolean;traceMode?:'axis'|'paths';traceTolerance?:number;maxTracePixels?:number;deskew?:boolean;tileSize?:number;tileOverlap?:number;maxTiles?:number;maxPixels?:number;maxRegions?:number;maxWords?:number;timeoutMs?:number;assetBase?:string;signal?:AbortSignal;onProgress?:(progress:any)=>void;canvasFactory?:(width:number,height:number)=>any;provider?:{createWorker:Function}|{default:{createWorker:Function}};session?:TesseractOcr}
 export const OCR_VERSION:string;
 export const DEFAULT_OCR_OPTIONS:Readonly<OcrOptions>;
 export function normalizeOcrOptions(options?:OcrOptions):OcrOptions;
@@ -11,3 +11,6 @@ export function wordToPaint(word:any,pixelToPdf:number[],options?:{page?:number;
 export function recoverPdfRaster(source:any,scene:PdfScene,options?:OcrOptions):Promise<PdfScene&{ocr:any}>;
 
 export function deduplicateOcrWords(words:any[],options?:{maxComparisons?:number}):any[];
+
+/** Bounded path recovery from a supplied raster; does not invoke an OCR engine. */
+export function recoverRasterPaths(raster:import('@revector/raster').Raster,pixelToPdf:number[],scene:PdfScene,options:{words?:any[];regionId?:string;imageIds?:string[];canvasFactory:(width:number,height:number)=>any;maxPixels?:number;tolerance?:number;invert?:boolean;signal?:AbortSignal}):Promise<{items:PdfPaintItem[];stats:Record<string,any>}>;

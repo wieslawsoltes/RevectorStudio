@@ -9,6 +9,7 @@ export { DEFAULT_CONVERSION_OPTIONS } from '@revector/cad';
 export interface EngineOptions extends ConversionOptions, RuleOptions {
     version?: DxfVersion;
     ocr?: OcrOptions;
+    rasterImages?:import('@revector/pdf').ImageOptions;
     semanticTolerance?: number;
     maxAnalysisEntities?: number;
     profile?: 'exact' | 'cad' | 'inferred' | 'pid';
@@ -19,6 +20,7 @@ export interface ConversionReport {
     version: string;
     color: ReturnType<typeof import('@revector/color').auditColors>;
     ocr: unknown;
+    rasterImages:unknown;
     source: Record<string, unknown>;
     target: {
         version: DxfVersion;

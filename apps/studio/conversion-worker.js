@@ -14,6 +14,11 @@ function transformEntity(e, m) {
     const out = structuredClone(e);
     delete out.bounds;
     switch (e.type) {
+        case 'IMAGE':
+            out.position = (0, geometry_1.transform)(m, e.position);
+            out.uPixel = (0, geometry_1.vector)(m, e.uPixel);
+            out.vPixel = (0, geometry_1.vector)(m, e.vPixel);
+            break;
         case 'LINE':
             out.start = (0, geometry_1.transform)(m, e.start);
             out.end = (0, geometry_1.transform)(m, e.end);
@@ -43,6 +48,21 @@ function transformEntity(e, m) {
     return out;
 }
 exports.DEFAULT_CONVERSION_OPTIONS = Object.freeze({ units: 'mm', drawingScale: 1, includeHidden: false, clip: true, preserveForms: true, textMode: 'adaptive', styleLayers: true, strict: false, precision: 10, patternLimit: 2500, booleanTolerance: 1e-8 });
+// Keep provenance data-only: host providers, canvas factories and credentials must not
+// enter the CAD model, structured-clone worker messages, project exports or DXF XDATA.
+function evidenceOptions(value, seen = new WeakSet(), depth = 0) {
+    if (value === null || ['string', 'boolean', 'number'].includes(typeof value))
+        return value;
+    if (!value || typeof value !== 'object' || depth > 8 || seen.has(value))
+        return undefined;
+    if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype)
+        return undefined;
+    seen.add(value);
+    const omit = new Set(['signal', 'onProgress', 'onPassword', 'canvasFactory', 'session', 'provider', 'pdfjs', 'password', 'token', 'apiKey']);
+    const result = Array.isArray(value) ? value.map(x => evidenceOptions(x, seen, depth + 1)) : Object.fromEntries(Object.entries(value).filter(([k]) => !omit.has(k)).map(([k, v]) => [k, evidenceOptions(v, seen, depth + 1)]).filter(([, v]) => v !== undefined));
+    seen.delete(value);
+    return result;
+}
 /** Lowers PDF paint geometry independently of the semantic inference engine. */
 async function lowerScene(scene, userOptions = {}) {
     const options = { ...exports.DEFAULT_CONVERSION_OPTIONS, ...userOptions };
@@ -52,7 +72,7 @@ async function lowerScene(scene, userOptions = {}) {
     if (!factor)
         throw new RangeError('Unsupported output units');
     const scale = factor * options.drawingScale, M = (0, geometry_1.compose)([scale, 0, 0, scale, 0, 0], scene.pageTransform || geometry_1.I);
-    const doc = (0, model_1.createDocument)({ name: scene.source?.name || `Page ${scene.pageNumber}`, units: options.units, source: { ...scene.source, page: scene.pageNumber, coordinateTransform: M, options: Object.fromEntries(Object.entries(options).filter(([k, v]) => !['signal', 'onProgress'].includes(k) && typeof v !== 'function')), irSchema: scene.schema }, pageBox: [0, 0, (scene.pageSize?.[0] ?? (scene.box[2] - scene.box[0])) * scale, (scene.pageSize?.[1] ?? (scene.box[3] - scene.box[1])) * scale], diagnostics: structuredClone(scene.diagnostics || []) });
+    const doc = (0, model_1.createDocument)({ name: scene.source?.name || `Page ${scene.pageNumber}`, units: options.units, source: { ...scene.source, page: scene.pageNumber, coordinateTransform: M, options: evidenceOptions(options), irSchema: scene.schema }, pageBox: [0, 0, (scene.pageSize?.[0] ?? (scene.box[2] - scene.box[0])) * scale, (scene.pageSize?.[1] ?? (scene.box[3] - scene.box[1])) * scale], diagnostics: structuredClone(scene.diagnostics || []) });
     const records = new Map(), styleNames = new Map(), sourceEntities = new Map();
     let counter = 0;
     const addReport = (code, msg, severity = 'warning', id) => doc.diagnostics.push((0, model_1.diagnostic)(code, msg, severity, { sourceId: id, page: scene.pageNumber }));
@@ -293,6 +313,15 @@ async function lowerScene(scene, userOptions = {}) {
             await paintPath(item);
         else if (item.kind === 'text')
             addText(item);
+        else if (item.kind === 'image' && item.rasterAsset) {
+            const a = item.rasterAsset, tm = (0, geometry_1.compose)(M, item.transform);
+            if (!doc.assets.some(x => x.id === a.id))
+                doc.assets.push(structuredClone(a));
+            append({ ...common(item, 'fill'), type: 'IMAGE', imageId: a.id, imageSize: [a.width, a.height],
+                position: (0, geometry_1.transform)(tm, [0, 0]), uPixel: (0, geometry_1.vector)(tm, [1 / a.width, 0]), vPixel: (0, geometry_1.vector)(tm, [0, 1 / a.height]),
+                opacity: 1, color: [255, 255, 255], source: { ...commonSource(item), raster: { ...a.source, interpolate: !!item.rasterInterpolate } },
+                semantic: { class: 'raster-image', confidence: 1, method: 'source' } }, item);
+        }
     }
     if (scene.items.some(i => i.kind === 'text'))
         addReport('FONT_SUBSTITUTION', 'DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.', 'warning');
@@ -428,7 +457,12 @@ function auditColors(original, preview, { maxSamples = 32 } = {}) {
     const samples = [], sample = value => { if (samples.length < maxSamples)
         samples.push(value); };
     const valid = c => (Array.isArray(c) || ArrayBuffer.isView(c)) && c.length === 3 && Array.from(c).every(v => Number.isFinite(v) && v >= 0 && v <= 255);
+    let rasterImages = 0;
     for (const e of all(original)) {
+        if (e.type === 'IMAGE') {
+            rasterImages++;
+            continue;
+        }
         const target = targets.get(e.id);
         if (!target) {
             missing++;
@@ -468,8 +502,8 @@ function auditColors(original, preview, { maxSamples = 32 } = {}) {
             sample({ id: e.id, reason: 'opacity-quantization-or-loss', sourceOpacity: a, exportedOpacity: b, error });
         }
     }
-    const complete = missing === 0 && invalid === 0 && unresolved === 0, rgbExact = complete && changed === 0, opacityExact = opacityChanged === 0 && missing === 0 && invalid === 0;
-    return { space: 'sRGB', metric: 'CIEDE2000 / D65', compared, changed, missing, invalid, unresolved, complete, rgbExact,
+    const complete = rasterImages === 0 && missing === 0 && invalid === 0 && unresolved === 0, rgbExact = complete && changed === 0, opacityExact = opacityChanged === 0 && missing === 0 && invalid === 0;
+    return { rasterImages, imagePixelsAudited: false, space: 'sRGB', metric: 'CIEDE2000 / D65', compared, changed, missing, invalid, unresolved, complete, rgbExact,
         maxChannelError, maxDeltaE, opacityCompared, opacityChanged, maxOpacityError, opacityExact, samples, exact: rgbExact && opacityExact,
         profilePolicy: 'PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.',
         scope: 'Explicit entity RGB and opacity; not a proof of PDF blend modes, overprint, image profiles, or inherited CAD colors.' };
@@ -487,7 +521,7 @@ exports.ACI = [0, 16711680, 16776960, 65280, 65535, 255, 16711935, 16777215, 842
 "@revector/dxf":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.decodeDxfString = exports.readDxf = exports.nearestACI = exports.dxfString = exports.exportDxf = exports.writeDxf = void 0;
+exports.assetBytes = exports.packageDxf = exports.decodeDxfString = exports.readDxf = exports.nearestACI = exports.dxfString = exports.exportDxf = exports.writeDxf = void 0;
 var writer_js_1 = require("@revector/dxf/writer.js");
 Object.defineProperty(exports, "writeDxf", { enumerable: true, get: function () { return writer_js_1.writeDxf; } });
 Object.defineProperty(exports, "exportDxf", { enumerable: true, get: function () { return writer_js_1.exportDxf; } });
@@ -496,6 +530,65 @@ Object.defineProperty(exports, "nearestACI", { enumerable: true, get: function (
 var reader_js_1 = require("@revector/dxf/reader.js");
 Object.defineProperty(exports, "readDxf", { enumerable: true, get: function () { return reader_js_1.readDxf; } });
 Object.defineProperty(exports, "decodeDxfString", { enumerable: true, get: function () { return reader_js_1.decodeDxfString; } });
+var package_js_1 = require("@revector/dxf/package.js");
+Object.defineProperty(exports, "packageDxf", { enumerable: true, get: function () { return package_js_1.packageDxf; } });
+Object.defineProperty(exports, "assetBytes", { enumerable: true, get: function () { return package_js_1.assetBytes; } });
+
+},
+"@revector/dxf/package.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.assetBytes = assetBytes;
+exports.packageDxf = packageDxf;
+const writer_js_1 = require("@revector/dxf/writer.js");
+const model_1 = require("@revector/model");
+/** Decode a portable PNG asset. No filesystem or network access; used by browser and Node hosts. */
+function assetBytes(asset) {
+    if (!(0, model_1.isSafeAssetPath)(asset?.path) || typeof asset.dataBase64 !== 'string')
+        throw new Error('Raster asset is missing or unsafe');
+    if (asset.dataBase64.length > 128 * 1024 * 1024 || (asset.dataBase64.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(asset.dataBase64) || !/^[^=]*={0,2}$/.test(asset.dataBase64)))
+        throw new Error('Invalid raster asset encoding');
+    const text = atob(asset.dataBase64), bytes = Uint8Array.from(text, c => c.charCodeAt(0));
+    if (bytes.length < 33 || [137, 80, 78, 71, 13, 10, 26, 10].some((v, i) => bytes[i] !== v) || String.fromCharCode(...bytes.slice(12, 16)) !== 'IHDR')
+        throw new Error('Raster asset is not a PNG');
+    const view = new DataView(bytes.buffer);
+    if (view.getUint32(16) !== asset.width || view.getUint32(20) !== asset.height)
+        throw new Error('PNG dimensions disagree with raster asset');
+    if (asset.sha256 !== undefined && (!/^[0-9a-f]{64}$/.test(asset.sha256) || (0, model_1.sha256Bytes)(bytes) !== asset.sha256))
+        throw new Error('Raster asset checksum mismatch');
+    return bytes;
+}
+/** Return a complete, portable set of files. The host owns ZIP creation or atomic disk writes. */
+function packageDxf(document, { filename = 'drawing.dxf', maxBytes = 128 * 1024 * 1024, ...options } = {}) {
+    if (!/^[A-Za-z0-9_][A-Za-z0-9_. -]{0,180}\.dxf$/i.test(filename))
+        throw new Error('DXF package filename must be a simple .dxf name');
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1)
+        throw new RangeError('Invalid package byte budget');
+    const dxf = (0, writer_js_1.exportDxf)(document, options), files = [{ name: filename, data: dxf.text }], assets = [];
+    const used = new Set([...document.entities, ...document.blocks.flatMap(b => b.entities)].filter(e => e.type === 'IMAGE').map(e => e.imageId));
+    let size = new TextEncoder().encode(dxf.text).length;
+    for (const asset of document.assets || [])
+        if (used.has(asset.id)) {
+            if (typeof asset.dataBase64 !== 'string')
+                throw new Error('Raster asset bytes are missing');
+            if (size + Math.max(0, asset.dataBase64.length * 3 / 4 - 2) > maxBytes)
+                throw new RangeError('DXF package byte budget exceeded');
+            const bytes = assetBytes(asset);
+            size += bytes.length;
+            if (size > maxBytes)
+                throw new RangeError('DXF package byte budget exceeded');
+            files.push({ name: asset.path, data: bytes });
+            assets.push({ id: asset.id, path: asset.path, width: asset.width, height: asset.height, bytes: bytes.length, sha256: asset.sha256 || (0, model_1.sha256Bytes)(bytes) });
+        }
+    if (size > maxBytes)
+        throw new RangeError('DXF package byte budget exceeded');
+    const manifest = { schema: 'revector.dxf-package/1', drawing: filename, version: dxf.version, assets };
+    const json = JSON.stringify(manifest, null, 2) + '\n';
+    if (size + new TextEncoder().encode(json).length > maxBytes)
+        throw new RangeError('DXF package byte budget exceeded');
+    files.push({ name: filename + '.assets.json', data: json });
+    return { dxf, files, manifest };
+}
 
 },
 "@revector/dxf/reader.js":(require,module,exports)=>{
@@ -688,11 +781,32 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
     }
     if (!doc.layers.some(l => l.name === '0'))
         doc.layers.push({ name: '0', color: [0, 0, 0], visible: true });
+    const imageDefs = new Map();
+    for (const r of records(sections.get('OBJECTS') || []))
+        if (r.type === 'IMAGEDEF') {
+            const meta = parseXdata(r), a = { id: meta?.id || 'image-' + get(r, 5, ''), path: (0, exports.decodeDxfString)(get(r, 1, '')),
+                width: n(r, 10), height: n(r, 20), mimeType: 'image/png', source: meta?.source || {} };
+            doc.assets.push(a);
+            imageDefs.set(get(r, 5, ''), a);
+        }
     let next = 0;
     function entity(r) {
         const layer = (0, exports.decodeDxfString)(get(r, 8, '0')), l = doc.layers.find(l => l.name === layer), meta = parseXdata(r);
         const e = { id: meta?.id || `dxf-${++next}`, handle: get(r, 5, ''), type: r.type, layer, color: readColor(r, l), lineweight: Math.max(0, n(r, 370, 0)) / 100, opacity: get(r, 440, null) !== null ? (n(r, 440) & 255) / 255 : 1, dash: linetypes.get(get(r, 6, 'CONTINUOUS')) || [], source: meta?.source || {}, semantic: meta?.semantic || {} };
         switch (r.type) {
+            case 'IMAGE': {
+                const a = imageDefs.get(get(r, 340, ''));
+                if (!a)
+                    throw Error('IMAGE references a missing IMAGEDEF');
+                e.imageId = a.id;
+                e.position = p(r, 10);
+                e.uPixel = p(r, 11);
+                e.vPixel = p(r, 12);
+                e.imageSize = p(r, 13);
+                if (n(r, 280) || n(r, 281, 50) !== 50 || n(r, 282, 50) !== 50 || n(r, 283, 0) !== 0 || !(n(r, 70, 3) & 1))
+                    doc.diagnostics.push((0, model_1.diagnostic)('IMAGE_DISPLAY_UNSUPPORTED', 'External DXF image clipping/brightness/visibility is outside the generated-image reader contract.', 'error', { id: e.id }));
+                break;
+            }
             case 'LINE':
                 e.start = p(r, 10);
                 e.end = p(r, 11);
@@ -946,6 +1060,11 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
             seqHandles.set(e.id, h());
         }
     }
+    const imageEntities = (0, model_1.allEntities)(doc).filter(e => e.type === 'IMAGE');
+    const usedAssets = (doc.assets || []).filter(a => imageEntities.some(e => e.imageId === a.id));
+    const imageDict = imageEntities.length ? h() : null, rasterVariables = imageEntities.length ? h() : null;
+    const imageDefs = new Map(usedAssets.map(a => [a.id, h()]));
+    const imageReactors = new Map(imageEntities.map(e => [e.id, h()]));
     let current = [];
     const num = n => {
         if (!Number.isFinite(n))
@@ -999,7 +1118,7 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
     function provenance(e) {
         if (!xdata)
             return;
-        let value = JSON.stringify({ id: e.id, source: { kind: e.source?.kind, ocr: e.source?.ocr, rasterInference: e.source?.rasterInference, ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: (0, geometry_1.stableHash)(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
+        let value = JSON.stringify({ id: e.id, source: { kind: e.source?.kind, raster: e.source?.raster, ocr: e.source?.ocr, rasterInference: e.source?.rasterInference, ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: (0, geometry_1.stableHash)(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
         if (dxfString(value).length > 14000) {
             diagnostics.push((0, model_1.diagnostic)('XDATA_DETAIL_LIMIT', 'Semantic detail exceeds the portable XDATA budget; full detail remains in the CAD model/report.', 'warning', { id: e.id }));
             value = JSON.stringify({ id: e.id, source: { ref: (0, geometry_1.stableHash)(e.source || {}) }, semantic: { class: e.semantic?.class, confidence: e.semantic?.confidence, detailHash: (0, geometry_1.stableHash)(e.semantic || {}), truncated: true } });
@@ -1111,6 +1230,28 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
     function emitEntity(e, owner) {
         common(e, owner);
         switch (e.type) {
+            case 'IMAGE': {
+                tag(100, 'AcDbRasterImage');
+                tag(90, 0);
+                pt(10, e.position);
+                pt(11, e.uPixel);
+                pt(12, e.vPixel);
+                pt(13, e.imageSize, false);
+                tag(340, imageDefs.get(e.imageId));
+                tag(70, 11);
+                tag(280, 0);
+                tag(281, 50);
+                tag(282, 50);
+                tag(283, 0);
+                tag(360, imageReactors.get(e.id));
+                tag(71, 1);
+                tag(91, 2);
+                pt(14, [-.5, -.5], false);
+                pt(14, [e.imageSize[0] - .5, e.imageSize[1] - .5], false);
+                if (Number(version) >= 2010)
+                    tag(290, 0);
+                break;
+            }
             case 'LINE':
                 tag(100, 'AcDbLine');
                 pt(10, e.start);
@@ -1238,6 +1379,22 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
         diagnostics.push((0, model_1.diagnostic)('DASH_PHASE', 'DXF linetypes do not preserve arbitrary PDF per-path dash phase.', 'warning'));
     if (strict && [...doc.diagnostics, ...diagnostics].some(d => d.severity === 'error'))
         throw new Error('Strict export blocked by unresolved conversion diagnostics. Export the audit report or resolve the listed features.');
+    if (imageEntities.length) {
+        tag(0, 'SECTION');
+        tag(2, 'CLASSES');
+        for (const [name, cpp, isEntity, count] of [['IMAGE', 'AcDbRasterImage', 1, imageEntities.length], ['IMAGEDEF', 'AcDbRasterImageDef', 0, usedAssets.length], ['IMAGEDEF_REACTOR', 'AcDbRasterImageDefReactor', 0, imageEntities.length], ['RASTERVARIABLES', 'AcDbRasterVariables', 0, 1]]) {
+            tag(0, 'CLASS');
+            tag(1, name);
+            tag(2, cpp);
+            tag(3, 'ISM');
+            tag(90, name === 'IMAGE' ? 127 : 0);
+            tag(91, count);
+            tag(280, 0);
+            tag(281, isEntity);
+        }
+        tag(0, 'ENDSEC');
+        diagnostics.push((0, model_1.diagnostic)('DXF_EXTERNAL_IMAGES', 'Raster images require the adjacent PNG assets. Export the DXF package, not the DXF text alone.', 'info'));
+    }
     // TABLES
     tag(0, 'SECTION');
     tag(2, 'TABLES');
@@ -1338,6 +1495,12 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
     tag(350, groupDict);
     tag(3, 'ACAD_LAYOUT');
     tag(350, layoutDict);
+    if (imageDict) {
+        tag(3, 'ACAD_IMAGE_DICT');
+        tag(350, imageDict);
+        tag(3, 'ACAD_IMAGE_VARS');
+        tag(350, rasterVariables);
+    }
     record('DICTIONARY', groupDict, root, ['AcDbDictionary']);
     tag(281, 1);
     for (const g of doc.groups) {
@@ -1404,6 +1567,42 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
             if (handles.has(id))
                 tag(340, handles.get(id));
         provenance({ id: g.name, semantic: g.semantic || {}, source: g.source || {} });
+    }
+    if (imageDict) {
+        record('DICTIONARY', imageDict, root, ['AcDbDictionary']);
+        tag(281, 1);
+        for (const a of usedAssets) {
+            tag(3, a.id);
+            tag(350, imageDefs.get(a.id));
+        }
+        record('RASTERVARIABLES', rasterVariables, root, ['AcDbRasterVariables']);
+        tag(90, 0);
+        tag(70, 0);
+        tag(71, 1);
+        tag(72, 0);
+        for (const a of usedAssets) {
+            record('IMAGEDEF', imageDefs.get(a.id), null);
+            tag(102, '{ACAD_REACTORS');
+            tag(330, imageDict);
+            for (const e of imageEntities)
+                if (e.imageId === a.id)
+                    tag(330, imageReactors.get(e.id));
+            tag(102, '}');
+            tag(330, imageDict);
+            tag(100, 'AcDbRasterImageDef');
+            tag(90, 0);
+            tag(1, a.path);
+            pt(10, [a.width, a.height], false);
+            pt(11, [1, 1], false);
+            tag(280, 1);
+            tag(281, 0);
+            provenance({ id: a.id, source: a.source || {} });
+        }
+        for (const e of imageEntities) {
+            record('IMAGEDEF_REACTOR', imageReactors.get(e.id), handles.get(e.id), ['AcDbRasterImageDefReactor']);
+            tag(90, 2);
+            tag(330, handles.get(e.id));
+        }
     }
     tag(0, 'ENDSEC');
     tag(0, 'EOF');
@@ -1511,11 +1710,18 @@ class ConversionEngine {
         preview.pageBox = [...document.pageBox];
         preview.source = document.source;
         preview.name = document.name;
+        for (const a of preview.assets || []) {
+            const original = (document.assets || []).find(s => s.id === a.id && s.path === a.path && s.width === a.width && s.height === a.height);
+            if (original) {
+                a.dataBase64 = original.dataBase64;
+                a.sha256 = original.sha256;
+            }
+        }
         const roundtripValidation = (0, model_1.validateDocument)(preview);
         if (!roundtripValidation.valid)
             throw new Error('Serialized DXF failed round-trip validation: ' + roundtripValidation.errors.join('; '));
         checkpoint('roundtripMs');
-        const report = { schema: 'revector.report/1', version: '0.3.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, ocr: scene.ocr || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const report = { schema: 'revector.report/1', version: '0.4.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
     }
@@ -1523,6 +1729,8 @@ class ConversionEngine {
         const source = await pdf_1.PdfSource.open(bytes, options);
         try {
             let scene = await source.extract(options.page || 1, options);
+            if (options.rasterImages)
+                scene = await source.preserveRasterImages(scene, { ...options.rasterImages, signal: options.signal });
             if (options.ocr)
                 scene = await (0, ocr_1.recoverPdfRaster)(source, scene, { ...options.ocr, signal: options.signal, onProgress: options.onProgress });
             return { ...await this.convertScene(scene, options), scene };
@@ -2221,7 +2429,7 @@ Object.defineProperty(exports, "booleanPaths", { enumerable: true, get: function
 "@revector/model":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.yieldTask = exports.AbortConversionError = exports.Signal = exports.DXF_VERSIONS = exports.SCENE_SCHEMA = exports.MODEL_SCHEMA = void 0;
+exports.yieldTask = exports.AbortConversionError = exports.Signal = exports.DXF_VERSIONS = exports.SCENE_SCHEMA = exports.MODEL_SCHEMA = exports.sha256Bytes = void 0;
 exports.createDocument = createDocument;
 exports.diagnostic = diagnostic;
 exports.ensureLayer = ensureLayer;
@@ -2233,11 +2441,14 @@ exports.validateDocument = validateDocument;
 exports.countTypes = countTypes;
 exports.summary = summary;
 exports.checkAbort = checkAbort;
+exports.isSafeAssetPath = isSafeAssetPath;
+var sha256_js_1 = require("@revector/model/sha256.js");
+Object.defineProperty(exports, "sha256Bytes", { enumerable: true, get: function () { return sha256_js_1.sha256Bytes; } });
 const geometry_1 = require("@revector/geometry");
 exports.MODEL_SCHEMA = 'revector.cad/1';
 exports.SCENE_SCHEMA = 'revector.pdf/1';
 exports.DXF_VERSIONS = Object.freeze({ '2000': 'AC1015', '2004': 'AC1018', '2007': 'AC1021', '2010': 'AC1024', '2013': 'AC1027', '2018': 'AC1032' });
-function createDocument(options = {}) { return { schema: exports.MODEL_SCHEMA, revision: 0, name: options.name || 'Untitled', units: options.units || 'mm', entities: [], blocks: [], layers: [{ name: '0', color: [210, 220, 230], visible: true }], groups: [], diagnostics: [], candidates: [], history: [], source: {}, pageBox: [0, 0, 297, 210], ...options }; }
+function createDocument(options = {}) { return { schema: exports.MODEL_SCHEMA, revision: 0, name: options.name || 'Untitled', units: options.units || 'mm', entities: [], blocks: [], assets: [], layers: [{ name: '0', color: [210, 220, 230], visible: true }], groups: [], diagnostics: [], candidates: [], history: [], source: {}, pageBox: [0, 0, 297, 210], ...options }; }
 function diagnostic(code, message, severity = 'warning', detail = {}) { return { code, message, severity, ...detail }; }
 function ensureLayer(doc, name, color = [0, 0, 0], visible = true) {
     let l = doc.layers.find(l => l.name === name);
@@ -2253,6 +2464,10 @@ function entityBox(e, doc, seen = new Set()) {
         return [...e.bounds];
     const b = (0, geometry_1.emptyBox)();
     switch (e.type) {
+        case 'IMAGE': {
+            const [w, h] = e.imageSize;
+            return (0, geometry_1.transformBox)([0, 0, w, h], [...e.uPixel, ...e.vPixel, ...e.position]);
+        }
         case 'LINE':
             (0, geometry_1.extend)(b, e.start);
             (0, geometry_1.extend)(b, e.end);
@@ -2336,6 +2551,19 @@ function validateDocument(doc) {
     const errors = [];
     const ids = new Set(), blocks = new Map(doc.blocks.map(b => [b.name, b]));
     const layers = new Set(doc.layers.map(l => l.name));
+    const assets = new Map((doc.assets || []).map(a => [a.id, a]));
+    const paths = new Set();
+    if (assets.size !== (doc.assets || []).length)
+        errors.push('Duplicate raster asset IDs');
+    for (const a of assets.values()) {
+        if (!a.id || !isSafeAssetPath(a.path))
+            errors.push('Invalid raster asset ID or unsafe path');
+        if (paths.has(String(a.path).toLowerCase()))
+            errors.push('Duplicate raster asset paths');
+        paths.add(String(a.path).toLowerCase());
+        if (![a.width, a.height].every(n => Number.isInteger(n) && n > 0 && n <= 65535))
+            errors.push('Invalid raster asset dimensions');
+    }
     const check = (v, path) => {
         if (typeof v === 'number' && !Number.isFinite(v))
             errors.push(`${path}: non-finite number`);
@@ -2361,6 +2589,17 @@ function validateDocument(doc) {
             errors.push(`Missing dimension block ${e.block}`);
         if (e.type === 'SPLINE' && e.knots.length !== e.controlPoints.length + e.degree + 1)
             errors.push(`Invalid spline knot count ${e.id}`);
+        if (e.type === 'IMAGE') {
+            const a = assets.get(e.imageId), pts = [e.position, e.uPixel, e.vPixel];
+            if (!a)
+                errors.push(`Missing raster asset ${e.imageId}`);
+            if (!pts.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)))
+                errors.push(`Invalid image placement ${e.id}`);
+            else if (Math.abs(e.uPixel[0] * e.vPixel[1] - e.uPixel[1] * e.vPixel[0]) < 1e-30)
+                errors.push(`Singular image placement ${e.id}`);
+            if (!Array.isArray(e.imageSize) || e.imageSize.length !== 2 || !e.imageSize.every(n => Number.isInteger(n) && n > 0) || a && (a.width !== e.imageSize[0] || a.height !== e.imageSize[1]))
+                errors.push(`Image dimensions disagree with asset ${e.id}`);
+        }
         check(e, e.id);
     }
     for (const g of doc.groups) {
@@ -2409,12 +2648,80 @@ function checkAbort(signal) {
 }
 const yieldTask = () => new Promise(resolve => setTimeout(resolve, 0));
 exports.yieldTask = yieldTask;
+/** Portable relative paths only: never implicitly fetch URLs or escape an export directory. */
+function isSafeAssetPath(value) {
+    return typeof value === 'string' && value.length <= 200 &&
+        /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)*\.png$/.test(value) &&
+        !value.split('/').some(p => p === '.' || p === '..' || p.startsWith('.'));
+}
+
+},
+"@revector/model/sha256.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.sha256Bytes = sha256Bytes;
+// SHA-256 (FIPS 180-4) for asset integrity in hosts without Web Crypto.
+// No shared mutable state; the input view is borrowed and never changed.
+const K = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+]);
+const rotate = (x, n) => (x >>> n) | (x << (32 - n));
+function sha256Bytes(bytes) {
+    if (!(bytes instanceof Uint8Array))
+        throw new TypeError('SHA-256 requires a Uint8Array');
+    const state = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+    const words = new Uint32Array(64), tail = new Uint8Array(128), length = bytes.length;
+    const compress = (block, offset) => {
+        for (let i = 0; i < 16; i++) {
+            const j = offset + 4 * i;
+            words[i] = (block[j] << 24) | (block[j + 1] << 16) | (block[j + 2] << 8) | block[j + 3];
+        }
+        for (let i = 16; i < 64; i++) {
+            const x = words[i - 15], y = words[i - 2];
+            words[i] = words[i - 16] + (rotate(x, 7) ^ rotate(x, 18) ^ (x >>> 3)) + words[i - 7] + (rotate(y, 17) ^ rotate(y, 19) ^ (y >>> 10));
+        }
+        let [a, b, c, d, e, f, g, h] = state;
+        for (let i = 0; i < 64; i++) {
+            const t1 = (h + (rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + words[i]) >>> 0;
+            const t2 = ((rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+            h = g;
+            g = f;
+            f = e;
+            e = (d + t1) >>> 0;
+            d = c;
+            c = b;
+            b = a;
+            a = (t1 + t2) >>> 0;
+        }
+        for (const [i, v] of [a, b, c, d, e, f, g, h].entries())
+            state[i] = (state[i] + v) >>> 0;
+    };
+    const end = length - length % 64;
+    for (let p = 0; p < end; p += 64)
+        compress(bytes, p);
+    tail.set(bytes.subarray(end));
+    tail[length - end] = 0x80;
+    const blocks = length - end < 56 ? 64 : 128, view = new DataView(tail.buffer);
+    view.setUint32(blocks - 8, Math.floor(length / 0x20000000));
+    view.setUint32(blocks - 4, (length * 8) >>> 0);
+    compress(tail, 0);
+    if (blocks === 128)
+        compress(tail, 64);
+    return Array.from(state, v => v.toString(16).padStart(8, '0')).join('');
+}
 
 },
 "@revector/ocr":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TesseractOcr = exports.DEFAULT_OCR_OPTIONS = exports.OCR_VERSION = void 0;
+exports.TesseractOcr = exports.DEFAULT_OCR_OPTIONS = exports.OCR_VERSION = exports.recoverRasterPaths = void 0;
 exports.normalizeOcrOptions = normalizeOcrOptions;
 exports.ocrWords = ocrWords;
 exports.rotationMatrix = rotationMatrix;
@@ -2422,16 +2729,23 @@ exports.deduplicateOcrWords = deduplicateOcrWords;
 exports.nativeTextBoxes = nativeTextBoxes;
 exports.wordToPaint = wordToPaint;
 exports.recoverPdfRaster = recoverPdfRaster;
+const tracing_js_1 = require("@revector/ocr/tracing.js");
+var tracing_js_2 = require("@revector/ocr/tracing.js");
+Object.defineProperty(exports, "recoverRasterPaths", { enumerable: true, get: function () { return tracing_js_2.recoverRasterPaths; } });
 const geometry_1 = require("@revector/geometry");
 const model_1 = require("@revector/model");
 const raster_1 = require("@revector/raster");
 const topology_1 = require("@revector/topology");
 exports.OCR_VERSION = '7.0.0';
-exports.DEFAULT_OCR_OPTIONS = Object.freeze({ scope: 'raster', languages: 'eng', dpi: 300, minConfidence: 65, preprocess: 'none', rotation: 0, traceLines: false, maxPixels: 24_000_000, maxRegions: 128, maxWords: 25000, timeoutMs: 120000, tileSize: 2048, tileOverlap: 96, maxTiles: 256, deskew: false });
+exports.DEFAULT_OCR_OPTIONS = Object.freeze({ scope: 'raster', languages: 'eng', dpi: 300, minConfidence: 65, preprocess: 'none', rotation: 0, traceLines: false, traceMode: 'axis', traceTolerance: .65, maxTracePixels: 4_000_000, maxPixels: 24_000_000, maxRegions: 128, maxWords: 25000, timeoutMs: 120000, tileSize: 2048, tileOverlap: 96, maxTiles: 256, deskew: false });
 function normalizeOcrOptions(input = {}) {
     const o = { ...exports.DEFAULT_OCR_OPTIONS, ...input };
     if (!/^[a-z][a-z0-9_]{1,23}(\+[a-z][a-z0-9_]{1,23}){0,7}$/.test(o.languages))
         throw new RangeError('Invalid OCR language codes');
+    if (!['axis', 'paths'].includes(o.traceMode))
+        throw new RangeError('Invalid raster tracing mode');
+    if (!Number.isFinite(o.traceTolerance) || o.traceTolerance < 0 || o.traceTolerance > 8 || !Number.isSafeInteger(o.maxTracePixels) || o.maxTracePixels < 1 || o.maxTracePixels > 4_000_000)
+        throw new RangeError('Invalid raster path tracing budget');
     if (!['raster', 'page'].includes(o.scope) || !['none', 'otsu', 'sauvola'].includes(o.preprocess) || ![0, 90, 180, 270].includes(o.rotation))
         throw new RangeError('Invalid OCR mode');
     for (const [key, min, max] of [['dpi', 72, 600], ['minConfidence', 0, 100], ['maxPixels', 1, 48_000_000], ['maxRegions', 1, 1024], ['maxWords', 1, 100000], ['timeoutMs', 1000, 600000], ['tileSize', 256, 8192], ['tileOverlap', 0, 2048], ['maxTiles', 1, 4096]])
@@ -2754,7 +3068,7 @@ async function recoverRasterCore(source, scene, input = {}) {
                                 lineBaseline: baseline ? { x0: baseline.x0 + tile.x, y0: baseline.y0 + tile.y, x1: baseline.x1 + tile.x, y1: baseline.y1 + tile.y } : undefined,
                                 sampledColor: inkColor(original, box), tile: ti, clippedEdges });
                         }
-                        if (o.traceLines) {
+                        if (o.traceLines && o.traceMode === 'axis') {
                             binary ||= (0, raster_1.binarize)(original, { signal, invert: !!o.invert });
                             for (const word of words) {
                                 const b = word.bbox;
@@ -2804,6 +3118,15 @@ async function recoverRasterCore(source, scene, input = {}) {
                     out.items.push(item);
                     out.ocr.accepted++;
                 }
+                if (o.traceLines && o.traceMode === 'paths') {
+                    if (rotated.width * rotated.height > o.maxTracePixels)
+                        throw new RangeError('Raster tracing region exceeds pixel budget; reduce OCR DPI or choose axis mode');
+                    const raster = rc.getImageData(0, 0, rotated.width, rotated.height);
+                    const traced = await (0, tracing_js_1.recoverRasterPaths)(raster, localToPdf, out, { words: recovered, regionId: String(ri), imageIds: region.items.map(i => i.id), canvasFactory: make, maxPixels: o.maxTracePixels, tolerance: o.traceTolerance, invert: !!o.invert, signal });
+                    out.items.push(...traced.items);
+                    out.ocr.paths = (out.ocr.paths || 0) + traced.items.length;
+                    (out.ocr.traces ||= []).push(traced.stats);
+                }
                 for (const line of lineCandidates) {
                     const start = (0, geometry_1.transform)(localToPdf, line.start), end = (0, geometry_1.transform)(localToPdf, line.end);
                     out.items.push({ id: `raster-line-${ri}-${out.ocr.lines++}`, kind: 'path', operator: -1, visible: true, layerId: 'REVECTOR_RASTER_LINES', paths: [{ start, segments: [{ kind: 'L', to: end }], closed: false }], stroke: true, fill: false, clips: [], formPath: [], style: { stroke: [0, 0, 0], lineWidth: line.thickness * Math.hypot(localToPdf[0], localToPdf[1]), strokeAlpha: 1, dash: [] }, rasterInference: { method: 'axis-runs', confidence: line.confidence } });
@@ -2825,11 +3148,269 @@ async function recoverRasterCore(source, scene, input = {}) {
         out.ocgs.REVECTOR_OCR = { name: 'OCR_TEXT', visible: true };
     if (out.ocr.lines)
         out.ocgs.REVECTOR_RASTER_LINES = { name: 'RASTER_LINE_HYPOTHESES', visible: true };
+    if (out.ocr.paths)
+        out.ocgs.REVECTOR_RASTER_PATHS = { name: 'RASTER_PATH_HYPOTHESES', visible: true };
     out.diagnostics = out.diagnostics.filter(d => !d.code.startsWith('OCR_'));
     out.diagnostics.push((0, model_1.diagnostic)('OCR_RECOVERY', `${out.ocr.accepted} OCR words added; ${out.ocr.rejected} below confidence threshold; ${out.ocr.duplicates} native-text overlaps suppressed. OCR is inferred, not lossless.`, 'warning', { ocr: out.ocr }));
     if (o.traceLines)
-        out.diagnostics.push((0, model_1.diagnostic)('RASTER_LINE_INFERENCE', 'Axis-aligned raster lines are estimated, not exact recovered CAD primitives; text boxes are excluded.', 'warning'));
+        out.diagnostics.push((0, model_1.diagnostic)('RASTER_LINE_INFERENCE', o.traceMode === 'paths' ? 'Raster centerlines are inferred, not exact CAD primitives. OCR boxes and native paint are excluded; ambiguous pixel connections remain reviewable.' : 'Axis-aligned raster lines are estimated, not exact recovered CAD primitives; text boxes are excluded.', 'warning'));
     out.source = { ...out.source, ocr: { engine: out.ocr.engine, accepted: out.ocr.accepted, effectiveDpi: out.ocr.effectiveDpi } };
+    return out;
+}
+
+},
+"@revector/ocr/tracing.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.recoverRasterPaths = recoverRasterPaths;
+const geometry_1 = require("@revector/geometry");
+const raster_1 = require("@revector/raster");
+const model_1 = require("@revector/model");
+function path(ctx, paths) { ctx.beginPath(); for (const p of paths) {
+    ctx.moveTo(...p.start);
+    for (const s of p.segments)
+        s.kind === 'C' ? ctx.bezierCurveTo(...s.c1, ...s.c2, ...s.to) : ctx.lineTo(...s.to);
+    if (p.closed)
+        ctx.closePath();
+} }
+/** Conservative native-paint exclusion. Any overlap in this mask wins over inference.
+ * Text excludes its metric box; vector strokes use their known paths, dashes and clip stack.
+ * This may remove obscured raster fragments rather than inventing connections behind native ink.
+ */
+function excludeNative(binary, width, height, scene, pdfToPixels, make, signal) {
+    const canvas = make(width, height), ctx = canvas.getContext('2d', { willReadFrequently: true });
+    try {
+        const scale = Math.sqrt(Math.abs(pdfToPixels[0] * pdfToPixels[3] - pdfToPixels[1] * pdfToPixels[2]));
+        for (const item of scene.items) {
+            (0, model_1.checkAbort)(signal);
+            if (item.visible === false || item.invisibleText || item.ocr || item.rasterInference || !['path', 'text'].includes(item.kind))
+                continue;
+            ctx.save();
+            ctx.strokeStyle = ctx.fillStyle = '#fff';
+            for (const clip of item.clips || [])
+                if (!clip.text) {
+                    path(ctx, (0, geometry_1.mapPaths)(clip.paths || [], pdfToPixels));
+                    ctx.clip(clip.rule === 'evenodd' ? 'evenodd' : 'nonzero');
+                }
+            if (item.kind === 'text' && item.matrix) {
+                const first = item.matrix, last = item.glyphs?.at(-1), widthText = last ? Math.hypot(last.matrix[4] + last.matrix[0] * last.width - first[4], last.matrix[5] + last.matrix[1] * last.width - first[5]) / Math.max(1e-9, Math.hypot(first[0], first[1])) : String(item.text || '').length * .55;
+                const b = (0, geometry_1.transformBox)([0, -.25, widthText, item.capHeight || .85], (0, geometry_1.compose)(pdfToPixels, first));
+                ctx.fillRect(b[0] - 1, b[1] - 1, b[2] - b[0] + 2, b[3] - b[1] + 2);
+            }
+            else if (item.kind === 'path') {
+                path(ctx, (0, geometry_1.mapPaths)(item.paths || [], pdfToPixels));
+                if (item.fill && (item.style?.fillAlpha ?? 1) > 0)
+                    ctx.fill(item.fillRule === 'evenodd' ? 'evenodd' : 'nonzero');
+                if (item.stroke && (item.style?.strokeAlpha ?? 1) > 0) {
+                    ctx.lineWidth = Math.max(1, (item.style?.lineWidth || 0) * scale) + 2;
+                    ctx.lineCap = ['butt', 'round', 'square'][item.style?.lineCap || 0];
+                    ctx.lineJoin = ['miter', 'round', 'bevel'][item.style?.lineJoin || 0];
+                    ctx.setLineDash((item.style?.dash || []).map(v => v * scale));
+                    ctx.lineDashOffset = -(item.style?.dashPhase || 0) * scale;
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+        const mask = ctx.getImageData(0, 0, width, height).data;
+        let removed = 0;
+        for (let i = 0; i < binary.length; i++)
+            if (binary[i] && mask[4 * i + 3]) {
+                binary[i] = 0;
+                removed++;
+            }
+        return removed;
+    }
+    finally {
+        canvas.width = canvas.height = 1;
+    }
+}
+/** Trace a complete bounded region after OCR, avoiding tile seam fragmentation.
+ * This is separately reusable with an empty word list; no OCR engine is called here.
+ */
+async function recoverRasterPaths(raster, pixelToPdf, scene, { words = [], regionId = '0', imageIds = [], canvasFactory, maxPixels = 4_000_000, tolerance = .65, invert = false, signal } = {}) {
+    if (!canvasFactory)
+        throw new TypeError('Raster path recovery requires a canvasFactory');
+    const binary = (0, raster_1.binarize)(raster, { maxPixels, signal, invert });
+    for (const word of words) {
+        const b = word.bbox;
+        if (!b)
+            continue;
+        for (let y = Math.max(0, Math.floor(b.y0) - 2); y < Math.min(raster.height, Math.ceil(b.y1) + 2); y++)
+            for (let x = Math.max(0, Math.floor(b.x0) - 2); x < Math.min(raster.width, Math.ceil(b.x1) + 2); x++)
+                binary[y * raster.width + x] = 0;
+    }
+    const nativePixelsExcluded = excludeNative(binary, raster.width, raster.height, scene, (0, geometry_1.inverse)(pixelToPdf), canvasFactory, signal);
+    const traced = await (0, raster_1.traceRasterPaths)(binary, raster.width, raster.height, { maxPixels, tolerance, signal });
+    const items = traced.paths.map((p, index) => {
+        const points = p.points.map(v => (0, geometry_1.transform)(pixelToPdf, v));
+        const colors = p.points.map(([x, y]) => { const j = (Math.floor(y) * raster.width + Math.floor(x)) * 4; return Array.from(raster.data.subarray(j, j + 3)); });
+        const color = [0, 1, 2].map(k => { const v = colors.map(c => c[k]).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; });
+        return { id: `raster-path-${regionId}-${index}`, kind: 'path', operator: -1, visible: true, layerId: 'REVECTOR_RASTER_PATHS',
+            paths: [{ start: points[0], segments: points.slice(1).map(to => ({ kind: 'L', to })), closed: p.closed }], stroke: true, fill: false, clips: [], formPath: [],
+            style: { stroke: color, lineWidth: 0, strokeAlpha: 1, dash: [] },
+            rasterInference: { method: traced.method, confidence: .65, geometry: 'estimated centerline', color: 'median skeleton samples', imageIds, regionId, pixelToPdf: [...pixelToPdf], maxDeviationPixels: p.maxDeviationPixels, samples: p.samples, startDegree: p.startDegree, endDegree: p.endDegree, touchesBorder: p.touchesBorder } };
+    });
+    return { items, stats: { ...traced.stats, paths: items.length, nativePixelsExcluded, regionId, method: traced.method } };
+}
+
+},
+"@revector/pdf/images.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEFAULT_IMAGE_OPTIONS = void 0;
+exports.preserveRasterImages = preserveRasterImages;
+const geometry_1 = require("@revector/geometry");
+const model_1 = require("@revector/model");
+exports.DEFAULT_IMAGE_OPTIONS = Object.freeze({ maxPixels: 16_000_000, maxTotalPixels: 32_000_000, maxBytes: 64 * 1024 * 1024, maxImages: 512 });
+const defaultCanvas = (w, h) => { const c = globalThis.document?.createElement('canvas') || new OffscreenCanvas(w, h); c.width = w; c.height = h; return c; };
+function makePath(ctx, paths) { ctx.beginPath(); for (const p of paths) {
+    ctx.moveTo(...p.start);
+    for (const s of p.segments)
+        s.kind === 'C' ? ctx.bezierCurveTo(...s.c1, ...s.c2, ...s.to) : ctx.lineTo(...s.to);
+    ctx.closePath();
+} }
+function base64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 16384)
+    s += String.fromCharCode(...bytes.subarray(i, i + 16384)); return btoa(s); }
+async function png(canvas) {
+    if (typeof canvas.toBuffer === 'function')
+        return new Uint8Array(canvas.toBuffer('image/png'));
+    const blob = canvas.convertToBlob ? await canvas.convertToBlob({ type: 'image/png' }) : await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(Error('PNG encoder failed')), 'image/png'));
+    return new Uint8Array(await blob.arrayBuffer());
+}
+/** Paint only the decoded resource: no page screenshot, hidden native text, or duplicate vector paint. */
+function paintDecoded(ctx, resource, w, h) {
+    if (resource.bitmap) {
+        ctx.drawImage(resource.bitmap, 0, 0, w, h);
+        return;
+    }
+    const data = resource.data;
+    if (!data)
+        throw new Error('Decoded PDF image pixels are unavailable');
+    const pixels = ctx.createImageData(w, h), out = pixels.data, kind = resource.kind;
+    if (kind === 3 && data.length === w * h * 4)
+        out.set(data);
+    else if (kind === 2 && data.length === w * h * 3) {
+        for (let i = 0, j = 0; i < out.length; i += 4, j += 3) {
+            out[i] = data[j];
+            out[i + 1] = data[j + 1];
+            out[i + 2] = data[j + 2];
+            out[i + 3] = 255;
+        }
+    }
+    else if (kind === 1 && data.length >= Math.ceil(w / 8) * h) {
+        const stride = Math.ceil(w / 8);
+        for (let y = 0; y < h; y++)
+            for (let x = 0; x < w; x++) {
+                const v = data[y * stride + (x >> 3)] & (128 >> (x & 7)) ? 255 : 0;
+                out.set([v, v, v, 255], (y * w + x) * 4);
+            }
+    }
+    else
+        throw new Error('Unsupported decoded PDF image representation');
+    ctx.putImageData(pixels, 0, 0);
+}
+/** Retain native-resolution PDF image paint as self-contained PNG sidecars.
+ * Supported clipping and constant alpha are baked once into PNG pixels. Geometry stays affine.
+ * External soft masks and non-Normal blends are rejected, never replaced by a misleading screenshot.
+ * The source PDF scene and PDF.js-owned bitmaps are borrowed, not mutated or closed.
+ */
+async function preserveRasterImages(source, scene, input = {}) {
+    const o = { ...exports.DEFAULT_IMAGE_OPTIONS, ...input }, make = o.canvasFactory || defaultCanvas;
+    for (const key of ['maxPixels', 'maxTotalPixels', 'maxBytes', 'maxImages'])
+        if (!Number.isSafeInteger(o[key]) || o[key] < 1)
+            throw new RangeError('Invalid raster image budget: ' + key);
+    (0, model_1.checkAbort)(o.signal);
+    const out = structuredClone(scene), stats = { retained: 0, skipped: 0, assets: 0, bytes: 0, pixels: 0, complete: true, mode: 'decoded-image-resources', colorSpace: 'sRGB', clips: 'baked PNG alpha at native resolution' };
+    const assets = new Map();
+    const items = out.items.filter(i => i.kind === 'image');
+    if (items.length > o.maxImages)
+        throw new RangeError('Raster image count budget exceeded');
+    out.diagnostics = out.diagnostics.filter(d => !d.code.startsWith('RASTER_IMAGE_'));
+    for (const item of items) {
+        (0, model_1.checkAbort)(o.signal);
+        delete item.rasterAsset;
+        if (item.visible === false)
+            continue;
+        if (!['paintImageXObject', 'paintInlineImageXObject', 'paintImageXObjectRepeat'].includes(item.imageType) || item.softMask || item.transferFunction || item.nonNormalGroup || (item.style?.blend && !['Normal', 'source-over'].includes(item.style.blend)) || item.clips?.some(c => c.text)) {
+            stats.skipped++;
+            out.diagnostics.push((0, model_1.diagnostic)('RASTER_IMAGE_UNSUPPORTED', 'Raster paint needs unsupported stencil/group/mask/blend handling; it was not exported as an incorrect image.', 'error', { sourceId: item.id, imageType: item.imageType }));
+            continue;
+        }
+        let canvas;
+        try {
+            const resource = await source.rasterResource(scene, item);
+            (0, model_1.checkAbort)(o.signal);
+            const w = resource.width, h = resource.height;
+            if (![w, h].every(n => Number.isInteger(n) && n > 0 && n <= 65535) || w * h > o.maxPixels || stats.pixels + w * h > o.maxTotalPixels)
+                throw new RangeError('Raster image pixel budget exceeded');
+            stats.pixels += w * h;
+            canvas = make(w, h);
+            const ctx = canvas.getContext('2d', { alpha: true, colorSpace: 'srgb', willReadFrequently: true });
+            paintDecoded(ctx, resource, w, h);
+            // Use destination-in to apply a stack of PDF clipping paths without painting twice.
+            const clips = [{ paths: [(0, geometry_1.rectPath)(scene.box)], rule: 'nonzero' }, ...(item.clips || [])];
+            const pdfToPixels = (0, geometry_1.compose)([w, 0, 0, -h, 0, h], (0, geometry_1.inverse)(item.transform));
+            for (const clip of clips) {
+                const paths = (0, geometry_1.mapPaths)(clip.paths || [], pdfToPixels);
+                // Canvas clip does not clear existing paint; clear the outside via an alpha mask.
+                const mask = make(w, h);
+                try {
+                    const mc = mask.getContext('2d');
+                    mc.fillStyle = '#fff';
+                    makePath(mc, paths);
+                    mc.fill(clip.rule === 'evenodd' ? 'evenodd' : 'nonzero');
+                    ctx.globalCompositeOperation = 'destination-in';
+                    ctx.drawImage(mask, 0, 0);
+                }
+                finally {
+                    mask.width = mask.height = 1;
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+            const alpha = item.style?.fillAlpha ?? 1;
+            if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1)
+                throw Error('Invalid PDF image opacity');
+            if (alpha < 1) {
+                const pixels = ctx.getImageData(0, 0, w, h);
+                for (let i = 3; i < pixels.data.length; i += 4)
+                    pixels.data[i] = Math.round(pixels.data[i] * alpha);
+                ctx.putImageData(pixels, 0, 0);
+            }
+            const bytes = await png(canvas);
+            (0, model_1.checkAbort)(o.signal);
+            const hash = (0, model_1.sha256Bytes)(bytes);
+            let asset = assets.get(hash);
+            if (!asset) {
+                if (stats.bytes + bytes.length > o.maxBytes)
+                    throw new RangeError('Raster image encoded-byte budget exceeded');
+                asset = { id: 'IMG_' + hash, path: 'images/' + hash + '.png', width: w, height: h, mimeType: 'image/png', sha256: hash, dataBase64: base64(bytes),
+                    source: { kind: 'pdf-raster', colorEngine: 'PDF.js', colorSpace: 'sRGB', pixelResolution: 'native', clipBaked: true, constantAlpha: alpha, losslessSourceEncoding: false } };
+                assets.set(hash, asset);
+                stats.bytes += bytes.length;
+            }
+            item.rasterInterpolate = !!resource.interpolate;
+            item.rasterAsset = asset;
+            stats.retained++;
+        }
+        catch (error) {
+            if (error.name === 'AbortError' || error instanceof RangeError)
+                throw error;
+            stats.skipped++;
+            out.diagnostics.push((0, model_1.diagnostic)('RASTER_IMAGE_RESOURCE', error.message, 'error', { sourceId: item.id }));
+        }
+        finally {
+            if (canvas)
+                canvas.width = canvas.height = 1;
+        }
+    }
+    stats.assets = assets.size;
+    stats.complete = stats.skipped === 0;
+    out.rasterImages = stats;
+    if (stats.complete && stats.retained)
+        out.diagnostics = out.diagnostics.filter(d => d.code !== 'RASTER_CONTENT');
+    if (stats.retained)
+        out.diagnostics.push((0, model_1.diagnostic)('RASTER_IMAGE_RETAINED', `${stats.retained} raster paints retained as ${stats.assets} PNG sidecars; native PDF vectors remain separate. Image color is decoded to sRGB; clips/alpha are baked at raster resolution.`, 'info'));
     return out;
 }
 
@@ -2837,8 +3418,12 @@ async function recoverRasterCore(source, scene, input = {}) {
 "@revector/pdf":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PdfSource = exports.SUPPORTED_PDFJS_VERSIONS = exports.PDFJS_VERSION = exports.DRAW_OPS = exports.OPS = exports.interpretOperators = void 0;
+exports.PdfSource = exports.SUPPORTED_PDFJS_VERSIONS = exports.PDFJS_VERSION = exports.DRAW_OPS = exports.OPS = exports.interpretOperators = exports.DEFAULT_IMAGE_OPTIONS = exports.preserveRasterImages = void 0;
 exports.loadPdfJs = loadPdfJs;
+const images_js_1 = require("@revector/pdf/images.js");
+var images_js_2 = require("@revector/pdf/images.js");
+Object.defineProperty(exports, "preserveRasterImages", { enumerable: true, get: function () { return images_js_2.preserveRasterImages; } });
+Object.defineProperty(exports, "DEFAULT_IMAGE_OPTIONS", { enumerable: true, get: function () { return images_js_2.DEFAULT_IMAGE_OPTIONS; } });
 const interpreter_js_1 = require("@revector/pdf/interpreter.js");
 const model_1 = require("@revector/model");
 var interpreter_js_2 = require("@revector/pdf/interpreter.js");
@@ -2954,6 +3539,7 @@ class PdfSource {
             groups[id] = { name: g.name, visible: g.visible, locked: g.locked };
         const scene = await (0, interpreter_js_1.interpretOperators)(cached.list, { ...options, OPS: this.lib.OPS, pageNumber, box: page.view, pageTransform, userUnit: page.userUnit, rotation: page.rotate, fonts: cached.fonts, ocgs: groups, structure: cached.structure, annotations: cached.annotations, source: { name: this.options.name || this.metadata?.info?.Title || 'PDF document', fingerprints: this.pdf.fingerprints, producer: this.metadata?.info?.Producer || '', creator: this.metadata?.info?.Creator || '', pdfVersion: this.metadata?.info?.PDFFormatVersion || '', ...this.metadata?.info } });
         scene.pageSize = [vp.width, vp.height];
+        scene.annotationMode = annotationMode;
         scene.colorManagement = { engine: 'PDF.js', version: this.lib.version, output: 'sRGB', useWasm: this.options.pdfOptions?.useWasm !== false, iccResourcesConfigured: !!this.options.pdfOptions?.iccUrl, policy: 'Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied.' };
         if (!scene.colorManagement.iccResourcesConfigured)
             scene.diagnostics.push((0, model_1.diagnostic)('ICC_RESOURCES_NOT_CONFIGURED', 'No ICC resource URL was configured; PDF.js may use its fallback CMYK conversion.', 'warning'));
@@ -2978,6 +3564,20 @@ class PdfSource {
             signal?.removeEventListener('abort', abort);
         }
     }
+    async rasterResource(scene, item) {
+        const page = await this.pdf.getPage(scene.pageNumber);
+        if (item.reference)
+            return getObject(item.reference.startsWith('g_') ? page.commonObjs : page.objs, item.reference);
+        const key = `${scene.pageNumber}:${scene.annotationMode ?? this.lib.AnnotationMode.ENABLE}`;
+        if (!this.#cache.has(key))
+            await this.extract(scene.pageNumber, { includeAnnotations: scene.annotationMode !== this.lib.AnnotationMode.DISABLE });
+        const list = this.#cache.get(key)?.list;
+        const args = list?.argsArray[item.operator];
+        if (item.imageType === 'paintInlineImageXObject' && args?.[0])
+            return args[0];
+        throw new Error('Unsupported inline/packed raster resource');
+    }
+    preserveRasterImages(scene, options = {}) { return (0, images_js_1.preserveRasterImages)(this, scene, options); }
     setLayerVisible(id, visible) { this.optionalContent?.setVisibility(id, visible); }
     async outline() { return this.pdf.getOutline(); }
     async attachmentInventory() { const a = await this.pdf.getAttachments(); return Object.entries(a || {}).map(([id, x]) => ({ id, name: x.filename, size: x.content.length })); }
@@ -3347,8 +3947,10 @@ async function interpretOperators(operatorList, options = {}) {
                         state.font = v[0];
                         state.fontSize = v[1];
                     }
-                    else if (k === 'TR' || k === 'TR2')
+                    else if (k === 'TR' || k === 'TR2') {
+                        state.transferFunction = !!v;
                         report('TRANSFER_FUNCTION', 'PDF transfer function retained only in the source representation.');
+                    }
                     else if (k === 'OP' || k === 'op' || k === 'OPM')
                         report('OVERPRINT', 'Overprint is a print-compositing property without a DXF equivalent.');
                 }
@@ -3516,6 +4118,8 @@ async function interpretOperators(operatorList, options = {}) {
                 const g = a[0] || {};
                 if (g.bbox)
                     state.clips = [...state.clips, { id: `group-bbox-${opIndex}`, paths: (0, geometry_1.mapPaths)([(0, geometry_1.rectPath)(g.bbox)], (0, geometry_1.compose)(state.ctm, g.matrix || geometry_1.I)), rule: 'nonzero' }];
+                if (g.knockout || g.isolated)
+                    state.nonNormalGroup = true;
                 if (g.smask)
                     state.softMask = true;
                 if (g.knockout || g.isolated)
@@ -3554,7 +4158,7 @@ async function interpretOperators(operatorList, options = {}) {
             case 'paintImageMaskXObjectRepeat':
             case 'paintImageMaskXObjectGroup':
             case 'paintSolidColorImageMask': {
-                const emit = (matrix = geometry_1.I, image = a[0]) => scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof image === 'string' ? image : null, transform: (0, geometry_1.compose)(state.ctm, matrix), width: image?.width, height: image?.height, ...metadata() });
+                const emit = (matrix = geometry_1.I, image = a[0]) => scene.items.push({ id: id(), kind: 'image', imageType: name, reference: typeof image === 'string' ? image : null, transform: (0, geometry_1.compose)(state.ctm, matrix), style: clone(state.style), softMask: state.softMask, transferFunction: !!state.transferFunction, nonNormalGroup: !!state.nonNormalGroup, width: image?.width, height: image?.height, ...metadata() });
                 if (name === 'paintImageXObjectRepeat') {
                     for (let i = 0; i < a[3].length; i += 2)
                         emit([a[1], 0, 0, a[2], a[3][i], a[3][i + 1]]);
@@ -3712,7 +4316,7 @@ function boundedRotation(angle, width, height, maxPixels = 24000000) {
 "@revector/raster":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.boundedRotation = exports.estimateSkew = exports.planRasterTiles = void 0;
+exports.DEFAULT_TRACE_OPTIONS = exports.traceRasterPaths = exports.boundedRotation = exports.estimateSkew = exports.planRasterTiles = void 0;
 exports.validateRaster = validateRaster;
 exports.grayscale = grayscale;
 exports.otsu = otsu;
@@ -3900,6 +4504,214 @@ var analysis_js_1 = require("@revector/raster/analysis.js");
 Object.defineProperty(exports, "planRasterTiles", { enumerable: true, get: function () { return analysis_js_1.planRasterTiles; } });
 Object.defineProperty(exports, "estimateSkew", { enumerable: true, get: function () { return analysis_js_1.estimateSkew; } });
 Object.defineProperty(exports, "boundedRotation", { enumerable: true, get: function () { return analysis_js_1.boundedRotation; } });
+var tracing_js_1 = require("@revector/raster/tracing.js");
+Object.defineProperty(exports, "traceRasterPaths", { enumerable: true, get: function () { return tracing_js_1.traceRasterPaths; } });
+Object.defineProperty(exports, "DEFAULT_TRACE_OPTIONS", { enumerable: true, get: function () { return tracing_js_1.DEFAULT_TRACE_OPTIONS; } });
+
+},
+"@revector/raster/tracing.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEFAULT_TRACE_OPTIONS = void 0;
+exports.traceRasterPaths = traceRasterPaths;
+const model_1 = require("@revector/model");
+exports.DEFAULT_TRACE_OPTIONS = Object.freeze({ maxPixels: 4_000_000, maxForeground: 500_000, maxIterations: 128, maxWork: 150_000_000, maxPaths: 25000, maxPoints: 1_000_000, tolerance: .65 });
+const DIRS = Object.freeze([[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]);
+function squaredDistance(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], d = dx * dx + dy * dy, t = d ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / d)) : 0; return (p[0] - a[0] - t * dx) ** 2 + (p[1] - a[1] - t * dy) ** 2; }
+function simplify(points, tolerance, spend) {
+    if (points.length < 3 || tolerance === 0)
+        return points;
+    const keep = new Uint8Array(points.length), todo = [[0, points.length - 1]], limit = tolerance * tolerance;
+    keep[0] = keep[points.length - 1] = 1;
+    while (todo.length) {
+        const [a, b] = todo.pop();
+        let far = -1, max = limit;
+        spend(b - a);
+        for (let i = a + 1; i < b; i++) {
+            const d = squaredDistance(points[i], points[a], points[b]);
+            if (d > max) {
+                far = i;
+                max = d;
+            }
+        }
+        if (far >= 0) {
+            keep[far] = 1;
+            todo.push([a, far], [far, b]);
+        }
+    }
+    return points.filter((_, i) => keep[i]);
+}
+/** Bounded centerline inference, not recovery of the original engineering geometry.
+ * Zhang-Suen thinning -> pixel adjacency graph -> junction/end/cycle paths -> RDP polylines.
+ * Junctions are never traversed through. Every undirected graph edge is visited once.
+ * Coordinates are pixel centers. The simplification bound concerns the sampled skeleton,
+ * NOT the original stroke edges or drawing dimensions; closely spaced crossings remain ambiguous.
+ */
+async function traceRasterPaths(binary, width, height, input = {}) {
+    const o = { ...exports.DEFAULT_TRACE_OPTIONS, ...input };
+    for (const k of ['maxPixels', 'maxForeground', 'maxIterations', 'maxWork', 'maxPaths', 'maxPoints'])
+        if (!Number.isSafeInteger(o[k]) || o[k] < 1)
+            throw new RangeError('Invalid trace budget: ' + k);
+    if (!Number.isFinite(o.tolerance) || o.tolerance < 0 || o.tolerance > 8)
+        throw new RangeError('Trace tolerance must be 0..8 pixels');
+    if (!(binary instanceof Uint8Array) || !Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width * height > o.maxPixels || binary.length !== width * height)
+        throw new RangeError('Invalid trace raster or pixel budget exceeded');
+    let work = 0;
+    const spend = n => { work += n; if (work > o.maxWork)
+        throw new RangeError('Raster trace work budget exceeded'); (0, model_1.checkAbort)(o.signal); };
+    spend(binary.length);
+    const stride = width + 2, grid = new Uint8Array(stride * (height + 2));
+    let foreground = 0;
+    for (let y = 0; y < height; y++)
+        for (let x = 0; x < width; x++) {
+            const v = binary[y * width + x];
+            if (v !== 0 && v !== 1)
+                throw new TypeError('Trace binary values must be 0 or 1');
+            if (v) {
+                grid[(y + 1) * stride + x + 1] = 1;
+                foreground++;
+            }
+        }
+    if (foreground > o.maxForeground)
+        throw new RangeError('Raster trace foreground budget exceeded');
+    // Foreground index list avoids scanning blank margins on every thinning iteration.
+    const pixels = new Uint32Array(foreground);
+    for (let p = 0, i = 0; p < grid.length; p++)
+        if (grid[p])
+            pixels[i++] = p;
+    const offsets = DIRS.map(([dx, dy]) => dy * stride + dx), remove = new Uint32Array(foreground);
+    let iterations = 0, converged = false;
+    for (; iterations < o.maxIterations; iterations++) {
+        let changed = 0;
+        for (let phase = 0; phase < 2; phase++) {
+            spend(foreground);
+            let count = 0;
+            for (const p of pixels) {
+                if (!grid[p])
+                    continue;
+                const n = grid[p - stride], ne = grid[p - stride + 1], e = grid[p + 1], se = grid[p + stride + 1], s = grid[p + stride], sw = grid[p + stride - 1], w = grid[p - 1], nw = grid[p - stride - 1];
+                const countInk = n + ne + e + se + s + sw + w + nw;
+                if (countInk < 2 || countInk > 6)
+                    continue;
+                const transitions = (!n && ne) + (!ne && e) + (!e && se) + (!se && s) + (!s && sw) + (!sw && w) + (!w && nw) + (!nw && n);
+                if (transitions !== 1)
+                    continue;
+                if (phase === 0 ? (n * e * s === 0 && e * s * w === 0) : (n * e * w === 0 && n * s * w === 0))
+                    remove[count++] = p;
+            }
+            for (let i = 0; i < count; i++)
+                grid[remove[i]] = 0;
+            changed += count;
+            await (0, model_1.yieldTask)();
+            (0, model_1.checkAbort)(o.signal);
+        }
+        if (!changed) {
+            converged = true;
+            iterations++;
+            break;
+        }
+    }
+    if (!converged)
+        throw new RangeError('Raster thinning did not converge within its iteration budget');
+    const adjacency = new Uint8Array(grid.length), degree = new Uint8Array(grid.length), visited = new Uint8Array(grid.length);
+    let skeletonPixels = 0, junctionPixels = 0, endpoints = 0, isolatedPixels = 0, graphEdges = 0;
+    spend(foreground * 8);
+    for (const p of pixels) {
+        if (!grid[p])
+            continue;
+        skeletonPixels++;
+        for (let d = 0; d < 8; d++) {
+            if (!grid[p + offsets[d]])
+                continue;
+            // Diagonal links are necessary for diagonal strokes, but are redundant
+            // shortcuts when an orthogonal step already joins the two pixels.
+            if ((d & 1) && (grid[p + offsets[(d + 7) % 8]] || grid[p + offsets[(d + 1) % 8]]))
+                continue;
+            adjacency[p] |= 1 << d;
+            degree[p]++;
+        }
+        graphEdges += degree[p];
+        if (degree[p] > 2)
+            junctionPixels++;
+        else if (degree[p] === 1)
+            endpoints++;
+        else if (degree[p] === 0)
+            isolatedPixels++;
+    }
+    graphEdges /= 2;
+    const point = p => [(p % stride) - .5, Math.floor(p / stride) - .5], paths = [];
+    let tracedEdges = 0, totalPoints = 0;
+    const walk = (start, direction) => {
+        if (paths.length >= o.maxPaths)
+            throw new RangeError('Raster trace path budget exceeded');
+        const points = [point(start)];
+        let p = start, d = direction, closed = false;
+        for (;;) {
+            spend(1);
+            if (visited[p] & (1 << d))
+                throw new Error('Internal raster graph edge visited twice');
+            const q = p + offsets[d];
+            visited[p] |= 1 << d;
+            visited[q] |= 1 << ((d + 4) % 8);
+            tracedEdges++;
+            points.push(point(q));
+            if (++totalPoints > o.maxPoints)
+                throw new RangeError('Raster trace point budget exceeded');
+            if (q === start) {
+                closed = true;
+                break;
+            }
+            if (degree[q] !== 2)
+                break;
+            let next = -1;
+            for (let k = 0; k < 8; k++)
+                if ((adjacency[q] & (1 << k)) && !(visited[q] & (1 << k))) {
+                    next = k;
+                    break;
+                }
+            if (next < 0)
+                throw new Error('Raster path ended without a graph vertex');
+            p = q;
+            d = next;
+        }
+        let reduced;
+        if (closed) {
+            let split = 1, max = 0;
+            for (let i = 1; i < points.length - 1; i++) {
+                const d = squaredDistance(points[i], points[0], points[0]);
+                if (d > max) {
+                    max = d;
+                    split = i;
+                }
+            }
+            reduced = [...simplify(points.slice(0, split + 1), o.tolerance, spend).slice(0, -1), ...simplify(points.slice(split), o.tolerance, spend)];
+            reduced.pop();
+            if (reduced.length < 3)
+                reduced = points.slice(0, -1);
+        }
+        else
+            reduced = simplify(points, o.tolerance, spend);
+        paths.push({ points: reduced, closed, samples: points.length, maxDeviationPixels: o.tolerance,
+            startDegree: degree[start], endDegree: closed ? degree[start] : degree[p + offsets[d]], touchesBorder: points.some(([x, y]) => x < 1 || y < 1 || x > width - 1 || y > height - 1) });
+    };
+    for (const p of pixels) {
+        if (!grid[p] || degree[p] === 2)
+            continue;
+        for (let d = 0; d < 8; d++)
+            if ((adjacency[p] & (1 << d)) && !(visited[p] & (1 << d)))
+                walk(p, d);
+    }
+    for (const p of pixels) {
+        if (!grid[p])
+            continue;
+        for (let d = 0; d < 8; d++)
+            if ((adjacency[p] & (1 << d)) && !(visited[p] & (1 << d)))
+                walk(p, d);
+    }
+    if (tracedEdges !== graphEdges)
+        throw new Error('Raster graph edge coverage mismatch');
+    return { paths, stats: { foreground, skeletonPixels, iterations, junctionPixels, endpoints, isolatedPixels, graphEdges, tracedEdges, work }, method: 'zhang-suen/pixel-graph/rdp', inferred: true };
+}
 
 },
 "@revector/renderer":(require,module,exports)=>{
@@ -3911,6 +4723,7 @@ exports.linkViewports = linkViewports;
 const geometry_1 = require("@revector/geometry");
 const model_1 = require("@revector/model");
 const topology_1 = require("@revector/topology");
+const dxf_1 = require("@revector/dxf");
 const color_1 = require("@revector/color");
 const TAU = Math.PI * 2;
 class Camera {
@@ -4021,8 +4834,35 @@ function fontFamily(name) {
 }
 /** Retained command renderer; BVH culls offscreen roots, draw order is never sorted by style. */
 class CadRenderer {
-    constructor() { this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new topology_1.SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.colorMode = 'faithful'; this.weights = true; this.drawn = 0; }
+    constructor() { this.images = new Map(); this.imageErrors = []; this.imageGeneration = 0; this.changed = new model_1.Signal(); this.imagesReady = Promise.resolve(); this.doc = null; this.roots = []; this.commands = new Map(); this.paths = new WeakMap(); this.fontMetrics = new Map(); this.index = new topology_1.SpatialIndex([]); this.hiddenLayers = new Set(); this.dark = true; this.colorMode = 'faithful'; this.weights = true; this.drawn = 0; }
     setDocument(doc) {
+        const generation = ++this.imageGeneration;
+        for (const image of this.images.values())
+            image.close?.();
+        this.images.clear();
+        this.imageErrors = [];
+        this.imagesReady = Promise.all((doc.assets || []).map(async (a) => {
+            if (!a.dataBase64) {
+                this.imageErrors.push({ id: a.id, message: 'Image bytes are missing' });
+                return;
+            }
+            try {
+                const bytes = (0, dxf_1.assetBytes)(a), blob = new Blob([bytes], { type: 'image/png' });
+                const bitmap = await createImageBitmap(blob);
+                if (generation !== this.imageGeneration) {
+                    bitmap.close();
+                    return;
+                }
+                this.images.set(a.id, bitmap);
+                this.changed.emit();
+            }
+            catch (error) {
+                if (generation === this.imageGeneration) {
+                    this.imageErrors.push({ id: a.id, message: error.message });
+                    this.changed.emit();
+                }
+            }
+        }));
         this.doc = doc;
         this.paths = new WeakMap();
         this.commands.clear();
@@ -4090,7 +4930,31 @@ class CadRenderer {
         ctx.lineJoin = 'miter';
         ctx.setLineDash((e.dash || []).map(v => Math.abs(v)));
         ctx.lineDashOffset = -(e.dashPhase || 0);
-        if (['TEXT', 'MTEXT', 'ATTRIB'].includes(e.type)) {
+        if (e.type === 'IMAGE') {
+            const bitmap = this.images.get(e.imageId), [w, h] = e.imageSize;
+            ctx.transform(...e.uPixel, ...e.vPixel, ...e.position);
+            if (bitmap) {
+                // PDF /Interpolate is a per-paint hint. Do not blur upscaled engineering
+                // scans by silently inheriting Canvas's default interpolation setting.
+                const t = ctx.getTransform(), ss = t.a * t.a + t.b * t.b + t.c * t.c + t.d * t.d, det = t.a * t.d - t.b * t.c;
+                const maximumScale = Math.sqrt((ss + Math.sqrt(Math.max(0, ss * ss - 4 * det * det))) / 2);
+                ctx.imageSmoothingEnabled = !!e.source?.raster?.interpolate || maximumScale <= (globalThis.devicePixelRatio || 1) * 4 / 3;
+                ctx.translate(0, h);
+                ctx.scale(1, -1);
+                ctx.drawImage(bitmap, 0, 0, w, h);
+            }
+            else {
+                ctx.strokeStyle = '#d75575';
+                ctx.strokeRect(0, 0, w, h);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(w, h);
+                ctx.moveTo(0, h);
+                ctx.lineTo(w, 0);
+                ctx.stroke();
+            }
+        }
+        else if (['TEXT', 'MTEXT', 'ATTRIB'].includes(e.type)) {
             this.drawText(ctx, e);
         }
         else {
@@ -4149,6 +5013,8 @@ class CadRenderer {
             ctx.restore();
         }
     }
+    dispose() { this.imageGeneration++; for (const image of this.images.values())
+        image.close?.(); this.images.clear(); this.changed.clear(); }
     pick(point, camera) {
         if (!this.doc)
             return null;
@@ -4162,7 +5028,12 @@ class CadRenderer {
                     continue;
                 const e = cmd.e, p = (0, geometry_1.transform)((0, geometry_1.inverse)(cmd.m), point), factor = Math.sqrt(Math.abs(cmd.m[0] * cmd.m[3] - cmd.m[1] * cmd.m[2])) || 1;
                 let d = Infinity;
-                if (['TEXT', 'MTEXT', 'ATTRIB', 'HATCH', 'SOLID'].includes(e.type))
+                if (e.type === 'IMAGE') {
+                    const local = (0, geometry_1.transform)((0, geometry_1.inverse)([...e.uPixel, ...e.vPixel, ...e.position]), p);
+                    if ((0, geometry_1.contains)([0, 0, ...e.imageSize], local))
+                        d = 0;
+                }
+                else if (['TEXT', 'MTEXT', 'ATTRIB', 'HATCH', 'SOLID'].includes(e.type))
                     d = 0;
                 else if (e.type === 'CIRCLE' || e.type === 'ARC')
                     d = Math.abs((0, geometry_1.distance)(p, e.center) - e.radius) * factor;
@@ -4192,6 +5063,7 @@ class CanvasViewport {
         this.kind = kind;
         this.camera = camera;
         this.renderer = kind === 'cad' ? new CadRenderer() : null;
+        this.imageSub = this.renderer?.changed.subscribe(() => this.invalidate());
         this.selection = new Set();
         this.selectionChanged = new model_1.Signal();
         this.pointerMoved = new model_1.Signal();
@@ -4357,6 +5229,8 @@ class CanvasViewport {
     dispose() {
         this.abort.abort();
         this.observer.disconnect();
+        this.imageSub?.();
+        this.renderer?.dispose();
         this.sub();
         if (this.frame)
             cancelAnimationFrame(this.frame);
@@ -4617,6 +5491,7 @@ exports.detectConcentric = detectConcentric;
 exports.detectLeaders = detectLeaders;
 exports.detectBorderlessTables = detectBorderlessTables;
 exports.detectLists = detectLists;
+const regions_js_1 = require("@revector/rules-document/regions.js");
 const model_1 = require("@revector/model");
 const geometry_1 = require("@revector/geometry");
 const topology_1 = require("@revector/topology");
@@ -4819,31 +5694,59 @@ function detectFields(document, options = {}) {
     }
     return out;
 }
-function shapes(document, tolerance) { return document.entities.filter(e => e.type === 'CIRCLE' || e.type === 'ELLIPSE' || e.type === 'LWPOLYLINE' && e.closed && e.points.length >= 3 && e.points.length <= 8).map(e => ({ e, box: (0, model_1.entityBox)(e, document) })).filter(s => s.box[2] - s.box[0] > tolerance && s.box[3] - s.box[1] > tolerance); }
+/** Label ownership and connector endpoint matching use actual contour geometry.
+ * Ties and multiple matching boundaries are ambiguous, not permission to fabricate a graph.
+ */
 function detectDiagram(document, options = {}) {
-    const c = context(document, options), nodes = shapes(document, c.tolerance), out = [], index = new topology_1.SpatialIndex(nodes, n => n.box), links = [];
+    const c = context(document, options), out = [], links = [];
+    let work = 0;
+    const spend = n => { work += n; if (work > 2_000_000)
+        throw new RangeError('Diagram geometry budget exceeded'); (0, model_1.checkAbort)(options.signal); };
+    const nodes = [];
+    for (const e of document.entities) {
+        if (!['CIRCLE', 'ELLIPSE', 'LWPOLYLINE'].includes(e.type))
+            continue;
+        const region = (0, regions_js_1.diagramRegion)(e, document, c.tolerance, spend, options.signal);
+        if (region)
+            nodes.push(region);
+    }
+    const index = new topology_1.SpatialIndex(nodes, n => n.box), labels = new Map();
+    for (const text of c.texts) {
+        spend(1);
+        const box = (0, model_1.entityBox)(text, document);
+        const possible = index.search(box).filter(n => { spend(1); return (0, geometry_1.containsBox)(n.box, box, c.tolerance) && n.contains(box); }).sort((a, b) => a.area - b.area);
+        if (!possible.length || possible[1] && Math.abs(possible[1].area - possible[0].area) <= c.tolerance * c.tolerance)
+            continue;
+        const n = possible[0], members = labels.get(n.e.id) || [];
+        members.push(text);
+        labels.set(n.e.id, members);
+    }
     const classified = new Set();
     for (const n of nodes) {
-        const texts = c.index.search(n.box).filter(e => (0, geometry_1.containsBox)(n.box, (0, model_1.entityBox)(e, document), c.tolerance));
-        if (texts.length && texts.length < 64) {
-            classified.add(n.e.id);
-            bounded(out, proposal('diagram-node', `Labeled ${n.e.type.toLowerCase()}`, [n.e, ...texts], { label: texts.map(e => e.text).join(' '), bounds: n.box }, .90));
-        }
+        const texts = labels.get(n.e.id);
+        if (!texts?.length || texts.length >= 64)
+            continue;
+        texts.sort((a, b) => b.position[1] - a.position[1] || a.position[0] - b.position[0]);
+        classified.add(n.e.id);
+        bounded(out, proposal('diagram-node', `Labeled ${n.e.type.toLowerCase()}`, [n.e, ...texts], { label: texts.map(e => e.text).join(' '), bounds: n.box, labelContainment: 'full metric box inside contour', ownership: 'smallest unambiguous region' }, .90));
     }
     const endpoints = e => e.type === 'LINE' ? [e.start, e.end] : e.type === 'LWPOLYLINE' && !e.closed ? [e.points[0], e.points.at(-1)] : null;
+    const tolerance = Math.max(c.tolerance, c.h * .12);
     for (const e of document.entities) {
         const ends = endpoints(e);
         if (!ends)
             continue;
-        const match = p => index.search(expand([...p, ...p], Math.max(c.tolerance, c.h * .12))).filter(n => n.e.id !== e.id && classified.has(n.e.id)).sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]))[0];
+        const match = p => { const found = index.search(expand([...p, ...p], tolerance)).filter(n => { spend(1); return n.e.id !== e.id && classified.has(n.e.id) && n.boundary(p) <= tolerance; }); return found.length === 1 ? found[0] : null; };
         const a = match(ends[0]), b = match(ends[1]);
         if (a && b && a.e.id !== b.e.id) {
             links.push({ from: a.e.id, to: b.e.id, connector: e.id });
-            bounded(out, proposal('diagram-connection', 'Diagram connection', [a.e, b.e, e], { from: a.e.id, to: b.e.id, connector: e.id, directed: false }, .91));
+            bounded(out, proposal('diagram-connection', 'Diagram connection', [a.e, b.e, e], { from: a.e.id, to: b.e.id, connector: e.id, directed: false, endpointEvidence: 'contour boundary proximity' }, .91));
         }
     }
-    if (links.length && links.length <= 512)
-        bounded(out, proposal('diagram-graph', `Diagram graph · ${classified.size} labeled nodes`, document.entities.filter(e => classified.has(e.id) || links.some(l => l.connector === e.id)), { nodes: [...classified], edges: links }, .90));
+    if (links.length && links.length <= 512) {
+        const connected = new Set(links.flatMap(l => [l.from, l.to, l.connector]));
+        bounded(out, proposal('diagram-graph', `Diagram graph · ${new Set(links.flatMap(l => [l.from, l.to])).size} connected nodes`, document.entities.filter(e => connected.has(e.id)), { nodes: [...new Set(links.flatMap(l => [l.from, l.to]))], edges: links }, .90));
+    }
     return out;
 }
 function detectParallelBoundaries(document, options = {}) {
@@ -5031,7 +5934,80 @@ function detectLists(document, options = {}) {
     return out;
 }
 const definitions = [['table-grids', 'Tables and schedules', detectTables], ['text-flows', 'Text reading flows', detectTextFlows], ['notations', 'Engineering and electrical notation', detectTechnicalText], ['fields', 'Labeled document fields', detectFields], ['diagram', 'Diagram nodes and connectivity', detectDiagram], ['parallel', 'Parallel boundaries', detectParallelBoundaries], ['concentric', 'Concentric mechanical features', detectConcentric], ['leaders', 'Leader callouts', detectLeaders], ['borderless-tables', 'Unruled schedules', detectBorderlessTables], ['lists', 'Numbered and bullet lists', detectLists]];
-exports.documentRules = definitions.map(([id, title, detect], i) => ({ id: 'document.' + id, title, version: id === 'table-grids' ? '1.1.0' : '1.0.0', stage: 60 + i, description: 'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.', run: ({ document, options, checkAbort }) => { checkAbort(); return options.profile === 'exact' ? [] : detect(document, options); } }));
+exports.documentRules = definitions.map(([id, title, detect], i) => ({ id: 'document.' + id, title, version: ['table-grids', 'diagram'].includes(id) ? '1.1.0' : '1.0.0', stage: 60 + i, description: 'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.', run: ({ document, options, checkAbort }) => { checkAbort(); return options.profile === 'exact' ? [] : detect(document, options); } }));
+
+},
+"@revector/rules-document/regions.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.diagramRegion = diagramRegion;
+const model_1 = require("@revector/model");
+const geometry_1 = require("@revector/geometry");
+const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+const pointDistance = (p, a, b) => { const x = b[0] - a[0], y = b[1] - a[1], q = x * x + y * y, t = q ? Math.max(0, Math.min(1, ((p[0] - a[0]) * x + (p[1] - a[1]) * y) / q)) : 0; return Math.hypot(p[0] - a[0] - x * t, p[1] - a[1] - y * t); };
+const properCross = (a, b, c, d) => cross(a, b, c) * cross(a, b, d) < 0 && cross(c, d, a) * cross(c, d, b) < 0;
+/** Geometric enclosure predicates, not merely axis-aligned bounding-box hits.
+ * Polyline bulges and partial ellipses are intentionally excluded until exact predicates exist.
+ */
+function diagramRegion(e, document, tolerance, spend = () => { }, signal) {
+    const box = (0, model_1.entityBox)(e, document), corners = b => [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]];
+    if (e.type === 'CIRCLE' && e.radius > tolerance) {
+        const radial = p => Math.hypot(p[0] - e.center[0], p[1] - e.center[1]);
+        return { e, box, area: Math.PI * e.radius ** 2, contains: b => corners(b).every(p => radial(p) <= e.radius + tolerance), boundary: p => Math.abs(radial(p) - e.radius) };
+    }
+    if (e.type === 'ELLIPSE' && e.ratio > 0 && Math.abs((e.endParam ?? 2 * Math.PI) - (e.startParam ?? 0) - 2 * Math.PI) < 1e-8) {
+        const a = Math.hypot(...e.major), b = a * e.ratio, ux = e.major[0] / a, uy = e.major[1] / a;
+        if (Math.min(a, b) <= tolerance)
+            return null;
+        const radius = p => { const x = p[0] - e.center[0], y = p[1] - e.center[1]; return Math.hypot((x * ux + y * uy) / a, (-x * uy + y * ux) / b); };
+        return { e, box, area: Math.PI * a * b, contains: r => corners(r).every(p => radius(p) <= 1 + tolerance / Math.max(a, b)), boundary: p => Math.abs(radius(p) - 1) * Math.max(a, b) };
+    }
+    if (e.type !== 'LWPOLYLINE' || !e.closed || e.bulges?.some(Boolean) || e.points.length < 3 || e.points.length > 128)
+        return null;
+    const points = e.points.map(p => [...p]);
+    if (pointDistance(points.at(-1), points[0], points[0]) <= tolerance)
+        points.pop();
+    if (points.length < 3)
+        return null;
+    const edges = points.map((p, i) => [p, points[(i + 1) % points.length]]);
+    let area = 0;
+    for (let i = 0; i < edges.length; i++) {
+        (0, model_1.checkAbort)(signal);
+        const [a, b] = edges[i];
+        area += a[0] * b[1] - a[1] * b[0];
+        if (pointDistance(a, b, b) <= tolerance)
+            return null;
+        for (let j = i + 1; j < edges.length; j++) {
+            spend(1);
+            if (j === i + 1 || i === 0 && j === edges.length - 1)
+                continue;
+            const [c, d] = edges[j];
+            if (properCross(a, b, c, d) || Math.min(pointDistance(a, c, d), pointDistance(b, c, d), pointDistance(c, a, b), pointDistance(d, a, b)) <= tolerance)
+                return null;
+        }
+    }
+    area = Math.abs(area / 2);
+    if (area <= tolerance * tolerance)
+        return null;
+    const paths = [{ start: points[0], closed: true, segments: points.slice(1).map(to => ({ kind: 'L', to })) }];
+    const contains = r => {
+        spend(edges.length * 8);
+        const cs = corners(r);
+        if (!cs.every(p => (0, geometry_1.insidePaths)(p, paths, 'nonzero')))
+            return false;
+        // All corners inside is insufficient for a concave contour: a notch can
+        // cut through a box edge or be wholly enclosed by the text metric box.
+        for (const [a, b] of edges) {
+            if (a[0] > r[0] + tolerance && a[0] < r[2] - tolerance && a[1] > r[1] + tolerance && a[1] < r[3] - tolerance)
+                return false;
+            for (let i = 0; i < 4; i++)
+                if (properCross(a, b, cs[i], cs[(i + 1) % 4]))
+                    return false;
+        }
+        return true;
+    };
+    return { e, box, area, contains, boundary: p => { spend(edges.length); return Math.min(...edges.map(([a, b]) => pointDistance(p, a, b))); } };
+}
 
 },
 "@revector/semantics":(require,module,exports)=>{
@@ -5562,6 +6538,7 @@ function zipFiles(files) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Workbench = void 0;
 exports.mountWorkbench = mountWorkbench;
+const dxf_1 = require("@revector/dxf");
 const ocr_1 = require("@revector/ocr");
 const rules_document_1 = require("@revector/rules-document");
 const pdf_1 = require("@revector/pdf");
@@ -5595,9 +6572,11 @@ class Workbench {
         this.pageSelect = select('page', [['1', 'Page 1']], '1');
         this.strict = (0, ui_1.element)('input', { type: 'checkbox', id: 'strict' });
         this.convertButton = (0, ui_1.button)('Convert', () => this.run(true), { className: 'primary', id: 'convert', title: 'Convert page · Ctrl/Cmd+Enter' });
+        this.retainImages = (0, ui_1.element)('input', { id: 'retain-images', type: 'checkbox', checked: !!this.config.rasterImages });
+        this.retainImages.addEventListener('change', () => void this.run(true));
         this.exportButton = (0, ui_1.button)('Export DXF ↗', () => this.exportDxf(), { className: 'primary', id: 'export-dxf', disabled: true });
         const top = (0, ui_1.element)('header', { class: 'rv-top' }, (0, ui_1.element)('div', { class: 'brand' }, (0, ui_1.element)('span', { class: 'brand-mark', text: 'R' }), (0, ui_1.element)('b', { text: 'revector' }), (0, ui_1.element)('span', { class: 'brand-edition', text: 'STUDIO' })), (0, ui_1.element)('span', { class: 'top-separator' }), this.title, (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.element)('span', { class: 'local-badge', text: '● Local workspace' }), (0, ui_1.button)('Guide', () => this.help()), (0, ui_1.button)('Project', () => this.projectMenu()), this.exportButton);
-        const toolbar = (0, ui_1.element)('div', { class: 'rv-toolbar' }, (0, ui_1.button)('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), (0, ui_1.button)('Sample drawing', () => this.demo(), { id: 'demo' }), (0, ui_1.button)('Raster OCR', () => this.configureOcr(), { id: 'configure-ocr', title: 'Opt-in local raster text recognition' }), (0, ui_1.element)('i', { class: 'separator' }), this.pageSelect, field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), (0, ui_1.element)('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
+        const toolbar = (0, ui_1.element)('div', { class: 'rv-toolbar' }, (0, ui_1.button)('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), (0, ui_1.button)('Sample drawing', () => this.demo(), { id: 'demo' }), (0, ui_1.button)('Raster OCR', () => this.configureOcr(), { id: 'configure-ocr', title: 'Opt-in local raster text recognition' }), (0, ui_1.element)('label', { class: 'check-label', title: 'Retain decoded PDF raster images as portable DXF + PNG assets' }, this.retainImages, 'Keep images'), (0, ui_1.element)('i', { class: 'separator' }), this.pageSelect, field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), (0, ui_1.element)('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
         this.explorer = (0, ui_1.element)('aside', { class: 'rv-explorer' }, (0, ui_1.element)('div', { class: 'section-label', text: 'DOCUMENT EXPLORER' }));
         const rail = (0, ui_1.element)('nav', { class: 'rv-rail', 'aria-label': 'Workspace panels' }, iconButton('▤', () => this.explorer.classList.toggle('collapsed'), 'Toggle document explorer'), iconButton('⌘', () => this.setTab('recovery'), 'Semantic recovery'), iconButton('⚙', () => this.setTab('rules'), 'Rule engine'), iconButton('!', () => this.setTab('diagnostics'), 'Conversion diagnostics'), (0, ui_1.element)('div', { class: 'top-spacer' }), iconButton('?', () => this.help(), 'Guide'));
         this.pdfCanvas = (0, ui_1.element)('canvas', { id: 'pdf-canvas', 'aria-label': 'Source PDF drawing viewport' });
@@ -5698,7 +6677,7 @@ class Workbench {
         const scale = Number(this.scale.value);
         if (!Number.isFinite(scale) || scale <= 0)
             throw Error('Drawing scale must be a positive number.');
-        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet, ocr: this.ocrSettings };
+        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet, ocr: this.ocrSettings, rasterImages: this.retainImages.checked ? {} : undefined };
     }
     pdfOptions(name) { const base = this.config.assetBase || './vendor/pdfjs/'; return { name, moduleUrl: this.config.pdfjsModuleUrl || base + 'legacy/build/pdf.mjs', workerUrl: this.config.pdfjsWorkerUrl || base + 'legacy/build/pdf.worker.mjs', pdfOptions: { cMapUrl: base + 'cmaps/', cMapPacked: true, wasmUrl: base + 'wasm/', iccUrl: base + 'iccs/', ...this.config.pdfOptions }, onPassword: reason => (0, ui_1.askValue)(reason === 2 ? 'Incorrect PDF password' : 'Encrypted PDF', 'Enter the password to open this PDF', '', { type: 'password' }) }; }
     async openFile(file) {
@@ -5742,6 +6721,7 @@ class Workbench {
         this.disabledRules = project?.disabledRules || [];
         this.ruleSet = project?.ruleSet || null;
         this.ocrSettings = project?.settings?.ocr || null;
+        this.retainImages.checked = project ? !!project.settings?.rasterImages : this.retainImages.checked;
         this.exportButton.disabled = true;
         this.setStatus('Opening PDF locally…');
         try {
@@ -5783,6 +6763,8 @@ class Workbench {
             };
             if (extract || !this.scene) {
                 let next = await this.source.extract(this.page, { signal: controller.signal, onProgress: progress });
+                if (this.retainImages.checked)
+                    next = await this.source.preserveRasterImages(next, { signal: controller.signal });
                 if (this.ocrSettings)
                     next = await (0, ocr_1.recoverPdfRaster)(this.source, next, { ...this.ocrSettings, assetBase: this.config.ocrAssetBase || './vendor/ocr/', signal: controller.signal, onProgress: progress });
                 if (id !== this.job)
@@ -5885,7 +6867,7 @@ class Workbench {
         this.explorer.append((0, ui_1.element)('div', { class: 'section-label', text: `BLOCK LIBRARY · ${d.blocks.length}` }));
         for (const b of d.blocks)
             this.explorer.append((0, ui_1.button)(`◇ ${b.name}`, () => this.inspectBlock(b), { className: 'tree-row' }));
-        this.explorer.append((0, ui_1.element)('div', { class: 'explorer-foot' }, (0, ui_1.element)('b', { text: this.result?.report.ocr ? 'Raster OCR recovery' : 'Vector-first recovery' }), (0, ui_1.element)('span', { text: this.result?.report.ocr ? `${this.result.report.ocr.accepted} inferred words · ${this.result.report.ocr.lines} estimated lines. Native text is preserved.` : 'Native vectors and encoded text are preserved. Raster OCR is opt-in.' })));
+        this.explorer.append((0, ui_1.element)('div', { class: 'explorer-foot' }, (0, ui_1.element)('b', { text: this.result?.report.ocr ? 'Raster OCR recovery' : 'Vector-first recovery' }), (0, ui_1.element)('span', { text: this.result?.report.ocr ? `${this.result.report.ocr.accepted} inferred words · ${this.result.report.ocr.lines} lines · ${this.result.report.ocr.paths || 0} paths. Native text is preserved.` : 'Native vectors and encoded text are preserved. Raster OCR is opt-in.' })));
     }
     setTab(tab) {
         this.tab = tab;
@@ -5972,7 +6954,7 @@ class Workbench {
         if (this.ruleSet)
             this.bottomContent.append((0, ui_1.element)('div', { class: 'rule-custom', text: `Custom rules loaded: ${this.ruleSet.rules.length}` }));
     }
-    renderSource() { const r = this.result.report; this.bottomContent.append((0, ui_1.element)('div', { class: 'recovery-bar' }, (0, ui_1.element)('b', { text: 'Conversion provenance' }), (0, ui_1.element)('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Save report', () => (0, ui_1.download)(enc(r), this.baseName() + '.report.json', 'application/json')), (0, ui_1.button)('Save intermediate model', () => (0, ui_1.download)(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), (0, ui_1.element)('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, color: r.color, ocr: r.ocr, timings: r.timings, validation: r.validation }) })); }
+    renderSource() { const r = this.result.report; this.bottomContent.append((0, ui_1.element)('div', { class: 'recovery-bar' }, (0, ui_1.element)('b', { text: 'Conversion provenance' }), (0, ui_1.element)('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Save report', () => (0, ui_1.download)(enc(r), this.baseName() + '.report.json', 'application/json')), (0, ui_1.button)('Save intermediate model', () => (0, ui_1.download)(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), (0, ui_1.element)('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, color: r.color, ocr: r.ocr, rasterImages: r.rasterImages, timings: r.timings, validation: r.validation }) })); }
     showOverview() {
         this.inspector.replaceChildren((0, ui_1.element)('div', { class: 'section-label', text: 'CONVERSION INSPECTOR' }), (0, ui_1.element)('div', { class: 'inspector-intro' }, (0, ui_1.element)('span', { class: 'eyebrow', text: 'FROM PLOT TO MODEL' }), (0, ui_1.element)('h2', { text: 'Structure,\nnot just strokes.' }), (0, ui_1.element)('p', { class: 'muted', text: 'Review recovered entities alongside the original PDF. Every semantic proposal keeps its evidence.' })));
         if (this.result) {
@@ -5981,7 +6963,7 @@ class Workbench {
             for (const [label, value] of [['ENTITIES', s.entities], ['LAYERS', d.layers.length], ['BLOCKS', d.blocks.length], ['TO REVIEW', d.candidates.filter(c => c.status === 'pending').length]])
                 stats.append((0, ui_1.element)('div', {}, (0, ui_1.element)('b', { text: fmt(value) }), (0, ui_1.element)('span', { text: label })));
             this.inspector.append(stats, (0, ui_1.element)('div', { class: 'section-label', text: 'OUTPUT CONTRACT' }));
-            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster recovery', this.result.report.ocr ? `${this.result.report.ocr.accepted} OCR words · ${this.result.report.ocr.lines} estimated lines` : 'OCR off'], ['Image embedding', 'Not exported']])
+            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster recovery', this.result.report.ocr ? `${this.result.report.ocr.accepted} OCR words · ${this.result.report.ocr.lines} lines · ${this.result.report.ocr.paths || 0} paths` : 'OCR off'], ['Raster images', this.result.report.rasterImages ? `${this.result.report.rasterImages.retained} paints · ${this.result.report.rasterImages.assets} PNG assets` : 'Not retained']])
                 this.inspector.append(this.property(k, v));
         }
         this.inspector.append((0, ui_1.element)('div', { class: 'inspector-note' }, (0, ui_1.element)('b', { text: 'Evidence-first recovery' }), (0, ui_1.element)('p', { text: 'A PDF form is reusable structure, not proof of an original CAD block. Inferred names and meanings are identified explicitly.' })), (0, ui_1.button)('Convert all pages to ZIP', () => this.exportAll(), { className: 'wide', disabled: !this.source }));
@@ -6047,6 +7029,18 @@ class Workbench {
     exportDxf() {
         if (!this.result || !this.exportReady)
             return (0, ui_1.toast)('Open and convert a PDF first.');
+        if (this.result.document.assets?.length) {
+            try {
+                const pack = (0, dxf_1.packageDxf)(this.result.document, { version: this.version.value, strict: this.strict.checked, filename: 'drawing-' + this.baseName().replace(/[^a-zA-Z0-9_. -]/g, '_') + `.R${this.version.value}.dxf` });
+                pack.files.push({ name: 'conversion.report.json', data: enc(this.result.report) });
+                (0, ui_1.download)((0, ui_1.zipFiles)(pack.files), this.baseName() + '.dxf-package.zip');
+                this.setStatus(`Exported DXF + ${pack.manifest.assets.length} PNG assets`);
+            }
+            catch (error) {
+                this.error(error);
+            }
+            return;
+        }
         (0, ui_1.download)(this.result.dxf.text, this.baseName() + `.R${this.version.value}.dxf`, 'application/dxf');
         this.setStatus(`Exported ${this.result.dxf.acadVersion} · ${fmt(this.result.dxf.text.length)} characters`);
     }
@@ -6070,13 +7064,16 @@ class Workbench {
             for (let p = 1; p <= this.source.numPages; p++) {
                 this.setStatus(`Batch conversion · page ${p} / ${this.source.numPages}`);
                 let scene = p === this.page && this.scene ? this.scene : await this.source.extract(p, { signal: controller.signal });
+                if (this.retainImages.checked && !scene.rasterImages)
+                    scene = await this.source.preserveRasterImages(scene, { signal: controller.signal });
                 if (this.ocrSettings && !scene.ocr)
                     scene = await (0, ocr_1.recoverPdfRaster)(this.source, scene, { ...this.ocrSettings, assetBase: this.config.ocrAssetBase || './vendor/ocr/', signal: controller.signal });
                 const config = { ...options, decisions: this.decisions[p] || {} };
                 const r = this.worker ? await this.worker.convert(scene, config, { signal: controller.signal }) : await this.engine.convertScene(scene, { ...config, signal: controller.signal });
-                files.push({ name: `page-${p}.R${options.version}.dxf`, data: r.dxf.text }, { name: `page-${p}.report.json`, data: enc(r.report) });
+                const pack = (0, dxf_1.packageDxf)(r.document, { version: options.version, strict: options.strict, filename: `page-${p}.R${options.version}.dxf` });
+                files.push(...pack.files, { name: `page-${p}.report.json`, data: enc(r.report) });
             }
-            (0, ui_1.download)((0, ui_1.zipFiles)(files), this.fileName.replace(/\.pdf$/i, '') + '-converted.zip');
+            (0, ui_1.download)((0, ui_1.zipFiles)([...new Map(files.map(f => [f.name, f])).values()]), this.fileName.replace(/\.pdf$/i, '') + '-converted.zip');
             this.setStatus(`Exported ${this.source.numPages} pages and reports`);
         }
         catch (e) {
@@ -6100,12 +7097,13 @@ class Workbench {
         const tiles = select('ocr-tile-size', [...new Set(['512', '1024', '2048', '4096', String(settings.tileSize)])].sort((a, b) => Number(a) - Number(b)), String(settings.tileSize));
         const deskew = (0, ui_1.element)('input', { id: 'ocr-deskew', type: 'checkbox', checked: settings.deskew });
         const invert = (0, ui_1.element)('input', { id: 'ocr-invert', type: 'checkbox', checked: settings.invert });
+        const traceMode = select('ocr-trace-mode', [['axis', 'Ruled horizontal / vertical lines'], ['paths', 'Centerline graph / arbitrary paths']], settings.traceMode);
         const trace = (0, ui_1.element)('input', { id: 'ocr-lines', type: 'checkbox', checked: settings.traceLines });
-        (0, ui_1.dialog)({ title: 'Raster OCR · local recognition', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('p', { text: 'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.' }), field('Enable OCR', enabled), field('Scope', scope), field('Languages', languages), field('Resolution (DPI)', dpi), field('Minimum confidence (%)', confidence), field('Preprocessing', preprocess), field('Recognition rotation', rotation), field('Correct small scan skew', deskew), field('Invert light text on dark paper', invert), field('Maximum tile side (pixels)', tiles), field('Estimate horizontal / vertical raster lines', trace), (0, ui_1.element)('p', { text: 'Tiles overlap to protect words at boundaries. Deskew estimates small angles, not arbitrary page orientation. Both preserve the inverse coordinate transform in OCR provenance.' })),
+        (0, ui_1.dialog)({ title: 'Raster OCR · local recognition', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('p', { text: 'Tesseract.js 7 · Apache-2.0 · WASM. PDF data stays in this browser. Native text takes precedence. OCR text metrics and colors are estimated; review the report.' }), field('Enable OCR', enabled), field('Scope', scope), field('Languages', languages), field('Resolution (DPI)', dpi), field('Minimum confidence (%)', confidence), field('Preprocessing', preprocess), field('Recognition rotation', rotation), field('Correct small scan skew', deskew), field('Invert light text on dark paper', invert), field('Maximum tile side (pixels)', tiles), field('Infer raster linework', trace), field('Linework algorithm', traceMode), (0, ui_1.element)('p', { text: 'Tiles overlap to protect words at boundaries. Deskew estimates small angles, not arbitrary page orientation. Both preserve the inverse coordinate transform in OCR provenance.' })),
             actions: [{ label: 'Cancel', run: d => d.close() }, { label: 'Apply and convert', primary: true, run: d => {
                         try {
                             this.ocrSettings = enabled.checked ? (0, ocr_1.normalizeOcrOptions)({ ...settings, scope: scope.value, languages: languages.value, dpi: Number(dpi.value), minConfidence: Number(confidence.value),
-                                preprocess: preprocess.value, rotation: Number(rotation.value), deskew: deskew.checked, invert: invert.checked, tileSize: Number(tiles.value), traceLines: trace.checked }) : null;
+                                preprocess: preprocess.value, rotation: Number(rotation.value), deskew: deskew.checked, invert: invert.checked, tileSize: Number(tiles.value), traceLines: trace.checked, traceMode: traceMode.value }) : null;
                             d.close();
                             void this.run(true);
                         }
@@ -6114,7 +7112,7 @@ class Workbench {
                         }
                     } }] });
     }
-    help() { (0, ui_1.dialog)({ title: 'Revector Studio · vector-first CAD recovery', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('h3', { text: 'A local, inspectable conversion workflow' }), (0, ui_1.element)('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), (0, ui_1.element)('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), (0, ui_1.element)('h3', { text: 'Meaning is recovered, not assumed' }), (0, ui_1.element)('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), (0, ui_1.element)('h3', { text: 'Explicit format boundaries' }), (0, ui_1.element)('p', { text: 'Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), (0, ui_1.element)('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), (0, ui_1.element)('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
+    help() { (0, ui_1.dialog)({ title: 'Revector Studio · vector-first CAD recovery', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('h3', { text: 'A local, inspectable conversion workflow' }), (0, ui_1.element)('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), (0, ui_1.element)('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), (0, ui_1.element)('h3', { text: 'Meaning is recovered, not assumed' }), (0, ui_1.element)('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), (0, ui_1.element)('h3', { text: 'Explicit format boundaries' }), (0, ui_1.element)('p', { text: 'Keep images exports native DXF IMAGE references together with PNG sidecars in a ZIP. Clips and constant alpha are baked into native-resolution raster pixels. Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), (0, ui_1.element)('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), (0, ui_1.element)('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
     setStatus(text) {
         if (this.status)
             this.status.textContent = text;

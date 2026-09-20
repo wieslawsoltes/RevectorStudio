@@ -97,6 +97,11 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
             seqHandles.set(e.id, h());
         }
     }
+    const imageEntities=allEntities(doc).filter(e=>e.type==='IMAGE');
+    const usedAssets=(doc.assets||[]).filter(a=>imageEntities.some(e=>e.imageId===a.id));
+    const imageDict=imageEntities.length?h():null, rasterVariables=imageEntities.length?h():null;
+    const imageDefs=new Map(usedAssets.map(a=>[a.id,h()]));
+    const imageReactors=new Map(imageEntities.map(e=>[e.id,h()]));
     let current = [];
     const num = n => {
         if (!Number.isFinite(n))
@@ -150,7 +155,7 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
     function provenance(e) {
         if (!xdata)
             return;
-        let value = JSON.stringify({ id: e.id, source: { kind: e.source?.kind, ocr: e.source?.ocr, rasterInference: e.source?.rasterInference, ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: stableHash(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
+        let value = JSON.stringify({ id: e.id, source: { kind: e.source?.kind, raster:e.source?.raster, ocr: e.source?.ocr, rasterInference: e.source?.rasterInference, ids: (e.source?.ids || []).slice(0, 64), page: e.source?.page, operator: e.source?.operator, form: e.source?.form, ref: stableHash(e.source || {}) }, semantic: e.semantic || {}, font: e.font });
         if (dxfString(value).length > 14000) {
             diagnostics.push(diagnostic('XDATA_DETAIL_LIMIT', 'Semantic detail exceeds the portable XDATA budget; full detail remains in the CAD model/report.', 'warning', {id:e.id}));
             value = JSON.stringify({id:e.id,source:{ref:stableHash(e.source||{})},semantic:{class:e.semantic?.class,confidence:e.semantic?.confidence,detailHash:stableHash(e.semantic||{}),truncated:true}});
@@ -262,6 +267,15 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
     function emitEntity(e, owner) {
         common(e, owner);
         switch (e.type) {
+            case 'IMAGE': {
+                tag(100,'AcDbRasterImage');tag(90,0);
+                pt(10,e.position);pt(11,e.uPixel);pt(12,e.vPixel);pt(13,e.imageSize,false);
+                tag(340,imageDefs.get(e.imageId));tag(70,11);tag(280,0);
+                tag(281,50);tag(282,50);tag(283,0);tag(360,imageReactors.get(e.id));
+                tag(71,1);tag(91,2);pt(14,[-.5,-.5],false);pt(14,[e.imageSize[0]-.5,e.imageSize[1]-.5],false);
+                if(Number(version)>=2010)tag(290,0);
+                break;
+            }
             case 'LINE':
                 tag(100, 'AcDbLine');
                 pt(10, e.start);
@@ -389,6 +403,15 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
         diagnostics.push(diagnostic('DASH_PHASE', 'DXF linetypes do not preserve arbitrary PDF per-path dash phase.', 'warning'));
     if (strict && [...doc.diagnostics, ...diagnostics].some(d => d.severity === 'error'))
         throw new Error('Strict export blocked by unresolved conversion diagnostics. Export the audit report or resolve the listed features.');
+    if(imageEntities.length) {
+        tag(0,'SECTION');tag(2,'CLASSES');
+        for(const [name,cpp,isEntity,count] of [['IMAGE','AcDbRasterImage',1,imageEntities.length],['IMAGEDEF','AcDbRasterImageDef',0,usedAssets.length],['IMAGEDEF_REACTOR','AcDbRasterImageDefReactor',0,imageEntities.length],['RASTERVARIABLES','AcDbRasterVariables',0,1]]) {
+            tag(0,'CLASS');tag(1,name);tag(2,cpp);tag(3,'ISM');tag(90,name==='IMAGE'?127:0);
+            tag(91,count);tag(280,0);tag(281,isEntity);
+        }
+        tag(0,'ENDSEC');
+        diagnostics.push(diagnostic('DXF_EXTERNAL_IMAGES','Raster images require the adjacent PNG assets. Export the DXF package, not the DXF text alone.','info'));
+    }
     // TABLES
     tag(0, 'SECTION');
     tag(2, 'TABLES');
@@ -489,6 +512,7 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
     tag(350, groupDict);
     tag(3, 'ACAD_LAYOUT');
     tag(350, layoutDict);
+    if(imageDict){tag(3,'ACAD_IMAGE_DICT');tag(350,imageDict);tag(3,'ACAD_IMAGE_VARS');tag(350,rasterVariables);}
     record('DICTIONARY', groupDict, root, ['AcDbDictionary']);
     tag(281, 1);
     for (const g of doc.groups) {
@@ -555,6 +579,24 @@ export function exportDxf(doc, { version = '2018', precision = 10, strict = fals
             if (handles.has(id))
                 tag(340, handles.get(id));
         provenance({id:g.name,semantic:g.semantic||{},source:g.source||{}});
+    }
+    if(imageDict) {
+        record('DICTIONARY',imageDict,root,['AcDbDictionary']);tag(281,1);
+        for(const a of usedAssets){tag(3,a.id);tag(350,imageDefs.get(a.id));}
+        record('RASTERVARIABLES',rasterVariables,root,['AcDbRasterVariables']);
+        tag(90,0);tag(70,0);tag(71,1);tag(72,0);
+        for(const a of usedAssets) {
+            record('IMAGEDEF',imageDefs.get(a.id),null);
+            tag(102,'{ACAD_REACTORS');tag(330,imageDict);
+            for(const e of imageEntities)if(e.imageId===a.id)tag(330,imageReactors.get(e.id));
+            tag(102,'}');tag(330,imageDict);tag(100,'AcDbRasterImageDef');tag(90,0);tag(1,a.path);
+            pt(10,[a.width,a.height],false);pt(11,[1,1],false);tag(280,1);tag(281,0);
+            provenance({id:a.id,source:a.source||{}});
+        }
+        for(const e of imageEntities) {
+            record('IMAGEDEF_REACTOR',imageReactors.get(e.id),handles.get(e.id),['AcDbRasterImageDefReactor']);
+            tag(90,2);tag(330,handles.get(e.id));
+        }
     }
     tag(0, 'ENDSEC');
     tag(0, 'EOF');

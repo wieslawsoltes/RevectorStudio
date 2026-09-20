@@ -1,6 +1,6 @@
 # @revector/workbench
 
-**Compact two-panel conversion IDE** — Revector Studio 0.2.0.
+**Compact two-panel conversion IDE** — Revector Studio 0.4.0.
 
 PDF.js source view, reparsed-DXF view, page/layer/block exploration, inference review, JSON rules, project persistence, measurement and export.
 

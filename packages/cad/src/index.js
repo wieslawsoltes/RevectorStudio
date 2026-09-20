@@ -6,6 +6,9 @@ function transformEntity(e, m) {
     const out = structuredClone(e);
     delete out.bounds;
     switch (e.type) {
+        case 'IMAGE':
+            out.position=transform(m,e.position);out.uPixel=vector(m,e.uPixel);out.vPixel=vector(m,e.vPixel);
+            break;
         case 'LINE':
             out.start = transform(m, e.start);
             out.end = transform(m, e.end);
@@ -36,6 +39,17 @@ function transformEntity(e, m) {
 }
 export { transformEntity };
 export const DEFAULT_CONVERSION_OPTIONS = Object.freeze({ units: 'mm', drawingScale: 1, includeHidden: false, clip: true, preserveForms: true, textMode: 'adaptive', styleLayers: true, strict: false, precision: 10, patternLimit: 2500, booleanTolerance: 1e-8 });
+// Keep provenance data-only: host providers, canvas factories and credentials must not
+// enter the CAD model, structured-clone worker messages, project exports or DXF XDATA.
+function evidenceOptions(value,seen=new WeakSet(),depth=0) {
+    if(value===null||['string','boolean','number'].includes(typeof value))return value;
+    if(!value||typeof value!=='object'||depth>8||seen.has(value))return undefined;
+    if(!Array.isArray(value)&&Object.getPrototypeOf(value)!==Object.prototype)return undefined;
+    seen.add(value);
+    const omit=new Set(['signal','onProgress','onPassword','canvasFactory','session','provider','pdfjs','password','token','apiKey']);
+    const result=Array.isArray(value)?value.map(x=>evidenceOptions(x,seen,depth+1)):Object.fromEntries(Object.entries(value).filter(([k])=>!omit.has(k)).map(([k,v])=>[k,evidenceOptions(v,seen,depth+1)]).filter(([,v])=>v!==undefined));
+    seen.delete(value);return result;
+}
 /** Lowers PDF paint geometry independently of the semantic inference engine. */
 export async function lowerScene(scene, userOptions = {}) {
     const options = { ...DEFAULT_CONVERSION_OPTIONS, ...userOptions };
@@ -45,7 +59,7 @@ export async function lowerScene(scene, userOptions = {}) {
     if (!factor)
         throw new RangeError('Unsupported output units');
     const scale = factor * options.drawingScale, M = compose([scale, 0, 0, scale, 0, 0], scene.pageTransform || I);
-    const doc = createDocument({ name: scene.source?.name || `Page ${scene.pageNumber}`, units: options.units, source: { ...scene.source, page: scene.pageNumber, coordinateTransform: M, options: Object.fromEntries(Object.entries(options).filter(([k, v]) => !['signal', 'onProgress'].includes(k) && typeof v !== 'function')), irSchema: scene.schema }, pageBox: [0, 0, (scene.pageSize?.[0] ?? (scene.box[2] - scene.box[0])) * scale, (scene.pageSize?.[1] ?? (scene.box[3] - scene.box[1])) * scale], diagnostics: structuredClone(scene.diagnostics || []) });
+    const doc = createDocument({ name: scene.source?.name || `Page ${scene.pageNumber}`, units: options.units, source: { ...scene.source, page: scene.pageNumber, coordinateTransform: M, options: evidenceOptions(options), irSchema: scene.schema }, pageBox: [0, 0, (scene.pageSize?.[0] ?? (scene.box[2] - scene.box[0])) * scale, (scene.pageSize?.[1] ?? (scene.box[3] - scene.box[1])) * scale], diagnostics: structuredClone(scene.diagnostics || []) });
     const records = new Map(), styleNames = new Map(), sourceEntities = new Map();
     let counter = 0;
     const addReport = (code, msg, severity = 'warning', id) => doc.diagnostics.push(diagnostic(code, msg, severity, { sourceId: id, page: scene.pageNumber }));
@@ -286,6 +300,14 @@ export async function lowerScene(scene, userOptions = {}) {
             await paintPath(item);
         else if (item.kind === 'text')
             addText(item);
+        else if (item.kind === 'image' && item.rasterAsset) {
+            const a=item.rasterAsset, tm=compose(M,item.transform);
+            if (!doc.assets.some(x=>x.id===a.id)) doc.assets.push(structuredClone(a));
+            append({...common(item,'fill'),type:'IMAGE',imageId:a.id,imageSize:[a.width,a.height],
+                position:transform(tm,[0,0]),uPixel:vector(tm,[1/a.width,0]),vPixel:vector(tm,[0,1/a.height]),
+                opacity:1,color:[255,255,255],source:{...commonSource(item),raster:{...a.source,interpolate:!!item.rasterInterpolate}},
+                semantic:{class:'raster-image',confidence:1,method:'source'}},item);
+        }
     }
     if (scene.items.some(i => i.kind === 'text'))
         addReport('FONT_SUBSTITUTION', 'DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.', 'warning');

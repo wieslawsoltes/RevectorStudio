@@ -1,6 +1,6 @@
 # @revector/semantics
 
-**Transactional semantic rule engine** — Revector Studio 0.2.0.
+**Transactional semantic rule engine** — Revector Studio 0.4.0.
 
 Ordered and versioned rules, evidence-bearing proposals, frozen snapshots, validated transactions and constrained JSON classification rules. Confidence is a score, not a probability.
 

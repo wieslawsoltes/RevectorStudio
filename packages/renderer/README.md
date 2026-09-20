@@ -1,6 +1,6 @@
 # @revector/renderer
 
-**Retained CAD Canvas renderer** — Revector Studio 0.2.0.
+**Retained CAD Canvas renderer** — Revector Studio 0.4.0.
 
 Camera, display-list culling, entity picking, native cubic paths, block/attribute rendering, measurements and linked viewports. Presentation sampling does not modify exported geometry.
 

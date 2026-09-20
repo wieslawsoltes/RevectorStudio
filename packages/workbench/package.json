@@ -1,6 +1,6 @@
 {
   "name": "@revector/workbench",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "Compact two-panel conversion IDE for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -26,16 +26,16 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/engine": "0.3.0",
-    "@revector/renderer": "0.3.0",
-    "@revector/ui": "0.3.0",
-    "@revector/geometry": "0.3.0",
-    "@revector/model": "0.3.0",
-    "@revector/dxf": "0.3.0",
-    "@revector/pdf": "0.3.0",
-    "@revector/rules-cad": "0.3.0",
-    "@revector/semantics": "0.3.0",
-    "@revector/ocr": "0.3.0",
-    "@revector/rules-document": "0.3.0"
+    "@revector/engine": "0.4.0",
+    "@revector/renderer": "0.4.0",
+    "@revector/ui": "0.4.0",
+    "@revector/geometry": "0.4.0",
+    "@revector/model": "0.4.0",
+    "@revector/dxf": "0.4.0",
+    "@revector/pdf": "0.4.0",
+    "@revector/rules-cad": "0.4.0",
+    "@revector/semantics": "0.4.0",
+    "@revector/ocr": "0.4.0",
+    "@revector/rules-document": "0.4.0"
   }
 }

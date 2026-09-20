@@ -1,6 +1,6 @@
 # @revector/pdf
 
-**PDF.js vector adapter** — Revector Studio 0.2.0.
+**PDF.js vector adapter** — Revector Studio 0.4.0.
 
 Decoded PDF operator interpretation, native text, optional content, forms, page transforms and source rendering. Raster recognition is composed through @revector/ocr. The executed vendor build is 6.4.172; inspected optional peer contract is 6.3.289.
 

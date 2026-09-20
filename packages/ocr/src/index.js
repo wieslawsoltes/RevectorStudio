@@ -1,12 +1,16 @@
+import {recoverRasterPaths} from './tracing.js';
+export {recoverRasterPaths} from './tracing.js';
 import { compose, inverse, transform, transformBox, I, mapPaths, rectPath, stableHash, intersects } from '@revector/geometry';
 import { diagnostic, checkAbort } from '@revector/model';
 import { rasterRegions, binarize, binaryRgba, detectRasterLines, planRasterTiles, estimateSkew, boundedRotation } from '@revector/raster';
 import { SpatialIndex } from '@revector/topology';
 export const OCR_VERSION = '7.0.0';
-export const DEFAULT_OCR_OPTIONS = Object.freeze({scope:'raster',languages:'eng',dpi:300,minConfidence:65,preprocess:'none',rotation:0,traceLines:false,maxPixels:24_000_000,maxRegions:128,maxWords:25000,timeoutMs:120000,tileSize:2048,tileOverlap:96,maxTiles:256,deskew:false});
+export const DEFAULT_OCR_OPTIONS = Object.freeze({scope:'raster',languages:'eng',dpi:300,minConfidence:65,preprocess:'none',rotation:0,traceLines:false,traceMode:'axis',traceTolerance:.65,maxTracePixels:4_000_000,maxPixels:24_000_000,maxRegions:128,maxWords:25000,timeoutMs:120000,tileSize:2048,tileOverlap:96,maxTiles:256,deskew:false});
 export function normalizeOcrOptions(input={}) {
     const o={...DEFAULT_OCR_OPTIONS,...input};
     if(!/^[a-z][a-z0-9_]{1,23}(\+[a-z][a-z0-9_]{1,23}){0,7}$/.test(o.languages))throw new RangeError('Invalid OCR language codes');
+    if(!['axis','paths'].includes(o.traceMode))throw new RangeError('Invalid raster tracing mode');
+    if(!Number.isFinite(o.traceTolerance)||o.traceTolerance<0||o.traceTolerance>8||!Number.isSafeInteger(o.maxTracePixels)||o.maxTracePixels<1||o.maxTracePixels>4_000_000)throw new RangeError('Invalid raster path tracing budget');
     if(!['raster','page'].includes(o.scope)||!['none','otsu','sauvola'].includes(o.preprocess)||![0,90,180,270].includes(o.rotation))throw new RangeError('Invalid OCR mode');
     for(const [key,min,max] of [['dpi',72,600],['minConfidence',0,100],['maxPixels',1,48_000_000],['maxRegions',1,1024],['maxWords',1,100000],['timeoutMs',1000,600000],['tileSize',256,8192],['tileOverlap',0,2048],['maxTiles',1,4096]])if(!Number.isFinite(o[key])||o[key]<min||o[key]>max)throw new RangeError('Invalid OCR '+key);
     for(const key of ['maxRegions','maxWords','tileSize','tileOverlap','maxTiles'])if(!Number.isInteger(o[key]))throw new RangeError('OCR '+key+' must be an integer');
@@ -177,7 +181,7 @@ async function recoverRasterCore(source,scene,input={}) {
                                 lineBaseline:baseline?{x0:baseline.x0+tile.x,y0:baseline.y0+tile.y,x1:baseline.x1+tile.x,y1:baseline.y1+tile.y}:undefined,
                                 sampledColor:inkColor(original,box),tile:ti,clippedEdges});
                         }
-                        if(o.traceLines){binary ||= binarize(original,{signal,invert:!!o.invert});for(const word of words){const b=word.bbox;
+                        if(o.traceLines&&o.traceMode==='axis'){binary ||= binarize(original,{signal,invert:!!o.invert});for(const word of words){const b=word.bbox;
                             for(let py=Math.max(0,Math.floor(b.y0)-2);py<Math.min(tile.height,Math.ceil(b.y1)+2);py++)for(let px=Math.max(0,Math.floor(b.x0)-2);px<Math.min(tile.width,Math.ceil(b.x1)+2);px++)binary[py*tile.width+px]=0;
                         }
                             for(const line of detectRasterLines(binary,tile.width,tile.height,{minLength:Math.max(24,scale*15),maxThickness:Math.max(3,Math.round(scale*3)),signal})){
@@ -198,6 +202,12 @@ async function recoverRasterCore(source,scene,input={}) {
                     const item=wordToPaint(word,localToPdf,{page:scene.pageNumber,regionId:String(ri),imageIds:(region.wholePage?out.items.filter(i=>i.kind==='image'&&i.visible!==false):region.items).map(i=>i.id),color:word.sampledColor});
                     item.ocr.tile=word.tile;item.ocr.clippedEdges=word.clippedEdges||[];item.ocr.deskew=out.ocr.deskew.find(d=>d.region===ri)||null;out.items.push(item);out.ocr.accepted++;
                 }
+                if(o.traceLines&&o.traceMode==='paths'){
+                    if(rotated.width*rotated.height>o.maxTracePixels)throw new RangeError('Raster tracing region exceeds pixel budget; reduce OCR DPI or choose axis mode');
+                    const raster=rc.getImageData(0,0,rotated.width,rotated.height);
+                    const traced=await recoverRasterPaths(raster,localToPdf,out,{words:recovered,regionId:String(ri),imageIds:region.items.map(i=>i.id),canvasFactory:make,maxPixels:o.maxTracePixels,tolerance:o.traceTolerance,invert:!!o.invert,signal});
+                    out.items.push(...traced.items);out.ocr.paths=(out.ocr.paths||0)+traced.items.length;(out.ocr.traces||=[]).push(traced.stats);
+                }
                 for(const line of lineCandidates){const start=transform(localToPdf,line.start),end=transform(localToPdf,line.end);
                     out.items.push({id:`raster-line-${ri}-${out.ocr.lines++}`,kind:'path',operator:-1,visible:true,layerId:'REVECTOR_RASTER_LINES',paths:[{start,segments:[{kind:'L',to:end}],closed:false}],stroke:true,fill:false,clips:[],formPath:[],style:{stroke:[0,0,0],lineWidth:line.thickness*Math.hypot(localToPdf[0],localToPdf[1]),strokeAlpha:1,dash:[]},rasterInference:{method:'axis-runs',confidence:line.confidence}});
                 }
@@ -206,8 +216,9 @@ async function recoverRasterCore(source,scene,input={}) {
         }
     }finally{if(own)await session.dispose();full.width=full.height=1;}
     if(out.ocr.accepted)out.ocgs.REVECTOR_OCR={name:'OCR_TEXT',visible:true};if(out.ocr.lines)out.ocgs.REVECTOR_RASTER_LINES={name:'RASTER_LINE_HYPOTHESES',visible:true};
+    if(out.ocr.paths)out.ocgs.REVECTOR_RASTER_PATHS={name:'RASTER_PATH_HYPOTHESES',visible:true};
     out.diagnostics=out.diagnostics.filter(d=>!d.code.startsWith('OCR_'));
     out.diagnostics.push(diagnostic('OCR_RECOVERY',`${out.ocr.accepted} OCR words added; ${out.ocr.rejected} below confidence threshold; ${out.ocr.duplicates} native-text overlaps suppressed. OCR is inferred, not lossless.`, 'warning',{ocr:out.ocr}));
-    if(o.traceLines)out.diagnostics.push(diagnostic('RASTER_LINE_INFERENCE','Axis-aligned raster lines are estimated, not exact recovered CAD primitives; text boxes are excluded.','warning'));
+    if(o.traceLines)out.diagnostics.push(diagnostic('RASTER_LINE_INFERENCE',o.traceMode==='paths'?'Raster centerlines are inferred, not exact CAD primitives. OCR boxes and native paint are excluded; ambiguous pixel connections remain reviewable.':'Axis-aligned raster lines are estimated, not exact recovered CAD primitives; text boxes are excluded.','warning'));
     out.source={...out.source,ocr:{engine:out.ocr.engine,accepted:out.ocr.accepted,effectiveDpi:out.ocr.effectiveDpi}};return out;
 }

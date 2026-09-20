@@ -1,3 +1,4 @@
+import {diagramRegion} from './regions.js';
 import { checkAbort as abortAnalysis, entityBox, entityPaths } from '@revector/model';
 import { stableHash, distance, containsBox, intersects, dot, sub, length, near, pathEdges, emptyBox, union } from '@revector/geometry';
 import { DisjointSet, SpatialIndex } from '@revector/topology';
@@ -102,13 +103,34 @@ export function detectFields(document,options={}) {
     for(const e of c.texts){if(!vocabulary.test(String(e.text).trim()))continue;const b=entityBox(e,document),h=e.height||c.h,candidates=c.index.search([b[2]-h*.2,b[1]-h*.5,b[2]+h*18,b[3]+h*.5]).filter(t=>t.id!==e.id&&!vocabulary.test(t.text)).sort((a,b)=>distance(e.position,a.position)-distance(e.position,b.position));const value=candidates[0];if(value)bounded(out,proposal('labeled-field',`${e.text} → ${value.text}`,[e,value],{label:e.text,value:value.text,relation:'nearest right-hand baseline field'},.86));}
     return out;
 }
-function shapes(document,tolerance){return document.entities.filter(e=>e.type==='CIRCLE'||e.type==='ELLIPSE'||e.type==='LWPOLYLINE'&&e.closed&&e.points.length>=3&&e.points.length<=8).map(e=>({e,box:entityBox(e,document)})).filter(s=>s.box[2]-s.box[0]>tolerance&&s.box[3]-s.box[1]>tolerance);}
+/** Label ownership and connector endpoint matching use actual contour geometry.
+ * Ties and multiple matching boundaries are ambiguous, not permission to fabricate a graph.
+ */
 export function detectDiagram(document,options={}) {
-    const c=context(document,options),nodes=shapes(document,c.tolerance),out=[],index=new SpatialIndex(nodes,n=>n.box),links=[];
-    const classified=new Set();for(const n of nodes){const texts=c.index.search(n.box).filter(e=>containsBox(n.box,entityBox(e,document),c.tolerance));if(texts.length&&texts.length<64){classified.add(n.e.id);bounded(out,proposal('diagram-node',`Labeled ${n.e.type.toLowerCase()}`,[n.e,...texts],{label:texts.map(e=>e.text).join(' '),bounds:n.box},.90));}}
+    const c=context(document,options),out=[],links=[];let work=0;
+    const spend=n=>{work+=n;if(work>2_000_000)throw new RangeError('Diagram geometry budget exceeded');abortAnalysis(options.signal);};
+    const nodes=[];
+    for(const e of document.entities){if(!['CIRCLE','ELLIPSE','LWPOLYLINE'].includes(e.type))continue;
+        const region=diagramRegion(e,document,c.tolerance,spend,options.signal);if(region)nodes.push(region);
+    }
+    const index=new SpatialIndex(nodes,n=>n.box),labels=new Map();
+    for(const text of c.texts){spend(1);const box=entityBox(text,document);
+        const possible=index.search(box).filter(n=>{spend(1);return containsBox(n.box,box,c.tolerance)&&n.contains(box);}).sort((a,b)=>a.area-b.area);
+        if(!possible.length||possible[1]&&Math.abs(possible[1].area-possible[0].area)<=c.tolerance*c.tolerance)continue;
+        const n=possible[0],members=labels.get(n.e.id)||[];members.push(text);labels.set(n.e.id,members);
+    }
+    const classified=new Set();
+    for(const n of nodes){const texts=labels.get(n.e.id);if(!texts?.length||texts.length>=64)continue;texts.sort((a,b)=>b.position[1]-a.position[1]||a.position[0]-b.position[0]);classified.add(n.e.id);
+        bounded(out,proposal('diagram-node',`Labeled ${n.e.type.toLowerCase()}`,[n.e,...texts],{label:texts.map(e=>e.text).join(' '),bounds:n.box,labelContainment:'full metric box inside contour',ownership:'smallest unambiguous region'},.90));
+    }
     const endpoints=e=>e.type==='LINE'?[e.start,e.end]:e.type==='LWPOLYLINE'&&!e.closed?[e.points[0],e.points.at(-1)]:null;
-    for(const e of document.entities){const ends=endpoints(e);if(!ends)continue;const match=p=>index.search(expand([...p,...p],Math.max(c.tolerance,c.h*.12))).filter(n=>n.e.id!==e.id&&classified.has(n.e.id)).sort((a,b)=>(a.box[2]-a.box[0])*(a.box[3]-a.box[1])-(b.box[2]-b.box[0])*(b.box[3]-b.box[1]))[0];const a=match(ends[0]),b=match(ends[1]);if(a&&b&&a.e.id!==b.e.id){links.push({from:a.e.id,to:b.e.id,connector:e.id});bounded(out,proposal('diagram-connection','Diagram connection',[a.e,b.e,e],{from:a.e.id,to:b.e.id,connector:e.id,directed:false},.91));}}
-    if(links.length&&links.length<=512)bounded(out,proposal('diagram-graph',`Diagram graph · ${classified.size} labeled nodes`,document.entities.filter(e=>classified.has(e.id)||links.some(l=>l.connector===e.id)),{nodes:[...classified],edges:links},.90));return out;
+    const tolerance=Math.max(c.tolerance,c.h*.12);
+    for(const e of document.entities){const ends=endpoints(e);if(!ends)continue;
+        const match=p=>{const found=index.search(expand([...p,...p],tolerance)).filter(n=>{spend(1);return n.e.id!==e.id&&classified.has(n.e.id)&&n.boundary(p)<=tolerance;});return found.length===1?found[0]:null;};
+        const a=match(ends[0]),b=match(ends[1]);if(a&&b&&a.e.id!==b.e.id){links.push({from:a.e.id,to:b.e.id,connector:e.id});bounded(out,proposal('diagram-connection','Diagram connection',[a.e,b.e,e],{from:a.e.id,to:b.e.id,connector:e.id,directed:false,endpointEvidence:'contour boundary proximity'},.91));}
+    }
+    if(links.length&&links.length<=512){const connected=new Set(links.flatMap(l=>[l.from,l.to,l.connector]));bounded(out,proposal('diagram-graph',`Diagram graph · ${new Set(links.flatMap(l=>[l.from,l.to])).size} connected nodes`,document.entities.filter(e=>connected.has(e.id)),{nodes:[...new Set(links.flatMap(l=>[l.from,l.to]))],edges:links},.90));}
+    return out;
 }
 export function detectParallelBoundaries(document,options={}) {
     const c=context(document,options),ss=segments(document),index=new SpatialIndex(ss,s=>s.box),out=[],visited=new Set();let work=0;
@@ -213,4 +235,4 @@ export function detectLists(document, options={}) {
     return out;
 }
 const definitions=[['table-grids','Tables and schedules',detectTables],['text-flows','Text reading flows',detectTextFlows],['notations','Engineering and electrical notation',detectTechnicalText],['fields','Labeled document fields',detectFields],['diagram','Diagram nodes and connectivity',detectDiagram],['parallel','Parallel boundaries',detectParallelBoundaries],['concentric','Concentric mechanical features',detectConcentric],['leaders','Leader callouts',detectLeaders],['borderless-tables','Unruled schedules',detectBorderlessTables],['lists','Numbered and bullet lists',detectLists]];
-export const documentRules=definitions.map(([id,title,detect],i)=>({id:'document.'+id,title,version:id==='table-grids'?'1.1.0':'1.0.0',stage:60+i,description:'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.',run:({document,options,checkAbort})=>{checkAbort();return options.profile==='exact'?[]:detect(document,options);}}));
+export const documentRules=definitions.map(([id,title,detect],i)=>({id:'document.'+id,title,version:['table-grids','diagram'].includes(id)?'1.1.0':'1.0.0',stage:60+i,description:'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.',run:({document,options,checkAbort})=>{checkAbort();return options.profile==='exact'?[]:detect(document,options);}}));

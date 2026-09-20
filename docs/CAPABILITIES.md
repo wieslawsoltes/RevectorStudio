@@ -57,3 +57,7 @@ Strict mode rejects conversions with unresolved **error** diagnostics. Warnings 
 ## Irrecoverable versus unimplemented
 
 Some boundaries are implementation work (for example vector shade approximations, deeper font-outline support, additional semantic rules). Others are missing source information: a printed PDF can discard CAD object IDs, original block names, constraints, associativity, hidden model geometry, elevations and engineering intent. A recovery engine can propose hypotheses from surviving evidence, but it must not present guessed original data as recovered fact.
+
+## Version 0.4 additions and superseded boundaries
+
+Supported raster resources can now be preserved as native `IMAGE` references plus PNG sidecars (`Keep images`). Arbitrary-angle centerline paths are optionally inferred with bounded thinning and graph tracing. The earlier no-image-export/axis-only boundaries above describe previous versions; current supported operations, skipped mask/group cases, resampling and accuracy boundaries are detailed in [RECOVERY-0.4.md](RECOVERY-0.4.md). Eighteen semantic rules remain, with contour-aware diagram label ownership and connector matching.

@@ -1,0 +1,16 @@
+{
+  "version": "0.4.0",
+  "sourceBase": "4c1348eb6a821ec76cf653a3042adae230ae84a5",
+  "patchSha256": "08a511672fffac0f8dccc73fb1842f532db7ae1b2ccc90d1986acc1dbe96332d",
+  "workflowRun": "35495075433",
+  "nodeTests": 150,
+  "nodeFailures": 0,
+  "imageBrowserChecks": 23,
+  "imageDxfVersions": 6,
+  "imageDxfPages": 2,
+  "nativeImageCliCases": 4,
+  "independentBaselineDxfFiles": 35,
+  "isolatedNpmImports": 16,
+  "imageBrowserTransport": "real HTTP(S)",
+  "qualification": "Authored regression fixtures, not universal PDF, OCR or commercial CAD certification."
+}

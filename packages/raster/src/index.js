@@ -54,3 +54,4 @@ export function detectRasterLines(binary,width,height,{minLength=60,maxThickness
     }return result;
 }
 export {planRasterTiles,estimateSkew,boundedRotation} from './analysis.js';
+export {traceRasterPaths,DEFAULT_TRACE_OPTIONS} from './tracing.js';

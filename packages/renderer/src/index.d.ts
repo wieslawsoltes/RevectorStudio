@@ -22,6 +22,11 @@ export class Camera {
 }
 export function splinePoint(e: SplineEntity, t: number): Point;
 export class CadRenderer {
+    imagesReady:Promise<unknown>;
+    imageErrors:Array<{id:string;message:string}>;
+    images:Map<string,ImageBitmap>;
+    changed:Signal;
+    dispose():void;
     doc: CadDocument | null;
     hiddenLayers: Set<string>;
     dark: boolean;

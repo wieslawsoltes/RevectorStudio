@@ -1,8 +1,9 @@
+export {sha256Bytes} from './sha256.js';
 import { emptyBox, extend, union, transformBox, pathBox, insertMatrix, validBox, cubicBox, transform, I, compose } from '@revector/geometry';
 export const MODEL_SCHEMA = 'revector.cad/1';
 export const SCENE_SCHEMA = 'revector.pdf/1';
 export const DXF_VERSIONS = Object.freeze({ '2000': 'AC1015', '2004': 'AC1018', '2007': 'AC1021', '2010': 'AC1024', '2013': 'AC1027', '2018': 'AC1032' });
-export function createDocument(options = {}) { return { schema: MODEL_SCHEMA, revision: 0, name: options.name || 'Untitled', units: options.units || 'mm', entities: [], blocks: [], layers: [{ name: '0', color: [210, 220, 230], visible: true }], groups: [], diagnostics: [], candidates: [], history: [], source: {}, pageBox: [0, 0, 297, 210], ...options }; }
+export function createDocument(options = {}) { return { schema: MODEL_SCHEMA, revision: 0, name: options.name || 'Untitled', units: options.units || 'mm', entities: [], blocks: [], assets: [], layers: [{ name: '0', color: [210, 220, 230], visible: true }], groups: [], diagnostics: [], candidates: [], history: [], source: {}, pageBox: [0, 0, 297, 210], ...options }; }
 export function diagnostic(code, message, severity = 'warning', detail = {}) { return { code, message, severity, ...detail }; }
 export function ensureLayer(doc, name, color = [0, 0, 0], visible = true) {
     let l = doc.layers.find(l => l.name === name);
@@ -18,6 +19,10 @@ export function entityBox(e, doc, seen = new Set()) {
         return [...e.bounds];
     const b = emptyBox();
     switch (e.type) {
+        case 'IMAGE': {
+            const [w,h] = e.imageSize;
+            return transformBox([0,0,w,h], [...e.uPixel,...e.vPixel,...e.position]);
+        }
         case 'LINE':
             extend(b, e.start);
             extend(b, e.end);
@@ -101,6 +106,15 @@ export function validateDocument(doc) {
     const errors = [];
     const ids = new Set(), blocks = new Map(doc.blocks.map(b => [b.name, b]));
     const layers = new Set(doc.layers.map(l => l.name));
+    const assets = new Map((doc.assets || []).map(a => [a.id, a]));
+    const paths = new Set();
+    if (assets.size !== (doc.assets || []).length) errors.push('Duplicate raster asset IDs');
+    for (const a of assets.values()) {
+        if (!a.id || !isSafeAssetPath(a.path)) errors.push('Invalid raster asset ID or unsafe path');
+        if (paths.has(String(a.path).toLowerCase())) errors.push('Duplicate raster asset paths');
+        paths.add(String(a.path).toLowerCase());
+        if (![a.width,a.height].every(n => Number.isInteger(n) && n > 0 && n <= 65535)) errors.push('Invalid raster asset dimensions');
+    }
     const check = (v, path) => {
         if (typeof v === 'number' && !Number.isFinite(v))
             errors.push(`${path}: non-finite number`);
@@ -126,6 +140,13 @@ export function validateDocument(doc) {
             errors.push(`Missing dimension block ${e.block}`);
         if (e.type === 'SPLINE' && e.knots.length !== e.controlPoints.length + e.degree + 1)
             errors.push(`Invalid spline knot count ${e.id}`);
+        if (e.type === 'IMAGE') {
+            const a = assets.get(e.imageId), pts = [e.position,e.uPixel,e.vPixel];
+            if (!a) errors.push(`Missing raster asset ${e.imageId}`);
+            if (!pts.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite))) errors.push(`Invalid image placement ${e.id}`);
+            else if (Math.abs(e.uPixel[0]*e.vPixel[1]-e.uPixel[1]*e.vPixel[0]) < 1e-30) errors.push(`Singular image placement ${e.id}`);
+            if (!Array.isArray(e.imageSize) || e.imageSize.length !== 2 || !e.imageSize.every(n => Number.isInteger(n) && n > 0) || a && (a.width !== e.imageSize[0] || a.height !== e.imageSize[1])) errors.push(`Image dimensions disagree with asset ${e.id}`);
+        }
         check(e, e.id);
     }
     for (const g of doc.groups) {
@@ -171,3 +192,10 @@ export function checkAbort(signal) {
         throw new AbortConversionError();
 }
 export const yieldTask = () => new Promise(resolve => setTimeout(resolve, 0));
+
+/** Portable relative paths only: never implicitly fetch URLs or escape an export directory. */
+export function isSafeAssetPath(value) {
+    return typeof value === 'string' && value.length <= 200 &&
+        /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)*\.png$/.test(value) &&
+        !value.split('/').some(p => p === '.' || p === '..' || p.startsWith('.'));
+}

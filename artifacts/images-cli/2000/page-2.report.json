@@ -1,0 +1,266 @@
+{
+  "schema": "revector.report/1",
+  "version": "0.4.0",
+  "color": {
+    "rasterImages": 4,
+    "imagePixelsAudited": false,
+    "space": "sRGB",
+    "metric": "CIEDE2000 / D65",
+    "compared": 1,
+    "changed": 0,
+    "missing": 0,
+    "invalid": 0,
+    "unresolved": 0,
+    "complete": false,
+    "rgbExact": false,
+    "maxChannelError": 0,
+    "maxDeltaE": 0,
+    "opacityCompared": 1,
+    "opacityChanged": 0,
+    "maxOpacityError": 0,
+    "opacityExact": true,
+    "samples": [],
+    "exact": false,
+    "profilePolicy": "PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.",
+    "scope": "Explicit entity RGB and opacity; not a proof of PDF blend modes, overprint, image profiles, or inherited CAD colors.",
+    "source": {
+      "engine": "PDF.js",
+      "version": "6.4.172",
+      "output": "sRGB",
+      "useWasm": true,
+      "iccResourcesConfigured": true,
+      "policy": "Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied."
+    }
+  },
+  "ocr": null,
+  "rasterImages": {
+    "retained": 4,
+    "skipped": 0,
+    "assets": 2,
+    "bytes": 285,
+    "pixels": 1024,
+    "complete": true,
+    "mode": "decoded-image-resources",
+    "colorSpace": "sRGB",
+    "clips": "baked PNG alpha at native resolution"
+  },
+  "source": {
+    "name": "source.pdf",
+    "fingerprints": [
+      "7f7e89e17c3964753fb20a4bfcea6e53",
+      null
+    ],
+    "producer": "Revector regression fixture",
+    "creator": "",
+    "pdfVersion": "1.7",
+    "PDFFormatVersion": "1.7",
+    "Language": null,
+    "EncryptFilterName": null,
+    "IsLinearized": false,
+    "IsAcroFormPresent": false,
+    "IsXFAPresent": false,
+    "IsCollectionPresent": false,
+    "IsSignaturesPresent": false,
+    "Producer": "Revector regression fixture",
+    "page": 2,
+    "coordinateTransform": [
+      0,
+      -0.7055555555555555,
+      0.7055555555555555,
+      0,
+      -7.055555555555555,
+      246.94444444444443
+    ],
+    "options": {
+      "units": "mm",
+      "drawingScale": 1,
+      "includeHidden": false,
+      "clip": true,
+      "preserveForms": true,
+      "textMode": "adaptive",
+      "styleLayers": true,
+      "strict": false,
+      "precision": 10,
+      "patternLimit": 2500,
+      "booleanTolerance": 1e-8,
+      "name": "Exact geometry",
+      "description": "Only coordinate-preserving transformations are accepted automatically.",
+      "fidelity": "exact",
+      "minConfidence": 0.98,
+      "version": "2000",
+      "profile": "exact"
+    },
+    "irSchema": "revector.pdf/1",
+    "operatorCount": 37,
+    "paintItems": 5,
+    "rasterItems": 4
+  },
+  "target": {
+    "version": "2000",
+    "acadVersion": "AC1015",
+    "units": "mm"
+  },
+  "summary": {
+    "entities": 5,
+    "blockDefinitions": 0,
+    "layers": 3,
+    "types": {
+      "IMAGE": 4,
+      "LINE": 1
+    },
+    "diagnostics": 1,
+    "accepted": 0,
+    "pending": 0
+  },
+  "producer": {
+    "family": "Generic vector PDF",
+    "confidence": 1
+  },
+  "diagnostics": [
+    {
+      "code": "RASTER_IMAGE_RETAINED",
+      "message": "4 raster paints retained as 2 PNG sidecars; native PDF vectors remain separate. Image color is decoded to sRGB; clips/alpha are baked at raster resolution.",
+      "severity": "info"
+    },
+    {
+      "code": "DXF_EXTERNAL_IMAGES",
+      "message": "Raster images require the adjacent PNG assets. Export the DXF package, not the DXF text alone.",
+      "severity": "info"
+    }
+  ],
+  "rules": [
+    {
+      "rule": "geometry.join-chains",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.15341600000004973
+    },
+    {
+      "rule": "cad.conic-recovery",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.12317999999999074
+    },
+    {
+      "rule": "cad.repeated-symbols",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.1927299999999832
+    },
+    {
+      "rule": "cad.tag-attributes",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.11725899999999001
+    },
+    {
+      "rule": "cad.dimensions",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.2043920000000412
+    },
+    {
+      "rule": "cad.centerlines",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.11488400000001775
+    },
+    {
+      "rule": "cad.hatch-families",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.16273400000000038
+    },
+    {
+      "rule": "cad.title-block",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.11519499999997151
+    },
+    {
+      "rule": "document.table-grids",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10586699999998928
+    },
+    {
+      "rule": "document.text-flows",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10625899999996591
+    },
+    {
+      "rule": "document.notations",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10599799999999959
+    },
+    {
+      "rule": "document.fields",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.13458200000002307
+    },
+    {
+      "rule": "document.diagram",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10718900000000531
+    },
+    {
+      "rule": "document.parallel",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10781199999996716
+    },
+    {
+      "rule": "document.concentric",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10608799999999974
+    },
+    {
+      "rule": "document.leaders",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10201100000000451
+    },
+    {
+      "rule": "document.borderless-tables",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10000700000000506
+    },
+    {
+      "rule": "document.lists",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.10092800000001034
+    }
+  ],
+  "timings": {
+    "geometryMs": 0.47780199999999695,
+    "semanticsMs": 22.253062,
+    "serializeMs": 1.7271749999999884,
+    "roundtripMs": 1.4539740000000165,
+    "totalMs": 26.110253
+  },
+  "coverage": {
+    "paintItems": 5,
+    "vectorPaths": 1,
+    "textRuns": 0,
+    "forms": 0,
+    "rasterItems": 4,
+    "shadings": 0
+  },
+  "validation": {
+    "model": {
+      "valid": true,
+      "errors": []
+    },
+    "roundtrip": {
+      "valid": true,
+      "errors": []
+    }
+  }
+}

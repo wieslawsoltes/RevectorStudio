@@ -1,3 +1,5 @@
+import {preserveRasterImages} from './images.js';
+export {preserveRasterImages,DEFAULT_IMAGE_OPTIONS} from './images.js';
 import { interpretOperators } from './interpreter.js';
 import { diagnostic, checkAbort } from '@revector/model';
 export { interpretOperators } from './interpreter.js';
@@ -110,6 +112,7 @@ export class PdfSource {
             groups[id] = { name: g.name, visible: g.visible, locked: g.locked };
         const scene = await interpretOperators(cached.list, { ...options, OPS: this.lib.OPS, pageNumber, box: page.view, pageTransform, userUnit: page.userUnit, rotation: page.rotate, fonts: cached.fonts, ocgs: groups, structure: cached.structure, annotations: cached.annotations, source: { name: this.options.name || this.metadata?.info?.Title || 'PDF document', fingerprints: this.pdf.fingerprints, producer: this.metadata?.info?.Producer || '', creator: this.metadata?.info?.Creator || '', pdfVersion: this.metadata?.info?.PDFFormatVersion || '', ...this.metadata?.info } });
         scene.pageSize = [vp.width, vp.height];
+        scene.annotationMode = annotationMode;
         scene.colorManagement = {engine: 'PDF.js', version: this.lib.version, output: 'sRGB', useWasm: this.options.pdfOptions?.useWasm !== false, iccResourcesConfigured: !!this.options.pdfOptions?.iccUrl, policy: 'Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied.'};
         if (!scene.colorManagement.iccResourcesConfigured) scene.diagnostics.push(diagnostic('ICC_RESOURCES_NOT_CONFIGURED', 'No ICC resource URL was configured; PDF.js may use its fallback CMYK conversion.', 'warning'));
 
@@ -134,6 +137,17 @@ export class PdfSource {
             signal?.removeEventListener('abort', abort);
         }
     }
+    async rasterResource(scene,item) {
+        const page=await this.pdf.getPage(scene.pageNumber);
+        if(item.reference)return getObject(item.reference.startsWith('g_')?page.commonObjs:page.objs,item.reference);
+        const key=`${scene.pageNumber}:${scene.annotationMode??this.lib.AnnotationMode.ENABLE}`;
+        if(!this.#cache.has(key))await this.extract(scene.pageNumber,{includeAnnotations:scene.annotationMode!==this.lib.AnnotationMode.DISABLE});
+        const list=this.#cache.get(key)?.list;
+        const args=list?.argsArray[item.operator];
+        if(item.imageType==='paintInlineImageXObject'&&args?.[0])return args[0];
+        throw new Error('Unsupported inline/packed raster resource');
+    }
+    preserveRasterImages(scene,options={}) { return preserveRasterImages(this,scene,options); }
     setLayerVisible(id, visible) { this.optionalContent?.setVisibility(id, visible); }
     async outline() { return this.pdf.getOutline(); }
     async attachmentInventory() { const a = await this.pdf.getAttachments(); return Object.entries(a || {}).map(([id, x]) => ({ id, name: x.filename, size: x.content.length })); }

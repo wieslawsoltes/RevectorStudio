@@ -1,6 +1,6 @@
 # @revector/engine
 
-**Conversion orchestration and worker client** — Revector Studio 0.2.0.
+**Conversion orchestration and worker client** — Revector Studio 0.4.0.
 
 PDF/CAD/rules/DXF pipeline, diagnostics and timings, serialized-DXF round-trip validation, cancellation and worker lifecycle.
 

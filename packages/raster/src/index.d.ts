@@ -12,3 +12,7 @@ export interface RasterTile {x:number;y:number;width:number;height:number;core:[
 export function planRasterTiles(width:number,height:number,options?:{tileSize?:number;overlap?:number;maxTiles?:number}):RasterTile[];
 export function estimateSkew(binary:Uint8Array,width:number,height:number,options?:{maxAngle?:number;step?:number;maxSamples?:number;signal?:AbortSignal}):{angle:number;confidence:number;samples:number;reason:string};
 export function boundedRotation(angle:number,width:number,height:number,maxPixels?:number):{width:number;height:number;scale:number;matrix:number[]};
+export interface TraceOptions {maxPixels?:number;maxForeground?:number;maxIterations?:number;maxWork?:number;maxPaths?:number;maxPoints?:number;tolerance?:number;signal?:AbortSignal}
+export interface RasterTracePath {points:[number,number][];closed:boolean;samples:number;maxDeviationPixels:number;startDegree:number;endDegree:number;touchesBorder:boolean}
+export const DEFAULT_TRACE_OPTIONS:Readonly<Required<Omit<TraceOptions,'signal'>>>;
+export function traceRasterPaths(binary:Uint8Array,width:number,height:number,options?:TraceOptions):Promise<{paths:RasterTracePath[];stats:{foreground:number;skeletonPixels:number;iterations:number;junctionPixels:number;endpoints:number;isolatedPixels:number;graphEdges:number;tracedEdges:number;work:number};method:string;inferred:true}>;

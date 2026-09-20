@@ -2,6 +2,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import {packageDxf} from '@revector/dxf';
 import { recoverPdfRaster, TesseractOcr } from '@revector/ocr';
 import { PdfSource } from '@revector/pdf';
 import { ConversionEngine } from '@revector/engine';
@@ -20,6 +21,7 @@ Usage: npm run convert -- --input drawing.pdf --output drawing.dxf [options]
   --no-forms                              Keep form primitives expanded
   --report report.json                    Default: adjacent .report.json
   --scene scene.json                      Save immutable PDF paint intermediate
+  --keep-images                           Export native IMAGE references + adjacent PNGs
   --ocr                                   Enable raster-region OCR
   --ocr-language eng|deu|pol|eng+pol        Recognition languages
   --ocr-scope raster|page                  Region or whole-page OCR
@@ -30,12 +32,13 @@ Usage: npm run convert -- --input drawing.pdf --output drawing.dxf [options]
   --ocr-deskew                             Estimate and correct small scan skew
   --ocr-invert                             Recognize light text on dark paper
   --ocr-tile-size NUMBER                   Overlapping tile side, default: 2048
-  --ocr-trace-lines                        Infer ruled lines after removing text
+  --ocr-trace-lines                        Infer linework after removing text
+  --ocr-trace-mode axis|paths               Ruled lines or centerline graph
   --help
 `;
 const args = {};
-const boolean = new Set(['strict', 'include-hidden', 'no-forms', 'help', 'ocr', 'ocr-deskew', 'ocr-invert', 'ocr-trace-lines']);
-const allowed = new Set(['ocr-language','ocr-scope','ocr-dpi','ocr-confidence','ocr-preprocess','ocr-rotation','ocr-tile-size','input', 'output', 'version', 'page', 'units', 'scale', 'profile', 'rules', 'decisions', 'password-env', 'report', 'scene', ...boolean]);
+const boolean = new Set(['strict', 'include-hidden', 'no-forms', 'help', 'ocr', 'ocr-deskew', 'ocr-invert', 'ocr-trace-lines','keep-images']);
+const allowed = new Set(['ocr-language','ocr-scope','ocr-dpi','ocr-confidence','ocr-preprocess','ocr-rotation','ocr-tile-size','ocr-trace-mode','input', 'output', 'version', 'page', 'units', 'scale', 'profile', 'rules', 'decisions', 'password-env', 'report', 'scene', ...boolean]);
 try {
     for (let i = 2; i < process.argv.length; i++) {
         const arg = process.argv[i];
@@ -60,11 +63,12 @@ try {
     if (args['password-env'])
         pdfOptions.onPassword = () => process.env[args['password-env']] ?? null;
     const source = await PdfSource.open(data, pdfOptions);
-    let ocr;
+    let ocr,canvasFactory;
     try {
+    if(args['keep-images'])canvasFactory=(await import('@napi-rs/canvas')).createCanvas;
     if (args.ocr) {
         const provider = await import('tesseract.js'), {createCanvas} = await import('@napi-rs/canvas');
-        ocr = {languages:args['ocr-language']||'eng',scope:args['ocr-scope']||'raster',dpi:Number(args['ocr-dpi']||300),minConfidence:Number(args['ocr-confidence']||65),preprocess:args['ocr-preprocess']||'none',rotation:Number(args['ocr-rotation']||0),deskew:!!args['ocr-deskew'],invert:!!args['ocr-invert'],traceLines:!!args['ocr-trace-lines'],tileSize:Number(args['ocr-tile-size']||2048),canvasFactory:createCanvas,session:new TesseractOcr({provider,node:true,languages:args['ocr-language']||'eng',langPath:root+'/vendor/ocr/lang'})};
+        ocr = {languages:args['ocr-language']||'eng',scope:args['ocr-scope']||'raster',dpi:Number(args['ocr-dpi']||300),minConfidence:Number(args['ocr-confidence']||65),preprocess:args['ocr-preprocess']||'none',rotation:Number(args['ocr-rotation']||0),deskew:!!args['ocr-deskew'],invert:!!args['ocr-invert'],traceLines:!!args['ocr-trace-lines'],traceMode:args['ocr-trace-mode']||'axis',tileSize:Number(args['ocr-tile-size']||2048),canvasFactory:createCanvas,session:new TesseractOcr({provider,node:true,languages:args['ocr-language']||'eng',langPath:root+'/vendor/ocr/lang'})};
     }
         const engine = new ConversionEngine(), options = { version: args.version || '2018', units: args.units || 'mm', drawingScale: Number(args.scale || 1), profile: args.profile || 'cad', strict: !!args.strict, includeHidden: !!args['include-hidden'], preserveForms: !args['no-forms'], signal: controller.signal };
         if (args.rules)
@@ -77,10 +81,14 @@ try {
             await mkdir(args.output, { recursive: true });
         for (const page of pages) {
             let scene = await source.extract(page, { signal: controller.signal });
+            if(canvasFactory)scene=await source.preserveRasterImages(scene,{canvasFactory,signal:controller.signal});
             if (ocr) scene = await recoverPdfRaster(source,scene,{...ocr,signal:controller.signal});
             const result = await engine.convertScene(scene, options), output = batch ? path.join(args.output, `page-${page}.dxf`) : args.output;
             await mkdir(path.dirname(path.resolve(output)), { recursive: true });
-            await writeFile(output, result.dxf.text);
+            if(result.document.assets?.length) {
+                const pack=packageDxf(result.document,{version:options.version,strict:options.strict,filename:path.basename(output)});
+                for(const file of pack.files){const destination=path.join(path.dirname(path.resolve(output)),file.name);await mkdir(path.dirname(destination),{recursive:true});await writeFile(destination,file.data);}
+            } else await writeFile(output, result.dxf.text);
             await writeFile(pages.length === 1 && args.report ? args.report : output.replace(/\.dxf$/i, '') + '.report.json', JSON.stringify(result.report, null, 2) + '\n');
             if (args.scene)
                 await writeFile(pages.length === 1 ? args.scene : output + '.scene.json', JSON.stringify(scene));
