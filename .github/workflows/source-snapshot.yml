@@ -9,13 +9,18 @@ permissions:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Archive tracked files at the exact revision
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Archive tracked files and locked Linux build dependencies
         run: |
           git archive --format=zip --output=source.zip HEAD
-          sha256sum source.zip > source.zip.sha256
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
+          tar -czf linux-node-dependencies.tar.gz node_modules
+          sha256sum source.zip linux-node-dependencies.tar.gz > SHA256SUMS
           git rev-parse HEAD > revision.txt
           git show -s --format='%H%n%T%n%s' HEAD > commit.txt
       - uses: actions/upload-artifact@v4
@@ -23,7 +28,8 @@ jobs:
           name: revector-source-snapshot
           path: |
             source.zip
-            source.zip.sha256
+            linux-node-dependencies.tar.gz
+            SHA256SUMS
             revision.txt
             commit.txt
           retention-days: 7
