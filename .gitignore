@@ -3,3 +3,5 @@ dist/
 artifacts/*.tgz
 __pycache__/
 .DS_Store
+# Tesseract's writable CLI cache is not a source or deployment asset.
+/*.traineddata
