@@ -1,0 +1,130 @@
+name: Refine OCR tile seams
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/refine-recovery-seams.yml]
+permissions:
+  contents: write
+concurrency:
+  group: source-recovery-v03
+  cancel-in-progress: false
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reconcile complete OCR observations with clipped tile fragments
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def replace(path,old,new):
+              p=Path(path);s=p.read_text();assert s.count(old)==1,(path,old);p.write_text(s.replace(old,new))
+          replace('packages/ocr/src/index.js',
+              'records.sort((a,b)=>(Number.isFinite(b.word.confidence)?b.word.confidence:-1)-(Number.isFinite(a.word.confidence)?a.word.confidence:-1)||a.index-b.index);',
+              '''// A complete observation wins over a crop-edge fragment even when the OCR
+              // engine assigns the fragment higher confidence. Tile-edge contact alone is
+              // not a reason to discard text: unmatched observations are retained/flagged.
+              records.sort((a,b)=>Number(!!a.word.clippedEdges?.length)-Number(!!b.word.clippedEdges?.length)||(Number.isFinite(b.word.confidence)?b.word.confidence:-1)-(Number.isFinite(a.word.confidence)?a.word.confidence:-1)||a.index-b.index);''')
+          replace('packages/ocr/src/index.js',
+              'if(Math.min(common,reverse)>(same?.55:.92))suppressed.add(other.index);',
+              '''const fragment=other.word.clippedEdges?.length&&!record.word.clippedEdges?.length&&Number.isInteger(record.word.tile)&&Number.isInteger(other.word.tile)&&record.word.tile!==other.word.tile&&reverse>.9;
+                      if(fragment||Math.min(common,reverse)>(same?.55:.92))suppressed.add(other.index);''')
+          replace('packages/ocr/src/index.js','const baseline=word.lineBaseline;\n                            candidates.push',
+              '''const baseline=word.lineBaseline,clippedEdges=[];
+                                      if(tile.x>0&&b.x0<=2)clippedEdges.push('left');
+                                      if(tile.y>0&&b.y0<=2)clippedEdges.push('top');
+                                      if(tile.x+tile.width<rotated.width&&b.x1>=tile.width-2)clippedEdges.push('right');
+                                      if(tile.y+tile.height<rotated.height&&b.y1>=tile.height-2)clippedEdges.push('bottom');
+                                      candidates.push''')
+          replace('packages/ocr/src/index.js','sampledColor:inkColor(original,box),tile:ti}', 'sampledColor:inkColor(original,box),tile:ti,clippedEdges}')
+          replace('packages/ocr/src/index.js','item.ocr.tile=word.tile;item.ocr.deskew', 'item.ocr.tile=word.tile;item.ocr.clippedEdges=word.clippedEdges||[];item.ocr.deskew')
+          replace('tests/recovery_browser.py',"check('Overlapping tile duplicates are suppressed',result['ocr']['tileDuplicates']>0 and labels.count('P-101')==1 and labels.count('PUMP')==1)","check('Overlapping tile duplicates and clipped fragments are suppressed',result['ocr']['tileDuplicates']>0 and sorted(labels)==sorted(['PUMP','P-101','FLOW','120','VALVE','OPEN']))")
+          p=Path('docs/RECOVERY-0.3.md');p.write_text(p.read_text()+'\n## Tile-edge observations\n\nWords touching an internal tile crop edge carry `clippedEdges` provenance. A complete observation from another tile suppresses a contained clipped fragment even when the strings differ or the OCR engine gives the fragment a higher confidence. Unmatched edge observations are retained and flagged rather than silently deleted; physical outer image edges are not treated as internal seams. The skewed scan regression asserts exactly the six expected words, not merely their presence among possible duplicate fragments.\n')
+          Path('tests/ocr-seams.test.mjs').write_text('''import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import {deduplicateOcrWords} from '@revector/ocr';
+          const word=(text,box,confidence,tile,clippedEdges=[])=>({text,bbox:{x0:box[0],y0:box[1],x1:box[2],y1:box[3]},confidence,tile,clippedEdges});
+          test('Complete adjacent-tile observations suppress high-confidence clipped fragments',()=>{
+              const partial=word('P-1(', [597,241,672,272],99,0,['right']);
+              const complete=word('P-101',[597,241,703,272],92,1);
+              assert.deepEqual(deduplicateOcrWords([partial,complete]),[complete]);
+          });
+          test('Vertical crop fragments and small contained glyphs do not duplicate full words',()=>{
+              const full=word('OPEN',[605,461,710,492],96,1);
+              const parts=[word('OPI',[605,461,672,492],95,0,['right']),word('Vi',[606,480,643,492],66,3,['top']),word('L',[663,480,672,492],77,3,['top','right'])];
+              assert.deepEqual(deduplicateOcrWords([...parts,full]),[full]);
+          });
+          test('Unmatched clipped text remains available with explicit provenance',()=>{
+              const clipped=word('LONG-TA',[600,20,672,50],85,0,['right']);
+              assert.deepEqual(deduplicateOcrWords([clipped]),[clipped]);
+              assert.deepEqual(clipped.clippedEdges,['right']);
+          });
+          test('Ordinary overlapping labels and distant repeated text are not seam fragments',()=>{
+              const words=[word('PART',[0,0,50,20],90,0),word('PART NUMBER',[0,0,140,20],92,1),word('PART',[200,0,250,20],90,2)];
+              assert.equal(deduplicateOcrWords(words).length,3);
+          });
+          test('Same-tile nested observations are not cross-tile truncation evidence',()=>{
+              const words=[word('A',[0,0,10,20],90,0,['left']),word('AB',[0,0,22,20],89,0)];
+              assert.equal(deduplicateOcrWords(words).length,2);
+          });
+          ''')
+          PY
+      - name: Install locked dependencies
+        run: |
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
+          node scripts/link-workspaces.mjs
+          python -m pip install -r tests/requirements.txt --quiet
+          python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
+      - name: Validate source, true OCR, color and DXF output
+        run: |
+          npm run build
+          npm test | tee "$RUNNER_TEMP/node-tests.log"
+          npm run test:types
+          npm run test:browser
+          npm run test:extensions
+          npm run test:recovery
+          python tests/ocr_cli.py
+          npm run test:dxf
+          npm run pack:all
+      - name: Validate the sixteen packages in an isolated offline consumer
+        run: |
+          export PACKAGE_ROOT="$GITHUB_WORKSPACE/release/npm"
+          mkdir "$RUNNER_TEMP/recovery-consumer"
+          cd "$RUNNER_TEMP/recovery-consumer"
+          printf '{"private":true,"type":"module"}\n' > package.json
+          npm install --offline --ignore-scripts --no-audit --no-fund "$PACKAGE_ROOT"/*.tgz
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const packages=JSON.parse(fs.readFileSync(process.env.PACKAGE_ROOT+'/manifest.json','utf8'));
+          if(packages.length!==16)throw Error('Expected sixteen packages');
+          for(const p of packages){if(p.version!=='0.3.0')throw Error('Unexpected version');await import(p.name);console.log('PASS',p.name);}
+          JS
+      - name: Commit validated source and refreshed distributions
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git add -f release/npm apps/studio/conversion-worker.js apps/studio/offline-bootstrap.js revector-studio.html artifacts/recovery-next
+          git commit -m 'Suppress clipped OCR tile fragments and verify exact scan recovery'
+          git push origin HEAD:main
+          git rev-parse HEAD > "$RUNNER_TEMP/recovery-revision.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recovery-seam-validation
+          path: |
+            artifacts/
+            release/npm/
+            ${{ runner.temp }}/node-tests.log
+            ${{ runner.temp }}/recovery-revision.txt
+          retention-days: 14
