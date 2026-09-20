@@ -2565,7 +2565,10 @@ function deduplicateOcrWords(words, { maxComparisons = 1000000 } = {}) {
     const index = new topology_1.SpatialIndex(records, r => r.box), suppressed = new Set(), keptIds = new Set(), kept = [];
     let work = 0;
     const normalize = s => String(s).normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
-    records.sort((a, b) => (Number.isFinite(b.word.confidence) ? b.word.confidence : -1) - (Number.isFinite(a.word.confidence) ? a.word.confidence : -1) || a.index - b.index);
+    // A complete observation wins over a crop-edge fragment even when the OCR
+    // engine assigns the fragment higher confidence. Tile-edge contact alone is
+    // not a reason to discard text: unmatched observations are retained/flagged.
+    records.sort((a, b) => Number(!!a.word.clippedEdges?.length) - Number(!!b.word.clippedEdges?.length) || (Number.isFinite(b.word.confidence) ? b.word.confidence : -1) - (Number.isFinite(a.word.confidence) ? a.word.confidence : -1) || a.index - b.index);
     for (const record of records) {
         if (suppressed.has(record.index))
             continue;
@@ -2577,7 +2580,8 @@ function deduplicateOcrWords(words, { maxComparisons = 1000000 } = {}) {
             if (other === record || suppressed.has(other.index) || keptIds.has(other.index))
                 continue;
             const common = overlap(record.box, other.box), reverse = overlap(other.box, record.box), same = normalize(record.word.text) === normalize(other.word.text);
-            if (Math.min(common, reverse) > (same ? .55 : .92))
+            const fragment = other.word.clippedEdges?.length && !record.word.clippedEdges?.length && Number.isInteger(record.word.tile) && Number.isInteger(other.word.tile) && record.word.tile !== other.word.tile && reverse > .9;
+            if (fragment || Math.min(common, reverse) > (same ? .55 : .92))
                 suppressed.add(other.index);
         }
     }
@@ -2737,10 +2741,18 @@ async function recoverRasterCore(source, scene, input = {}) {
                             const b = word.bbox, box = [b.x0, b.y0, b.x1, b.y1];
                             if (b.x0 < 0 || b.y0 < 0 || b.x1 > tile.width || b.y1 > tile.height)
                                 continue;
-                            const baseline = word.lineBaseline;
+                            const baseline = word.lineBaseline, clippedEdges = [];
+                            if (tile.x > 0 && b.x0 <= 2)
+                                clippedEdges.push('left');
+                            if (tile.y > 0 && b.y0 <= 2)
+                                clippedEdges.push('top');
+                            if (tile.x + tile.width < rotated.width && b.x1 >= tile.width - 2)
+                                clippedEdges.push('right');
+                            if (tile.y + tile.height < rotated.height && b.y1 >= tile.height - 2)
+                                clippedEdges.push('bottom');
                             candidates.push({ ...word, bbox: { x0: b.x0 + tile.x, y0: b.y0 + tile.y, x1: b.x1 + tile.x, y1: b.y1 + tile.y },
                                 lineBaseline: baseline ? { x0: baseline.x0 + tile.x, y0: baseline.y0 + tile.y, x1: baseline.x1 + tile.x, y1: baseline.y1 + tile.y } : undefined,
-                                sampledColor: inkColor(original, box), tile: ti });
+                                sampledColor: inkColor(original, box), tile: ti, clippedEdges });
                         }
                         if (o.traceLines) {
                             binary ||= (0, raster_1.binarize)(original, { signal, invert: !!o.invert });
@@ -2787,6 +2799,7 @@ async function recoverRasterCore(source, scene, input = {}) {
                     }
                     const item = wordToPaint(word, localToPdf, { page: scene.pageNumber, regionId: String(ri), imageIds: (region.wholePage ? out.items.filter(i => i.kind === 'image' && i.visible !== false) : region.items).map(i => i.id), color: word.sampledColor });
                     item.ocr.tile = word.tile;
+                    item.ocr.clippedEdges = word.clippedEdges || [];
                     item.ocr.deskew = out.ocr.deskew.find(d => d.region === ri) || null;
                     out.items.push(item);
                     out.ocr.accepted++;

@@ -70,7 +70,7 @@ def run(url: str, output: Path):
             check('Image skew is estimated without PDF rotation metadata',abs(result['ocr']['deskew'][0]['angle']-4)<1)
             labels=[w['text'] for w in result['words']]
             check('Skewed raster text becomes editable CAD text',all(label in labels for label in ['PUMP','P-101','FLOW','VALVE','OPEN']))
-            check('Overlapping tile duplicates are suppressed',result['ocr']['tileDuplicates']>0 and labels.count('P-101')==1 and labels.count('PUMP')==1)
+            check('Overlapping tile duplicates and clipped fragments are suppressed',result['ocr']['tileDuplicates']>0 and sorted(labels)==sorted(['PUMP','P-101','FLOW','120','VALVE','OPEN']))
             def wrap(degrees):return (degrees+180)%360-180
             check('Deskew is inverted when mapping text back to the source drawing',all(abs(wrap(w['rotation']+4))<1.1 for w in result['words']))
             check('Every inferred word carries its tile, skew and image provenance',all(len(w['source']['ocr']['pixelToPdf'])==6 and w['source']['ocr']['imageIds'] and w['source']['ocr']['deskew'] and isinstance(w['source']['ocr']['tile'],int) for w in result['words']))

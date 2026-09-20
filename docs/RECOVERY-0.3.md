@@ -80,3 +80,7 @@ npm run pack:all
 ```
 
 Machine-readable CI artifacts identify the actual tested revision and counts. These are authored regressions, not a measured recognition rate on arbitrary customer drawings. OCR remains opt-in; original embedded raster images, handwriting, mathematical layout and universal CAD reconstruction are not claimed.
+
+## Tile-edge observations
+
+Words touching an internal tile crop edge carry `clippedEdges` provenance. A complete observation from another tile suppresses a contained clipped fragment even when the strings differ or the OCR engine gives the fragment a higher confidence. Unmatched edge observations are retained and flagged rather than silently deleted; physical outer image edges are not treated as internal seams. The skewed scan regression asserts exactly the six expected words, not merely their presence among possible duplicate fragments.

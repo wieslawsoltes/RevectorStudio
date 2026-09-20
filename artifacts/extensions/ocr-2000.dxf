@@ -817,7 +817,7 @@ REVECTOR
 1000
 {"id":"e2","source":{"kind":"ocr","ocr":{"engine":"tesseract.js","version":"7.0.0","confidence":0.91,"box":[309,149,457,192],"pixelToPdf":[0.288,0,0,-0.288,0,260],"imageIds":["p1-1"],"regionId":"0","geometry":"estimated text metrics","font"
 1000
-:"substituted","tile":0,"deskew":null},"ids":["ocr-1-236038c2"],"page":1,"operator":-1,"ref":"34493a9c"},"semantic":{"class":"ocr-text","confidence":0.91,"method":"ocr"},"font":"Arial"}
+:"substituted","tile":0,"clippedEdges":[],"deskew":null},"ids":["ocr-1-236038c2"],"page":1,"operator":-1,"ref":"4c7cc347"},"semantic":{"class":"ocr-text","confidence":0.91,"method":"ocr"},"font":"Arial"}
 0
 TEXT
 5
@@ -869,7 +869,7 @@ REVECTOR
 1000
 {"id":"e3","source":{"kind":"ocr","ocr":{"engine":"tesseract.js","version":"7.0.0","confidence":0.93,"box":[136,150,284,192],"pixelToPdf":[0.288,0,0,-0.288,0,260],"imageIds":["p1-1"],"regionId":"0","geometry":"estimated text metrics","font"
 1000
-:"substituted","tile":0,"deskew":null},"ids":["ocr-1-f588708d"],"page":1,"operator":-1,"ref":"0023323b"},"semantic":{"class":"ocr-text","confidence":0.93,"method":"ocr"},"font":"Arial"}
+:"substituted","tile":0,"clippedEdges":[],"deskew":null},"ids":["ocr-1-f588708d"],"page":1,"operator":-1,"ref":"f9f50df6"},"semantic":{"class":"ocr-text","confidence":0.93,"method":"ocr"},"font":"Arial"}
 0
 TEXT
 5
@@ -921,7 +921,7 @@ REVECTOR
 1000
 {"id":"e4","source":{"kind":"ocr","ocr":{"engine":"tesseract.js","version":"7.0.0","confidence":0.96,"box":[136,288,288,331],"pixelToPdf":[0.288,0,0,-0.288,0,260],"imageIds":["p1-1"],"regionId":"0","geometry":"estimated text metrics","font"
 1000
-:"substituted","tile":0,"deskew":null},"ids":["ocr-1-cd8055b6"],"page":1,"operator":-1,"ref":"172db2b4"},"semantic":{"class":"ocr-text","confidence":0.96,"method":"ocr"},"font":"Arial"}
+:"substituted","tile":0,"clippedEdges":[],"deskew":null},"ids":["ocr-1-cd8055b6"],"page":1,"operator":-1,"ref":"6a69e5d5"},"semantic":{"class":"ocr-text","confidence":0.96,"method":"ocr"},"font":"Arial"}
 0
 TEXT
 5
@@ -973,7 +973,7 @@ REVECTOR
 1000
 {"id":"e5","source":{"kind":"ocr","ocr":{"engine":"tesseract.js","version":"7.0.0","confidence":0.96,"box":[313,288,410,331],"pixelToPdf":[0.288,0,0,-0.288,0,260],"imageIds":["p1-1"],"regionId":"0","geometry":"estimated text metrics","font"
 1000
-:"substituted","tile":0,"deskew":null},"ids":["ocr-1-6a3d70c7"],"page":1,"operator":-1,"ref":"2872a68b"},"semantic":{"class":"ocr-text","confidence":0.96,"method":"ocr"},"font":"Arial"}
+:"substituted","tile":0,"clippedEdges":[],"deskew":null},"ids":["ocr-1-6a3d70c7"],"page":1,"operator":-1,"ref":"6a69f5ac"},"semantic":{"class":"ocr-text","confidence":0.96,"method":"ocr"},"font":"Arial"}
 0
 TEXT
 5
@@ -1025,7 +1025,7 @@ REVECTOR
 1000
 {"id":"e6","source":{"kind":"ocr","ocr":{"engine":"tesseract.js","version":"7.0.0","confidence":0.95,"box":[437,289,581,335],"pixelToPdf":[0.288,0,0,-0.288,0,260],"imageIds":["p1-1"],"regionId":"0","geometry":"estimated text metrics","font"
 1000
-:"substituted","tile":0,"deskew":null},"ids":["ocr-1-910f28c0"],"page":1,"operator":-1,"ref":"ec2796a3"},"semantic":{"class":"ocr-text","confidence":0.95,"method":"ocr"},"font":"Arial"}
+:"substituted","tile":0,"clippedEdges":[],"deskew":null},"ids":["ocr-1-910f28c0"],"page":1,"operator":-1,"ref":"0f26e342"},"semantic":{"class":"ocr-text","confidence":0.95,"method":"ocr"},"font":"Arial"}
 0
 LINE
 5

@@ -99,9 +99,9 @@
     "name": "@revector/ocr",
     "version": "0.3.0",
     "file": "revector-ocr-0.3.0.tgz",
-    "bytes": 9488,
-    "sha256": "982705689614b2ef7c4665dc36416027a8ef6d01a77cced7c32a80b785786806",
-    "integrity": "sha512-DhXEZsYrNhHNPUUPWJ+dgjflJk4bDvAZGKeFJuE78/GyYFnjwjHC7MV1z6KcbGtVWYiVrYmh5qjQ0mVAu/WTxg==",
+    "bytes": 9783,
+    "sha256": "41a8ce224f7f8c848a2544fc31007a9e2a738088cba93bcf51f55a0d6c4fa507",
+    "integrity": "sha512-1KzV4Rn+l669vOvGkEL1Adz2aUeEagNoQd8CSpl5sPcQbgEF+ekmPzJeVK8tpLAAfG8ooxntp22cRFfDtDJS+A==",
     "files": [
       "LICENSE",
       "README.md",

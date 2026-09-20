@@ -80,13 +80,17 @@ export function deduplicateOcrWords(words,{maxComparisons=1000000}={}) {
     const box=w=>[w.bbox.x0,w.bbox.y0,w.bbox.x1,w.bbox.y1],records=words.map((word,index)=>({word,index,box:box(word)}));
     const index=new SpatialIndex(records,r=>r.box),suppressed=new Set(),keptIds=new Set(),kept=[];let work=0;
     const normalize=s=>String(s).normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
-    records.sort((a,b)=>(Number.isFinite(b.word.confidence)?b.word.confidence:-1)-(Number.isFinite(a.word.confidence)?a.word.confidence:-1)||a.index-b.index);
+    // A complete observation wins over a crop-edge fragment even when the OCR
+    // engine assigns the fragment higher confidence. Tile-edge contact alone is
+    // not a reason to discard text: unmatched observations are retained/flagged.
+    records.sort((a,b)=>Number(!!a.word.clippedEdges?.length)-Number(!!b.word.clippedEdges?.length)||(Number.isFinite(b.word.confidence)?b.word.confidence:-1)-(Number.isFinite(a.word.confidence)?a.word.confidence:-1)||a.index-b.index);
     for(const record of records){if(suppressed.has(record.index))continue;kept.push(record);keptIds.add(record.index);
         for(const other of index.search(record.box)){
             if(++work>maxComparisons)throw new RangeError('OCR duplicate comparison budget exceeded');
             if(other===record||suppressed.has(other.index)||keptIds.has(other.index))continue;
             const common=overlap(record.box,other.box),reverse=overlap(other.box,record.box),same=normalize(record.word.text)===normalize(other.word.text);
-            if(Math.min(common,reverse)>(same?.55:.92))suppressed.add(other.index);
+            const fragment=other.word.clippedEdges?.length&&!record.word.clippedEdges?.length&&Number.isInteger(record.word.tile)&&Number.isInteger(other.word.tile)&&record.word.tile!==other.word.tile&&reverse>.9;
+            if(fragment||Math.min(common,reverse)>(same?.55:.92))suppressed.add(other.index);
         }
     }
     return kept.sort((a,b)=>a.box[1]-b.box[1]||a.box[0]-b.box[0]||a.index-b.index).map(r=>r.word);
@@ -164,10 +168,14 @@ async function recoverRasterCore(source,scene,input={}) {
                         if(out.ocr.accepted+out.ocr.rejected+out.ocr.duplicates+out.ocr.tileDuplicates+candidates.length+words.length>o.maxWords)throw new RangeError('OCR word budget exceeded');
                         for(const word of words){const b=word.bbox,box=[b.x0,b.y0,b.x1,b.y1];
                             if(b.x0<0||b.y0<0||b.x1>tile.width||b.y1>tile.height)continue;
-                            const baseline=word.lineBaseline;
+                            const baseline=word.lineBaseline,clippedEdges=[];
+                            if(tile.x>0&&b.x0<=2)clippedEdges.push('left');
+                            if(tile.y>0&&b.y0<=2)clippedEdges.push('top');
+                            if(tile.x+tile.width<rotated.width&&b.x1>=tile.width-2)clippedEdges.push('right');
+                            if(tile.y+tile.height<rotated.height&&b.y1>=tile.height-2)clippedEdges.push('bottom');
                             candidates.push({...word,bbox:{x0:b.x0+tile.x,y0:b.y0+tile.y,x1:b.x1+tile.x,y1:b.y1+tile.y},
                                 lineBaseline:baseline?{x0:baseline.x0+tile.x,y0:baseline.y0+tile.y,x1:baseline.x1+tile.x,y1:baseline.y1+tile.y}:undefined,
-                                sampledColor:inkColor(original,box),tile:ti});
+                                sampledColor:inkColor(original,box),tile:ti,clippedEdges});
                         }
                         if(o.traceLines){binary ||= binarize(original,{signal,invert:!!o.invert});for(const word of words){const b=word.bbox;
                             for(let py=Math.max(0,Math.floor(b.y0)-2);py<Math.min(tile.height,Math.ceil(b.y1)+2);py++)for(let px=Math.max(0,Math.floor(b.x0)-2);px<Math.min(tile.width,Math.ceil(b.x1)+2);px++)binary[py*tile.width+px]=0;
@@ -188,7 +196,7 @@ async function recoverRasterCore(source,scene,input={}) {
                     if(native.search(global).some(b=>intersects(global,b)&&overlap(global,b)>.6)){out.ocr.duplicates++;continue;}
                     if(!Number.isFinite(word.confidence)||word.confidence<o.minConfidence){out.ocr.rejected++;if(out.ocr.rejectedWords.length<200)out.ocr.rejectedWords.push({text:word.text,confidence:word.confidence??0,box,region:ri});continue;}
                     const item=wordToPaint(word,localToPdf,{page:scene.pageNumber,regionId:String(ri),imageIds:(region.wholePage?out.items.filter(i=>i.kind==='image'&&i.visible!==false):region.items).map(i=>i.id),color:word.sampledColor});
-                    item.ocr.tile=word.tile;item.ocr.deskew=out.ocr.deskew.find(d=>d.region===ri)||null;out.items.push(item);out.ocr.accepted++;
+                    item.ocr.tile=word.tile;item.ocr.clippedEdges=word.clippedEdges||[];item.ocr.deskew=out.ocr.deskew.find(d=>d.region===ri)||null;out.items.push(item);out.ocr.accepted++;
                 }
                 for(const line of lineCandidates){const start=transform(localToPdf,line.start),end=transform(localToPdf,line.end);
                     out.items.push({id:`raster-line-${ri}-${out.ocr.lines++}`,kind:'path',operator:-1,visible:true,layerId:'REVECTOR_RASTER_LINES',paths:[{start,segments:[{kind:'L',to:end}],closed:false}],stroke:true,fill:false,clips:[],formPath:[],style:{stroke:[0,0,0],lineWidth:line.thickness*Math.hypot(localToPdf[0],localToPdf[1]),strokeAlpha:1,dash:[]},rasterInference:{method:'axis-runs',confidence:line.confidence}});

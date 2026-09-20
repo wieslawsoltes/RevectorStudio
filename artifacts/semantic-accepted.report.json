@@ -173,117 +173,117 @@
       "rule": "geometry.join-chains",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 1.8768580000000838
+      "elapsedMs": 1.1555650000000242
     },
     {
       "rule": "cad.conic-recovery",
       "proposed": 6,
       "accepted": 6,
-      "elapsedMs": 14.30267200000003
+      "elapsedMs": 7.897498999999925
     },
     {
       "rule": "cad.repeated-symbols",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 2.112129999999979
+      "elapsedMs": 1.2036880000000565
     },
     {
       "rule": "cad.tag-attributes",
       "proposed": 6,
       "accepted": 6,
-      "elapsedMs": 16.039369999999963
+      "elapsedMs": 9.05001900000002
     },
     {
       "rule": "cad.dimensions",
       "proposed": 2,
       "accepted": 2,
-      "elapsedMs": 6.676205000000209
+      "elapsedMs": 3.760159000000158
     },
     {
       "rule": "cad.centerlines",
       "proposed": 2,
       "accepted": 2,
-      "elapsedMs": 6.429082000000108
+      "elapsedMs": 3.4883689999999206
     },
     {
       "rule": "cad.hatch-families",
       "proposed": 1,
       "accepted": 1,
-      "elapsedMs": 4.198200999999926
+      "elapsedMs": 2.32172700000001
     },
     {
       "rule": "cad.title-block",
       "proposed": 1,
       "accepted": 1,
-      "elapsedMs": 4.202778999999964
+      "elapsedMs": 2.3383719999999357
     },
     {
       "rule": "document.table-grids",
       "proposed": 1,
       "accepted": 1,
-      "elapsedMs": 4.91575499999999
+      "elapsedMs": 2.774249999999938
     },
     {
       "rule": "document.text-flows",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 1.6125720000000001
+      "elapsedMs": 0.8847359999999753
     },
     {
       "rule": "document.notations",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 1.5469000000000506
+      "elapsedMs": 0.8261780000000272
     },
     {
       "rule": "document.fields",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 1.5756139999998595
+      "elapsedMs": 0.8056369999999333
     },
     {
       "rule": "document.diagram",
       "proposed": 8,
       "accepted": 8,
-      "elapsedMs": 28.609882999999854
+      "elapsedMs": 14.612381000000141
     },
     {
       "rule": "document.parallel",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 1.7622630000000754
+      "elapsedMs": 1.006199999999808
     },
     {
       "rule": "document.concentric",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 1.7599189999998543
+      "elapsedMs": 0.9873509999999897
     },
     {
       "rule": "document.leaders",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 3.001485999999886
+      "elapsedMs": 1.7516659999998865
     },
     {
       "rule": "document.borderless-tables",
       "proposed": 0,
       "accepted": 0,
-      "elapsedMs": 1.6593900000000303
+      "elapsedMs": 0.9501549999999952
     },
     {
       "rule": "document.lists",
       "proposed": 1,
       "accepted": 1,
-      "elapsedMs": 4.645408000000089
+      "elapsedMs": 2.57105300000012
     }
   ],
   "timings": {
-    "geometryMs": 2.9058869999998933,
-    "semanticsMs": 127.859602,
-    "serializeMs": 7.166975000000093,
-    "roundtripMs": 2.4554229999998824,
-    "totalMs": 140.73660100000006
+    "geometryMs": 1.579155000000128,
+    "semanticsMs": 79.36645299999986,
+    "serializeMs": 4.226092999999992,
+    "roundtripMs": 1.7500440000001163,
+    "totalMs": 87.15133100000003
   },
   "coverage": {
     "paintItems": 128,
