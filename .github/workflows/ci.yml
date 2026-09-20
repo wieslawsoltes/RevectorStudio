@@ -26,6 +26,8 @@ jobs:
       - run: npm run test:browser
       - run: npm run test:extensions
       - run: npm run test:recovery
+      - run: npm run test:images
+      - run: npm run test:images:cli
       - run: python tests/ocr_cli.py
       - run: npm run test:dxf
       - run: npm run pack:all

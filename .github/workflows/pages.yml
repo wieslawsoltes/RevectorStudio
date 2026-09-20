@@ -36,6 +36,8 @@ jobs:
           npm run test:types
           npm run test:extensions
           npm run test:recovery
+          npm run test:images
+          npm run test:images:cli
           python tests/ocr_cli.py
           npm run test:dxf
       - name: Record the exact deployment revision
@@ -62,6 +64,8 @@ jobs:
             artifacts/extensions
             artifacts/ocr-cli
             artifacts/recovery-next
+            artifacts/images-browser
+            artifacts/images-cli
           retention-days: 14
   deploy:
     needs: build
@@ -86,13 +90,14 @@ jobs:
         run: |
           python -m pip install -r tests/requirements.txt --quiet
           python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
-      - name: Verify the public HTTPS deployment, raster OCR and color profiles
+      - name: Verify public HTTPS vector, OCR, image and color recovery
         env:
           SITE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           python tests/pages.py --url "$SITE_URL" --sha "$GITHUB_SHA" --output artifacts/pages-live
           python tests/extensions_browser.py --url "$SITE_URL" --output artifacts/extensions-live
           python tests/recovery_browser.py --url "$SITE_URL" --output artifacts/recovery-live
+          python tests/images_browser.py --url "$SITE_URL" --output artifacts/images-live
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -101,4 +106,5 @@ jobs:
             artifacts/pages-live
             artifacts/extensions-live
             artifacts/recovery-live
+            artifacts/images-live
           retention-days: 14
