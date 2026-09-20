@@ -1,35 +1,33 @@
 # GitHub Pages publication
 
-The application is published at https://wieslawsoltes.github.io/RevectorStudio/.
+The application is served at https://wieslawsoltes.github.io/RevectorStudio/.
 
-`.github/workflows/pages.yml` builds and tests every push to `main`, uploads only `dist/`, and deploys through the official GitHub Pages Actions. The repository Pages source is **GitHub Actions**, not a branch directory. No personal token or external hosting service is required.
+`.github/workflows/pages.yml` builds and validates every push to `main`, uploads `dist/`, and deploys through the official GitHub Pages Actions. The repository Pages source is **GitHub Actions**, not a branch directory. No personal token or external hosting service is required.
 
-The build uses Node 22.16.0, the pinned TypeScript dependency and the checked-in PDF.js runtime. It validates the conversion engines, TypeScript consumer and DXF artifacts, then opens the production site under a `/RevectorStudio/` HTTP prefix using Chromium. Publication is gated on this check. After deployment, the same test opens the real public HTTPS site, confirms the deployed commit, observes both real browser workers, exercises all six DXF versions and page navigation, and independently audits a downloaded DXF using ezdxf.
+The build uses Node 22.16.0, the npm lockfile and checked-in PDF.js runtime. OCR runtime/model resources are restored from pinned dependencies with their licenses and SHA-256 inventory. Recognition loads assets from the application origin; document bytes are not uploaded to an OCR service.
 
-Download the `pages-build-validation` and `pages-live-validation` Actions artifacts for screenshots and machine-readable results. `deployment.json` identifies the deployed commit and records SHA-256 hashes of the site files. An unsuccessful post-deployment check marks the workflow failed; it does not silently claim a healthy deployment.
+## Validation gates
 
-## Source import
+CI runs source regressions, the strict TypeScript consumer, the original workbench tests, actual raster OCR, color-space swatches, rotated-page OCR, tiled small-angle deskew, Node CLI OCR, independent DXF audits and npm packing. Pages validates the production build under an HTTP repository prefix before uploading it.
 
-The complete reusable packages, CLI, documentation, fixtures, recorded validation outputs, sixteen npm archives and standalone HTML are tracked in the repository. Source payload hashes are recorded in `source-import.json`. The generated bundles and package archives were reproduced and verified against the supplied ZIP; the five visual artifacts were refreshed by the original validation harness in CI. Temporary transfer files and one-time import workflows were removed after the import succeeded. The original import is retained in Git history.
+After deployment, three browser suites open the actual public HTTPS application. They confirm the deployed revision, real PDF and conversion workers, all six DXF versions, page navigation, rendered content, raster/native duplicate suppression, color swatches, rotated scans, tiled deskewed OCR and independently valid downloaded DXF. An unsuccessful post-deployment check marks the workflow failed; it does not silently claim a healthy deployment.
 
-The publication commit also corrects `index.html` to resolve PDF.js assets relative to the document URL. Dynamic module imports would otherwise resolve a relative engine URL against the PDF adapter module directory.
+Download `revector-validation`, `pages-build-validation` and `pages-live-validation` Actions artifacts for screenshots and JSON reports. The latter includes `pages-live/`, `extensions-live/` and `recovery-live/`. `deployment.json` identifies the deployed commit and records SHA-256 hashes of site files. See [the v0.3 validation record](VALIDATION-0.3.md) for measured results and test scope.
 
-To run locally:
+## Source and distributions
+
+All sixteen reusable packages, CLI, documentation, fixtures, generated workbench bundles, validation outputs and npm archives are tracked. `source-import.json` records the historical original import; its hashes are not invariants for subsequently edited source. One-time transfer and upgrade workflows are removed after their commits succeed. Their records remain in Git history. The read-only source-snapshot workflow is available for reproducible archive retrieval.
 
 ```sh
 node scripts/link-workspaces.mjs
 npm start
 ```
 
-To rebuild:
+To rebuild with OCR assets:
 
 ```sh
 npm ci --ignore-scripts --include=optional
 npm run build
 ```
 
-The sixteen packages in `release/npm/` are installable tarballs. Pages publication does not publish them to the npm registry.
-
-## Version 0.2 validation gates
-
-CI and Pages run real browser OCR on a mixed raster/native-text PDF, rotated-page recovery, eleven color swatches and all six OCR-to-DXF versions. A separate Node test executes the CLI with native Canvas and the WASM OCR engine. The deployment workflow repeats browser OCR and color checks on the public HTTPS site. Runtime, core and English/German/Polish model files are served from `vendor/ocr/`; recognition does not upload document bytes.
+The sixteen version 0.3.0 files in `release/npm/` are installable package tarballs, with manifest and checksums. Pages publication does not publish them to the npm registry. The standalone HTML still requires adjacent OCR assets for optional raster recognition; the deployed static site includes those assets.

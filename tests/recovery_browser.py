@@ -60,7 +60,7 @@ def run(url: str, output: Path):
                     catch(error){if(error.message!=='Intentional provider failure')throw error;releasedOnFailure=allocated.every(c=>c.width===1&&c.height===1);}
                     workbench.ocrSettings=null;
                     await workbench.openBytes(new Uint8Array(bytes),'Skewed scan.pdf');
-                    workbench.scene=recovered;workbench.result=converted;workbench.cadView.setDocument(converted.preview);workbench.cadView.invalidate();workbench.fit();
+                    workbench.scene=recovered;workbench.result=converted;workbench.cadView.setDocument(converted.preview);workbench.cadView.invalidate();workbench.refresh();workbench.setStatus('Recovered skewed scan · '+recovered.ocr.accepted+' words · '+recovered.ocr.tiles+' tiles');workbench.fit();
                     return {ocr:recovered.ocr,words:converted.document.entities.filter(e=>e.source?.ocr).map(e=>({text:e.text,rotation:e.rotation,source:e.source,position:e.position})),dxf:converted.dxf.text,sourceUnchanged:JSON.stringify(scene)===original,releasedOnSuccess,releasedOnFailure};
                 }finally{await source.dispose();}
             }''',list(data))
