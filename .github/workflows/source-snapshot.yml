@@ -23,6 +23,7 @@ jobs:
           sha256sum source.zip linux-node-dependencies.tar.gz > SHA256SUMS
           git rev-parse HEAD > revision.txt
           git show -s --format='%H%n%T%n%s' HEAD > commit.txt
+          node -p 'JSON.stringify({versions:process.versions,platform:process.platform,arch:process.arch},null,2)' > runtime.json
       - uses: actions/upload-artifact@v4
         with:
           name: revector-source-snapshot
@@ -32,4 +33,5 @@ jobs:
             SHA256SUMS
             revision.txt
             commit.txt
+            runtime.json
           retention-days: 7
