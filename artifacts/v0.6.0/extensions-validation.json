@@ -275,7 +275,7 @@
         "tileOverlap": 96,
         "maxTiles": 256,
         "deskew": false,
-        "assetBase": "http://127.0.0.1:44929/vendor/ocr/"
+        "assetBase": "http://127.0.0.1:34563/vendor/ocr/"
       },
       "accepted": 5,
       "rejected": 0,
@@ -653,7 +653,7 @@
         "tileOverlap": 96,
         "maxTiles": 256,
         "deskew": false,
-        "assetBase": "http://127.0.0.1:44929/vendor/ocr/"
+        "assetBase": "http://127.0.0.1:34563/vendor/ocr/"
       },
       "accepted": 5,
       "rejected": 0,
@@ -717,7 +717,7 @@
       }
     ]
   },
-  "url": "http://127.0.0.1:44929/",
+  "url": "http://127.0.0.1:34563/",
   "passed": 21,
   "checks": [
     "Both original and expanded rule packs are available",

@@ -3,7 +3,7 @@
   "mode": "dry-run",
   "registry": "https://registry.npmjs.org",
   "tag": "next",
-  "commit": "d6bb463923361e2828a1f78844266d046c423bfe",
+  "commit": "cf831b8b2df1513fc5c055dd3cb45bbd5323f990",
   "packages": [
     {
       "name": "@revector/geometry",
@@ -44,7 +44,7 @@
     {
       "name": "@revector/dxf",
       "version": "0.6.0",
-      "integrity": "sha512-+9UF5o/Yn6O+c1sebEyTBqc4BjgXQoIIuWRNJV/So+fYqmqlOJ1P8lKjJUQ2MyVc53Yk65mqiYsRbB9krEsc0A==",
+      "integrity": "sha512-JtGEanHr7R21oWW1KBE0ygfq5upDWOGg7zpgOyUlihlE7FnfbQ1WBt/nFiWws1qEjY6MBEgfagnFP5fX+j2Odw==",
       "status": "dry-run-passed"
     },
     {

@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:36437/",
+  "url": "http://127.0.0.1:36117/",
   "passed": 11,
   "checks": [
     "Conversion uses a dedicated browser worker",
@@ -16,18 +16,18 @@
   ],
   "errors": [],
   "timings": {
-    "geometryMs": 4.2000000000116415,
-    "semanticsMs": 17.599999999976717,
+    "geometryMs": 2.5,
+    "semanticsMs": 11.099999999991269,
     "representationMs": 0,
-    "validationMs": 0.7000000000116415,
-    "serializeMs": 3.7000000000116415,
-    "roundtripMs": 4.199999999982538,
-    "colorAuditMs": 0.8999999999941792,
-    "totalMs": 31.39999999999418,
-    "pdfPreparationMs": 5.2000000000116415,
-    "pdfReferenceMs": 13.900000000023283,
+    "validationMs": 0.40000000000873115,
+    "serializeMs": 2.099999999991269,
+    "roundtripMs": 2.900000000008731,
+    "colorAuditMs": 0.7999999999883585,
+    "totalMs": 19.89999999999418,
+    "pdfPreparationMs": 3.3999999999941792,
+    "pdfReferenceMs": 16.80000000000291,
     "pdfReferenceReused": 0,
-    "uiTotalMs": 71.20000000001164
+    "uiTotalMs": 54.10000000000582
   },
   "browserVersion": "152.0.7977.0",
   "transport": "real HTTP(S), dedicated worker, no injected conversion results"

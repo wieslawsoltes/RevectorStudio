@@ -637,26 +637,27 @@ function packageDxf(document, { filename = 'drawing.dxf', maxBytes = 128 * 1024 
 "@revector/dxf/reader.js":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.decodeDxfString = void 0;
+exports.decodeDxfString = decodeDxfString;
 exports.readDxf = readDxf;
 const model_1 = require("@revector/model");
 const geometry_1 = require("@revector/geometry");
 const aci_js_1 = require("@revector/dxf/aci.js");
-const decodeDxfString = s => String(s).replace(/\\U\+([0-9A-Fa-f]{4})/g, (_, v) => String.fromCharCode(parseInt(v, 16)));
-exports.decodeDxfString = decodeDxfString;
-function* pairs(text, maxPairs) {
+function decodeDxfString(value) { const s = String(value); return s.includes('\\U+') ? s.replace(/\\U\+([0-9A-Fa-f]{4})/g, (_, v) => String.fromCharCode(parseInt(v, 16))) : s; }
+/** Scan directly into section records. Do not retain an intermediate line array,
+ * flat pair array, or duplicate OBJECTS records. Ordered repeated tags stay intact. */
+function scanSections(text, maxPairs) {
     let offset = text.charCodeAt(0) === 0xFEFF ? 1 : 0, lineNumber = 1, count = 0;
+    let section = null, target = null, record = null, expectName = false, lastValue;
+    const sections = new Map();
     const readLine = () => {
         const end = text.indexOf('\n', offset);
-        let value;
         if (end < 0) {
-            value = text.slice(offset);
+            const value = text.slice(offset);
             offset = text.length;
+            return value;
         }
-        else {
-            value = text.slice(offset, end > offset && text.charCodeAt(end - 1) === 13 ? end - 1 : end);
-            offset = end + 1;
-        }
+        const value = text.slice(offset, end > offset && text.charCodeAt(end - 1) === 13 ? end - 1 : end);
+        offset = end + 1;
         return value;
     };
     while (offset < text.length) {
@@ -669,29 +670,60 @@ function* pairs(text, maxPairs) {
         const code = Number(codeText.trim());
         if (!Number.isInteger(code) || code < 0 || code > 1071)
             throw new Error(`Invalid DXF group code on line ${lineNumber}`);
-        yield [code, value];
         lineNumber += 2;
+        lastValue = value;
+        if (expectName) {
+            if (code !== 2)
+                throw Error('DXF SECTION has no name');
+            section = value;
+            target = [];
+            sections.set(section, target);
+            record = null;
+            expectName = false;
+        }
+        else if (code === 0 && value === 'SECTION')
+            expectName = true;
+        else if (code === 0 && value === 'ENDSEC') {
+            section = null;
+            target = null;
+            record = null;
+        }
+        else if (section) {
+            if (section === 'HEADER')
+                target.push([code, value]);
+            else if (code === 0) {
+                record = { type: value.trim(), tags: [] };
+                target.push(record);
+            }
+            else if (record)
+                record.tags.push([code, value]);
+        }
     }
-}
-function records(data) {
-    const out = [];
-    for (const p of data) {
-        if (p[0] === 0)
-            out.push({ type: p[1].trim(), tags: [] });
-        else if (out.length)
-            out.at(-1).tags.push(p);
-    }
-    return out;
+    if (expectName)
+        throw Error('DXF SECTION has no name');
+    if (lastValue !== 'EOF')
+        throw Error('DXF has no EOF marker');
+    return sections;
 }
 function get(r, code, def) {
-    // Most records ask for dozens of distinct tags. Index first occurrences once;
-    // repeated point/edge codes remain in tags for ordered multi-value decoding.
+    // A tiny contiguous tag list is cheaper to scan than to allocate a hash map.
+    // Index only large records; retain the first occurrence for scalar fields.
+    if (r.tags.length < 64) {
+        for (let i = 0; i < r.tags.length; i++) {
+            const t = r.tags[i];
+            if (t[0] === code)
+                return t[1] ?? def;
+        }
+        return def;
+    }
     let values = r.firstValues;
     if (!values) {
         values = r.firstValues = new Map();
-        for (const [c, v] of r.tags)
-            if (!values.has(c))
-                values.set(c, v);
+        for (let i = 0; i < r.tags.length; i++) {
+            const t = r.tags[i];
+            if (!values.has(t[0]))
+                values.set(t[0], t[1]);
+        }
     }
     return values.get(code) ?? def;
 }
@@ -714,7 +746,7 @@ function parseXdata(r) {
     let json = '';
     for (let i = index + 1; i < r.tags.length && r.tags[i][0] !== 1001; i++)
         if (r.tags[i][0] === 1000)
-            json += (0, exports.decodeDxfString)(r.tags[i][1]);
+            json += decodeDxfString(r.tags[i][1]);
     try {
         return JSON.parse(json);
     }
@@ -808,26 +840,7 @@ function readHatch(r) {
 }
 /** Reads the writer's complete entity subset. It is not advertised as a universal DXF importer. */
 function readDxf(text, { maxPairs = 10000000 } = {}) {
-    const iterator = pairs(text, maxPairs), sections = new Map();
-    let name = null, last = null;
-    for (const pair of iterator) {
-        const [c, v] = pair;
-        last = pair;
-        if (c === 0 && v === 'SECTION') {
-            const next = iterator.next();
-            if (next.done || next.value[0] !== 2)
-                throw Error('DXF SECTION has no name');
-            last = next.value;
-            name = next.value[1];
-            sections.set(name, []);
-        }
-        else if (c === 0 && v === 'ENDSEC')
-            name = null;
-        else if (name)
-            sections.get(name).push(pair);
-    }
-    if (last?.[1] !== 'EOF')
-        throw Error('DXF has no EOF marker');
+    const sections = scanSections(text, maxPairs);
     const doc = (0, model_1.createDocument)({ name: 'DXF round trip', layers: [] });
     const header = sections.get('HEADER') || [];
     for (let i = 0; i < header.length; i++)
@@ -840,10 +853,10 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
             if (key === '$LIMMAX')
                 doc.pageBox = [0, 0, Number(header[i + 1][1]), Number(header[i + 2][1])];
         }
-    const tables = records(sections.get('TABLES') || []), styles = new Map(), linetypes = new Map();
+    const tables = (sections.get('TABLES') || []), styles = new Map(), linetypes = new Map();
     for (const r of tables) {
         if (r.type === 'LAYER')
-            doc.layers.push({ name: (0, exports.decodeDxfString)(get(r, 2, '0')), color: readColor(r), visible: n(r, 62, 7) >= 0 });
+            doc.layers.push({ name: decodeDxfString(get(r, 2, '0')), color: readColor(r), visible: n(r, 62, 7) >= 0 });
         else if (r.type === 'STYLE')
             styles.set(get(r, 2, ''), get(r, 3, 'Arial'));
         else if (r.type === 'LTYPE')
@@ -853,16 +866,16 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
         doc.layers.push({ name: '0', color: [0, 0, 0], visible: true });
     const layerIndex = new Map(doc.layers.map(l => [l.name, l]));
     const imageDefs = new Map();
-    for (const r of records(sections.get('OBJECTS') || []))
+    for (const r of (sections.get('OBJECTS') || []))
         if (r.type === 'IMAGEDEF') {
-            const meta = parseXdata(r), a = { id: meta?.id || 'image-' + get(r, 5, ''), path: (0, exports.decodeDxfString)(get(r, 1, '')),
+            const meta = parseXdata(r), a = { id: meta?.id || 'image-' + get(r, 5, ''), path: decodeDxfString(get(r, 1, '')),
                 width: n(r, 10), height: n(r, 20), mimeType: 'image/png', source: meta?.source || {} };
             doc.assets.push(a);
             imageDefs.set(get(r, 5, ''), a);
         }
     let next = 0;
     function entity(r) {
-        const layer = (0, exports.decodeDxfString)(get(r, 8, '0')), l = layerIndex.get(layer), meta = parseXdata(r);
+        const layer = decodeDxfString(get(r, 8, '0')), l = layerIndex.get(layer), meta = parseXdata(r);
         const e = { id: meta?.id || `dxf-${++next}`, handle: get(r, 5, ''), type: r.type, layer, color: readColor(r, l), lineweight: Math.max(0, n(r, 370, 0)) / 100, opacity: get(r, 440, null) !== null ? (n(r, 440) & 255) / 255 : 1, dash: linetypes.get(get(r, 6, 'CONTINUOUS')) || [], source: meta?.source || {}, semantic: meta?.semantic || {} };
         switch (r.type) {
             case 'IMAGE': {
@@ -934,7 +947,7 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
             }
             case 'TEXT':
             case 'ATTRIB':
-                e.text = (0, exports.decodeDxfString)(get(r, 1, ''));
+                e.text = decodeDxfString(get(r, 1, ''));
                 e.position = p(r, 10);
                 e.height = n(r, 40, 1);
                 e.rotation = n(r, 50);
@@ -942,14 +955,14 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
                 e.widthFactor = n(r, 41, 1);
                 e.oblique = n(r, 51);
                 e.mirror = n(r, 71);
-                e.font = (0, exports.decodeDxfString)(styles.get(get(r, 7, 'STANDARD')) || 'Arial');
+                e.font = decodeDxfString(styles.get(get(r, 7, 'STANDARD')) || 'Arial');
                 if (r.type === 'ATTRIB') {
-                    e.tag = (0, exports.decodeDxfString)(get(r, 2, 'VALUE'));
+                    e.tag = decodeDxfString(get(r, 2, 'VALUE'));
                     e.value = e.text;
                 }
                 break;
             case 'MTEXT':
-                e.text = (0, exports.decodeDxfString)(r.tags.filter(t => t[0] === 3 || t[0] === 1).map(t => t[1]).join('')).replace(/\\P/g, '\n');
+                e.text = decodeDxfString(r.tags.filter(t => t[0] === 3 || t[0] === 1).map(t => t[1]).join('')).replace(/\\P/g, '\n');
                 e.position = p(r, 10);
                 e.height = n(r, 40, 1);
                 e.width = n(r, 41);
@@ -957,20 +970,20 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
                 e.font = styles.get(get(r, 7, 'STANDARD')) || 'Arial';
                 break;
             case 'INSERT':
-                e.name = (0, exports.decodeDxfString)(get(r, 2, ''));
+                e.name = decodeDxfString(get(r, 2, ''));
                 e.position = p(r, 10);
                 e.scale = [n(r, 41, 1), n(r, 42, 1)];
                 e.rotation = n(r, 50);
                 e.attributes = [];
                 break;
             case 'DIMENSION':
-                e.block = (0, exports.decodeDxfString)(get(r, 2, ''));
+                e.block = decodeDxfString(get(r, 2, ''));
                 e.dimensionType = n(r, 70) & 7;
                 e.definition = p(r, 10);
                 e.extension1 = p(r, 13);
                 e.extension2 = p(r, 14);
                 e.textPosition = p(r, 11);
-                e.text = (0, exports.decodeDxfString)(get(r, 1, ''));
+                e.text = decodeDxfString(get(r, 1, ''));
                 e.measurement = n(r, 42);
                 break;
             default:
@@ -999,11 +1012,11 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
             }
         }
     }
-    const blockRecords = records(sections.get('BLOCKS') || []);
+    const blockRecords = (sections.get('BLOCKS') || []);
     let active = null, rs = [];
     for (const r of blockRecords) {
         if (r.type === 'BLOCK') {
-            active = { name: (0, exports.decodeDxfString)(get(r, 2, '')), origin: p(r, 10), entities: [] };
+            active = { name: decodeDxfString(get(r, 2, '')), origin: p(r, 10), entities: [] };
             rs = [];
         }
         else if (r.type === 'ENDBLK') {
@@ -1016,11 +1029,13 @@ function readDxf(text, { maxPairs = 10000000 } = {}) {
         else if (active)
             rs.push(r);
     }
-    readEntities(records(sections.get('ENTITIES') || []), doc.entities);
+    readEntities((sections.get('ENTITIES') || []), doc.entities);
     const handles = new Map([...doc.entities, ...doc.blocks.flatMap(b => b.entities)].map(e => [e.handle, e.id]));
-    for (const r of records(sections.get('OBJECTS') || []))
-        if (r.type === 'GROUP')
-            doc.groups.push({ name: parseXdata(r)?.id || get(r, 5, ''), semantic: parseXdata(r)?.semantic || {}, description: (0, exports.decodeDxfString)(get(r, 300, '')), members: r.tags.filter(t => t[0] === 340).map(t => handles.get(t[1])).filter(Boolean) });
+    for (const r of (sections.get('OBJECTS') || []))
+        if (r.type === 'GROUP') {
+            const meta = parseXdata(r);
+            doc.groups.push({ name: meta?.id || get(r, 5, ''), semantic: meta?.semantic || {}, description: decodeDxfString(get(r, 300, '')), members: r.tags.filter(t => t[0] === 340).map(t => handles.get(t[1])).filter(Boolean) });
+        }
     return doc;
 }
 

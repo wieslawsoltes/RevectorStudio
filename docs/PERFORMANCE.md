@@ -28,7 +28,7 @@ The deterministic BVH uses in-place median selection with a bounded sort fallbac
 
 ### DXF and color
 
-Per-export ACI lookup caching uses exact RGB keys and scalar distance arithmetic; near-black bytes are not interpreted as normalized colors. ASCII and XDATA fast paths preserve UTF-16 DXF escapes, control sanitization and byte limits. Group/asset/layer lookups are indexed. The reader scans group/value lines incrementally rather than retaining an extra full lines array and pairs array. First-occurrence tag maps avoid repeated scans while multi-value geometry tags retain their original order.
+Per-export ACI lookup caching uses exact RGB keys and scalar distance arithmetic; near-black bytes are not interpreted as normalized colors. ASCII and XDATA fast paths preserve UTF-16 DXF escapes, control sanitization and byte limits. Group/asset/layer lookups are indexed. The reader scans directly into section records without a generator, full lines array or intermediate section-pair copies. Small records use allocation-free scalar scans; large records use first-occurrence tag maps, and repeated geometry tags retain their original order. Object records and GROUP metadata are decoded once.
 
 Model validation, round-trip parsing and color auditing are still performed. No comparison viewport shortcut replaces the serialized DXF with a source intermediate.
 

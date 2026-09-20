@@ -33,9 +33,9 @@
     "name": "@revector/dxf",
     "version": "0.6.0",
     "file": "revector-dxf-0.6.0.tgz",
-    "bytes": 16976,
-    "sha256": "975c1869a8740c2f0001b367eb4b5896b1e4a63423cbbeb767fa4e404b47c01a",
-    "integrity": "sha512-+9UF5o/Yn6O+c1sebEyTBqc4BjgXQoIIuWRNJV/So+fYqmqlOJ1P8lKjJUQ2MyVc53Yk65mqiYsRbB9krEsc0A==",
+    "bytes": 17123,
+    "sha256": "73591aa13b4076644cf2cfcb7b0d5bf71fca102f2d42ba91959c807984359bfd",
+    "integrity": "sha512-JtGEanHr7R21oWW1KBE0ygfq5upDWOGg7zpgOyUlihlE7FnfbQ1WBt/nFiWws1qEjY6MBEgfagnFP5fX+j2Odw==",
     "files": [
       "LICENSE",
       "LICENSE.ezdxf",

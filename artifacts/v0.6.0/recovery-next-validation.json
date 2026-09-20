@@ -22,7 +22,7 @@
         "tileOverlap": 96,
         "maxTiles": 256,
         "deskew": true,
-        "assetBase": "http://127.0.0.1:39259/vendor/ocr/"
+        "assetBase": "http://127.0.0.1:46023/vendor/ocr/"
       },
       "accepted": 6,
       "rejected": 1,
@@ -434,7 +434,7 @@
     "releasedOnSuccess": true,
     "releasedOnFailure": true
   },
-  "url": "http://127.0.0.1:39259/",
+  "url": "http://127.0.0.1:46023/",
   "passed": 14,
   "checks": [
     "OCR dialog upgrades partial project settings",

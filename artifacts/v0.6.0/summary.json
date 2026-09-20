@@ -1,10 +1,10 @@
 {
   "version": "0.6.0",
-  "sourceRefinement": "Snapshot and BVH helpers are routed through mapped package entry points; the browser module graph is regression-tested.",
+  "sourceRefinement": "Browser-mapped snapshot/BVH helpers and fused section-record DXF scanner; small-record scalar fast path; first-occurrence and section/budget regressions.",
   "sourceBase": "3b3bf2101c92da8f50773fe62f14c092cf31b935",
   "sourcePayloadSha256": "6faebc48ba62072cd5c8f2c6c0f53e4bbe8106211c72fbcf7a84286e6b1e93e7",
-  "workflowRun": "35511017059",
-  "nodeTests": 206,
+  "workflowRun": "35511495428",
+  "nodeTests": 209,
   "nodeFailures": 0,
   "differentialChecks": 746,
   "benchmarkCases": 13,

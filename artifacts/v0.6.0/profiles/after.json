@@ -2,7 +2,7 @@
   "schema": "revector.performance/1",
   "label": "after-profile",
   "node": "v22.16.0",
-  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
   "platform": "linux",
   "arch": "x64",
   "repeats": 1,
@@ -11,66 +11,88 @@
   "cases": [
     {
       "name": "semantic-classification",
-      "medianMs": 274.891291,
-      "minMs": 274.891291,
-      "maxMs": 274.891291,
+      "medianMs": 198.58830400000002,
+      "minMs": 198.58830400000002,
+      "maxMs": 198.58830400000002,
       "samplesMs": [
-        274.891291
+        198.58830400000002
       ],
       "memoryAfter": [
         {
-          "rss": 85213184,
-          "heapTotal": 28680192,
-          "heapUsed": 15348840,
+          "rss": 85716992,
+          "heapTotal": 28155904,
+          "heapUsed": 13912400,
           "external": 1877994,
           "arrayBuffers": 16875
         }
       ],
-      "peakRssKiB": 84636,
+      "peakRssKiB": 85004,
       "digest": "1297b9325a154c01bcbb5dbde0e255244e9d28fcc63dbba02a5dfe43a1248140",
       "count": 800
     },
     {
       "name": "compound-fill",
-      "medianMs": 56.58600200000001,
-      "minMs": 56.58600200000001,
-      "maxMs": 56.58600200000001,
+      "medianMs": 42.90454999999997,
+      "minMs": 42.90454999999997,
+      "maxMs": 42.90454999999997,
       "samplesMs": [
-        56.58600200000001
+        42.90454999999997
       ],
       "memoryAfter": [
         {
-          "rss": 88186880,
+          "rss": 96538624,
           "heapTotal": 44367872,
-          "heapUsed": 9818608,
+          "heapUsed": 11573600,
           "external": 1962244,
           "arrayBuffers": 21995
         }
       ],
-      "peakRssKiB": 86120,
+      "peakRssKiB": 94276,
       "digest": "35f528862f1d2776e09948f299d5d67695bf1bf2e580c21e724bc7d7c4b5b612",
       "count": 320
     },
     {
       "name": "shared-complex-clipping",
-      "medianMs": 29.195447,
-      "minMs": 29.195447,
-      "maxMs": 29.195447,
+      "medianMs": 17.931846000000007,
+      "minMs": 17.931846000000007,
+      "maxMs": 17.931846000000007,
       "samplesMs": [
-        29.195447
+        17.931846000000007
       ],
       "memoryAfter": [
         {
-          "rss": 95789056,
-          "heapTotal": 43065344,
-          "heapUsed": 9757880,
+          "rss": 97980416,
+          "heapTotal": 43327488,
+          "heapUsed": 9746264,
           "external": 1962244,
           "arrayBuffers": 21995
         }
       ],
-      "peakRssKiB": 93544,
+      "peakRssKiB": 95684,
       "digest": "4a7d734c7e7ca0611c6d3a203a2a48a44773484b99850be6b4fe97061df85ba8",
       "count": 719
+    },
+    {
+      "name": "dxf-read-groups",
+      "medianMs": 43.55923399999995,
+      "minMs": 43.55923399999995,
+      "maxMs": 43.55923399999995,
+      "samplesMs": [
+        43.55923399999995
+      ],
+      "memoryAfter": [
+        {
+          "rss": 113860608,
+          "heapTotal": 50253824,
+          "heapUsed": 29360968,
+          "external": 1957124,
+          "arrayBuffers": 16875
+        }
+      ],
+      "peakRssKiB": 116784,
+      "digest": "c5bf53224ec8df8099115c65d694e1cb4ee2c5cba63e8fd4e9bfa90f19011845",
+      "count": 5000,
+      "bytes": 1579921
     }
   ]
 }
