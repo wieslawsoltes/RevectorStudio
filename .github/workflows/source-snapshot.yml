@@ -18,6 +18,7 @@ jobs:
       - name: Archive tracked files and locked Linux build dependencies
         run: |
           git archive --format=zip --output=source.zip HEAD
+          git ls-tree -r HEAD > tracked-tree.txt
           npm ci --ignore-scripts --include=optional --no-audit --no-fund
           tar -czf linux-node-dependencies.tar.gz node_modules
           sha256sum source.zip linux-node-dependencies.tar.gz > SHA256SUMS
@@ -34,4 +35,5 @@ jobs:
             revision.txt
             commit.txt
             runtime.json
+            tracked-tree.txt
           retention-days: 7
