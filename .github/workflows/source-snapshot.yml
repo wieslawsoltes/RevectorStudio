@@ -1,0 +1,27 @@
+name: Archive source snapshot
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/source-snapshot.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive tracked files at the exact revision
+        run: |
+          git archive --format=zip --output=source.zip HEAD
+          sha256sum source.zip > source.zip.sha256
+          git rev-parse HEAD > revision.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: revector-source-snapshot
+          path: |
+            source.zip
+            source.zip.sha256
+            revision.txt
+          retention-days: 7
