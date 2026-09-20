@@ -1,0 +1,38 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "version": "2000",
+      "page": 1,
+      "images": 4,
+      "assets": 2,
+      "auditErrors": 0,
+      "auditFixes": 0
+    },
+    {
+      "version": "2000",
+      "page": 2,
+      "images": 4,
+      "assets": 2,
+      "auditErrors": 0,
+      "auditFixes": 0
+    },
+    {
+      "version": "2018",
+      "page": 1,
+      "images": 4,
+      "assets": 2,
+      "auditErrors": 0,
+      "auditFixes": 0
+    },
+    {
+      "version": "2018",
+      "page": 2,
+      "images": 4,
+      "assets": 2,
+      "auditErrors": 0,
+      "auditFixes": 0
+    }
+  ],
+  "transport": "Actual Node CLI, PDF.js and native Canvas"
+}

@@ -1,3 +1,4 @@
+import {MetadataTransactions} from './metadata.js';
 import {_markImmutableSnapshot as markImmutableSnapshot} from '@revector/model';
 import { stableHash } from '@revector/geometry';
 import { validateDocument, createImmutableDocumentValidator, ensureLayer, diagnostic, checkAbort, yieldTask } from '@revector/model';
@@ -140,7 +141,7 @@ export class RuleEngine {
         const candidateIds = new Set(doc.candidates.map(c => c.id)), validate = createImmutableDocumentValidator();
         // Reuse detached frozen branches across rules. A transaction replaces each
         // modified branch, so WeakMap identity is a safe invalidation key here.
-        const frozen = new WeakMap();
+        const frozen = new WeakMap(), metadata = new MetadataTransactions(validate);
         const snapshotBranch = value => {
             if (!value || typeof value !== 'object') return value;
             let result = frozen.get(value);
@@ -154,6 +155,7 @@ export class RuleEngine {
         };
         for (let index = 0; index < rules.length; index++) {
             checkAbort(options.signal);
+            metadata.reset();
             const rule = rules[index], start = performance.now();
             options.onProgress?.({ phase: 'semantics', rule: rule.id, done: index, total: rules.length });
             const snapshot = Object.freeze({ entities: snapshotList(doc.entities), blocks: snapshotList(doc.blocks),
@@ -161,10 +163,15 @@ export class RuleEngine {
                 pageBox: snapshotBranch(doc.pageBox), units: doc.units, revision: doc.revision });
             markImmutableSnapshot(snapshot);
             const context = Object.freeze({ document: snapshot, options, signal: options.signal, checkAbort: () => checkAbort(options.signal) });
-            let proposed = 0, accepted = 0;
+            let proposed = 0, accepted = 0, iterations = 0, lastYield = performance.now();
             try {
                 const output = await rule.run(context);
                 for await (const raw of output || []) {
+                    // Keep fallback/main-thread conversion cancellable inside a
+                    // single large rule, not just between complete rule passes.
+                    if ((++iterations & 31) === 0 && performance.now() - lastYield >= 8) {
+                        await yieldTask(); checkAbort(options.signal); lastYield = performance.now();
+                    }
                     checkAbort(options.signal);
                     if (doc.candidates.length >= maxCandidates)
                         throw new RangeError('Semantic candidate budget exceeded');
@@ -178,7 +185,7 @@ export class RuleEngine {
                     const auto = c.confidence >= minConfidence && (c.exact || options.fidelity === 'inferred');
                     if (decision === 'accept' || (decision !== 'reject' && auto)) {
                         try {
-                            doc = applyCandidate(doc, c, validate);
+                            doc = metadata.apply(doc, c) || applyCandidate(doc, c, validate);
                             c.status = 'accepted';
                             c.result = (c.proposal.add || []).map(e => e.id);
                             accepted++;
@@ -199,6 +206,7 @@ export class RuleEngine {
             }
             stats.push({ rule: rule.id, proposed, accepted, elapsedMs: performance.now() - start });
             await yieldTask();
+            checkAbort(options.signal);
         }
         doc.ruleStats = stats;
         options.onProgress?.({ phase: 'semantics', done: rules.length, total: rules.length });

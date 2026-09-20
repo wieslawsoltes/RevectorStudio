@@ -18,7 +18,7 @@ function paintDecoded(ctx,resource,w,h){
     const pixels=ctx.createImageData(w,h),out=pixels.data,kind=resource.kind;
     if(kind===3&&data.length===w*h*4)out.set(data);
     else if(kind===2&&data.length===w*h*3){for(let i=0,j=0;i<out.length;i+=4,j+=3){out[i]=data[j];out[i+1]=data[j+1];out[i+2]=data[j+2];out[i+3]=255;}}
-    else if(kind===1&&data.length>=Math.ceil(w/8)*h){const stride=Math.ceil(w/8);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const v=data[y*stride+(x>>3)]&(128>>(x&7))?255:0;out.set([v,v,v,255],(y*w+x)*4);}}
+    else if(kind===1&&data.length>=Math.ceil(w/8)*h){const stride=Math.ceil(w/8);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const v=data[y*stride+(x>>3)]&(128>>(x&7))?255:0;const j=(y*w+x)*4;out[j]=out[j+1]=out[j+2]=v;out[j+3]=255;}}
     else throw new Error('Unsupported decoded PDF image representation');
     ctx.putImageData(pixels,0,0);
 }

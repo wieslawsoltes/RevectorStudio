@@ -1,0 +1,303 @@
+{
+  "schema": "revector.performance-comparison/1",
+  "passed": true,
+  "comparedAt": "2026-09-20T20:07:09.620Z",
+  "node": "v22.16.0",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "platform": "linux",
+  "repeats": 3,
+  "warmups": 1,
+  "cases": [
+    {
+      "name": "semantic-metadata-groups",
+      "beforeMs": 1099.2086920000002,
+      "afterMs": 80.49142699999999,
+      "speedup": 13.656220705342948,
+      "digest": "76ef80c053b5014547910ccdea67a955f0bf7e98497a23f2767517543b25d28a",
+      "count": 1800,
+      "beforeSamplesMs": [
+        1077.4475360000001,
+        1099.2086920000002,
+        1145.363015
+      ],
+      "afterSamplesMs": [
+        77.63501200000002,
+        80.49142699999999,
+        89.09430100000003
+      ]
+    },
+    {
+      "name": "dense-table-grid",
+      "beforeMs": 448.26821700000073,
+      "afterMs": 25.34015599999998,
+      "speedup": 17.690033834045895,
+      "digest": "0af84a2763d1d617f80b689caef4200d5380e3a3d7aff820c9da2d164d8160b8",
+      "count": 1764,
+      "beforeSamplesMs": [
+        435.48264199999994,
+        448.26821700000073,
+        458.6026549999997
+      ],
+      "afterSamplesMs": [
+        21.672335999999973,
+        25.34015599999998,
+        26.993458999999973
+      ]
+    },
+    {
+      "name": "sauvola-2mp",
+      "beforeMs": 52.25138500000048,
+      "afterMs": 59.23062500000003,
+      "speedup": 0.8821683883970574,
+      "digest": "ec1737c7a53088f59b4312de01ec6dcad5c7d4719da8e7203aa6b29902180177",
+      "count": 2000000,
+      "beforeSamplesMs": [
+        42.80048699999952,
+        52.25138500000048,
+        53.58351700000003
+      ],
+      "afterSamplesMs": [
+        39.28842499999996,
+        59.23062500000003,
+        62.139861999999994
+      ]
+    },
+    {
+      "name": "real-pdf-linework",
+      "beforeMs": 235.433806,
+      "afterMs": 236.0548359999998,
+      "speedup": 0.9973691282478119,
+      "digest": "870b426c0872bc559c1042656ab4ee6dfadb533dd59f78bd5bf1b0f05b3cc33a",
+      "rawDigest": "0a5da0d19b5d8a94bcca8bb967720d89ff8a60d89da242d718d52b05aec43056",
+      "count": 400,
+      "beforeSamplesMs": [
+        233.514811,
+        235.433806,
+        240.27056100000027
+      ],
+      "afterSamplesMs": [
+        231.8233620000001,
+        236.0548359999998,
+        248.48697900000025
+      ]
+    },
+    {
+      "name": "real-pdf-text-fill",
+      "beforeMs": 207.85486800000035,
+      "afterMs": 203.715729,
+      "speedup": 1.020318210185922,
+      "digest": "9922f1cbe25f9c145fc9c5d813057777035c69b91db7aa4a648fe8fe000e8965",
+      "rawDigest": "a68e3ee619cfafbd675752697113958f3eec7cfb7079c3e504bc07b656fc5cc7",
+      "count": 801,
+      "beforeSamplesMs": [
+        205.21216800000002,
+        207.85486800000035,
+        216.7276750000001
+      ],
+      "afterSamplesMs": [
+        203.37178600000016,
+        203.715729,
+        207.02819399999998
+      ]
+    },
+    {
+      "name": "dxf-read-groups",
+      "beforeMs": 39.11825999999928,
+      "afterMs": 38.81437800000003,
+      "speedup": 1.0078291090997065,
+      "digest": "c5bf53224ec8df8099115c65d694e1cb4ee2c5cba63e8fd4e9bfa90f19011845",
+      "count": 5000,
+      "beforeSamplesMs": [
+        35.87105599999995,
+        39.11825999999928,
+        39.96322800000053
+      ],
+      "afterSamplesMs": [
+        35.330543000000034,
+        38.81437800000003,
+        42.23244199999999
+      ]
+    },
+    {
+      "name": "binary-rgba",
+      "beforeMs": 15.391308999998728,
+      "afterMs": 15.684835999999905,
+      "speedup": 0.9812859375768304,
+      "digest": "f5b9805a518f6b6e7a7848eac4f65c98b31492ba895c58df0b965cba5aab2140",
+      "count": 2000000,
+      "beforeSamplesMs": [
+        13.325114999999641,
+        15.391308999998728,
+        17.071451999998317
+      ],
+      "afterSamplesMs": [
+        13.302870999999868,
+        15.684835999999905,
+        18.026456999999937
+      ]
+    },
+    {
+      "name": "semantic-classification",
+      "beforeMs": 270.8842539999987,
+      "afterMs": 50.245990999999776,
+      "speedup": 5.391161535653659,
+      "digest": "1297b9325a154c01bcbb5dbde0e255244e9d28fcc63dbba02a5dfe43a1248140",
+      "count": 800,
+      "beforeSamplesMs": [
+        264.98499000000083,
+        270.8842539999987,
+        290.5986589999993
+      ],
+      "afterSamplesMs": [
+        48.749289999999746,
+        50.245990999999776,
+        50.79056800000035
+      ]
+    },
+    {
+      "name": "unchanged-rule-snapshots",
+      "beforeMs": 90.97686099999919,
+      "afterMs": 90.83497699999998,
+      "speedup": 1.0015619974230765,
+      "digest": "69ae584a6e7ca2910abd1573a20f911ea44b42025899002fbc97dccc922a627b",
+      "count": 8000,
+      "beforeSamplesMs": [
+        90.53835999999865,
+        90.97686099999919,
+        91.21435399999973
+      ],
+      "afterSamplesMs": [
+        90.39176899999984,
+        90.83497699999998,
+        92.36122200000045
+      ]
+    },
+    {
+      "name": "joined-line-drawing",
+      "beforeMs": 351.70817499999976,
+      "afterMs": 389.5852789999999,
+      "speedup": 0.9027758335807136,
+      "digest": "8077a232adb9f8d6a06f468ebf2ff1dede876313a2d8559d0678d754a3ae8a0f",
+      "count": 600,
+      "beforeSamplesMs": [
+        326.21934899999906,
+        351.70817499999976,
+        376.37836400000015
+      ],
+      "afterSamplesMs": [
+        360.1387999999997,
+        389.5852789999999,
+        422.3818309999997
+      ]
+    },
+    {
+      "name": "repeated-forms",
+      "beforeMs": 92.09407199999987,
+      "afterMs": 94.58923099999993,
+      "speedup": 0.9736211091514206,
+      "digest": "22719a634a322dc89917707a43a635c9e814ea9133f4a8dd7c534b8f30742745",
+      "count": 1600,
+      "beforeSamplesMs": [
+        89.66997199999969,
+        92.09407199999987,
+        97.3885220000011
+      ],
+      "afterSamplesMs": [
+        89.50805799999944,
+        94.58923099999993,
+        98.6170349999993
+      ]
+    },
+    {
+      "name": "compound-fill",
+      "beforeMs": 36.221073999999135,
+      "afterMs": 28.282658999999512,
+      "speedup": 1.2806813531924195,
+      "digest": "35f528862f1d2776e09948f299d5d67695bf1bf2e580c21e724bc7d7c4b5b612",
+      "count": 320,
+      "beforeSamplesMs": [
+        26.78685199999927,
+        36.221073999999135,
+        36.31472700000086
+      ],
+      "afterSamplesMs": [
+        26.931516999999985,
+        28.282658999999512,
+        37.849999000000025
+      ]
+    },
+    {
+      "name": "shared-complex-clipping",
+      "beforeMs": 16.874642000000676,
+      "afterMs": 21.006713000000673,
+      "speedup": 0.8032975934883356,
+      "digest": "4a7d734c7e7ca0611c6d3a203a2a48a44773484b99850be6b4fe97061df85ba8",
+      "count": 719,
+      "beforeSamplesMs": [
+        15.004753999999593,
+        16.874642000000676,
+        29.79562999999871
+      ],
+      "afterSamplesMs": [
+        19.204211000000214,
+        21.006713000000673,
+        21.361815999999635
+      ]
+    },
+    {
+      "name": "dxf-repeated-colors",
+      "beforeMs": 162.76391300000068,
+      "afterMs": 153.61780400000043,
+      "speedup": 1.0595380793231508,
+      "digest": "745db56b47ceca4e4494adc84cc40b628f420b184572a006a440bcf56ca94527",
+      "count": 18000,
+      "beforeSamplesMs": [
+        147.6905200000001,
+        162.76391300000068,
+        163.1821370000016
+      ],
+      "afterSamplesMs": [
+        145.47360799999933,
+        153.61780400000043,
+        159.99533299999985
+      ]
+    },
+    {
+      "name": "spatial-build-query",
+      "beforeMs": 55.068820999998934,
+      "afterMs": 52.87887899999987,
+      "speedup": 1.0414143045657052,
+      "digest": "fce97f415a57a7930def84a26d8ada668c113b5aa81046fae56be7e04965f207",
+      "count": 12800,
+      "beforeSamplesMs": [
+        53.01477799999884,
+        55.068820999998934,
+        56.24791799999912
+      ],
+      "afterSamplesMs": [
+        52.15771300000051,
+        52.87887899999987,
+        57.1448390000005
+      ]
+    },
+    {
+      "name": "raster-skeleton",
+      "beforeMs": 74.03048599999966,
+      "afterMs": 56.14017000000058,
+      "speedup": 1.318672280472234,
+      "digest": "f0434bf051ff41cd1ecc873cfd7dd9ffddaa91f7d864b8f24127a2f0387615aa",
+      "count": 18,
+      "beforeSamplesMs": [
+        61.389178000001266,
+        74.03048599999966,
+        81.68182200000047
+      ],
+      "afterSamplesMs": [
+        52.7467029999998,
+        56.14017000000058,
+        95.61202000000048
+      ]
+    }
+  ],
+  "qualification": "Authored fixed workloads; no user-supplied slow PDFs and no OCR invoked. Full correctness hashing is inside each timing. Raw PDF SHA-256 matches across checkouts; stable per-repeat digests normalize only PDF.js per-instance source.ref hashes. RSS is cumulative per process, not per-case retained memory. Timing ratios are reported, not fragile CI assertions."
+}

@@ -40,9 +40,30 @@ def run(url: str, output: Path):
             }''')
             check('Busy cancellation hard-terminates the worker',page.evaluate('perfCancelled'))
             check('A fresh worker recovers after cancellation',page.evaluate('perfRecovered'))
+            cooperative=page.evaluate('''async()=>{
+                const {RuleEngine}=await import('@revector/semantics'),{createDocument}=await import('@revector/model');
+                const input=createDocument({entities:[{id:'e',type:'LINE',layer:'0',start:[0,0],end:[1,1]}]}),original=JSON.stringify(input);
+                const abort=new AbortController();let consumed=0,cancelled=false,ticks=0;
+                const rules=new RuleEngine().register({id:'bulk',run:()=> (function*(){for(let i=0;i<20000;i++){consumed++;yield {id:'c'+i,title:'tag',members:['e'],confidence:1,exact:true,proposal:{update:[{id:'e',patch:{semantic:{i}}}]}};}})()});
+                const timer=setTimeout(()=>{ticks++;abort.abort();},0);
+                try{await rules.run(input,{signal:abort.signal});}catch(e){if(e.name!=='AbortError')throw e;cancelled=true;}finally{clearTimeout(timer);}
+                const result=await new RuleEngine().register({id:'valid',run:()=>[{id:'ok',title:'tag',members:['e'],confidence:1,exact:true,proposal:{update:[{id:'e',patch:{semantic:{value:42}}}]}}]}).run(input);
+                return {cancelled,consumed,ticks,unchanged:JSON.stringify(input)===original,recovered:result.entities[0].semantic.value===42};
+            }''')
+            print('Cooperative cancellation:',json.dumps(cooperative),flush=True)
+            check('One large main-thread rule yields to timer cancellation',cooperative['cancelled'] and cooperative['ticks']==1 and cooperative['consumed']<20000)
+            check('Cancelled metadata batches leave caller input untouched and permit recovery',cooperative['unchanged'] and cooperative['recovered'])
+            pixels=page.evaluate('''async()=>{
+                const {binarize,grayscale}=await import('@revector/raster');
+                const raster={width:17,height:13,data:Uint8ClampedArray.from({length:17*13*4},(_,i)=>(i*29+i%7)%256)},g=grayscale(raster);
+                const target=binarize(raster,{method:'sauvola',window:7});let equal=true;
+                for(let y=0;y<13;y++)for(let x=0;x<17;x++){let s=0,q=0,n=0;for(let yy=Math.max(0,y-3);yy<Math.min(13,y+4);yy++)for(let xx=Math.max(0,x-3);xx<Math.min(17,x+4);xx++){const v=g[yy*17+xx];s+=v;q+=v*v;n++;}const m=s/n,expected=g[y*17+x]<m*(1+.2*(Math.sqrt(Math.max(0,q/n-m*m))/128-1))?1:0;if(target[y*17+x]!==expected)equal=false;}
+                return equal;
+            }''')
+            check('Browser rolling Sauvola equals independent local-window sums',pixels)
             check('No uncaught browser exceptions',not errors)
         finally:
-            (output/'validation.json').write_text(json.dumps({'url':url,'passed':len(checks),'checks':checks,'errors':errors,'timings':locals().get('timings'),'browserVersion':browser.version,'transport':'real HTTP(S), dedicated worker, no injected conversion results'},indent=2)+'\n')
+            (output/'validation.json').write_text(json.dumps({'url':url,'passed':len(checks),'checks':checks,'errors':errors,'timings':locals().get('timings'),'cooperativeCancellation':locals().get('cooperative'),'browserVersion':browser.version,'transport':'real HTTP(S), dedicated worker, no injected conversion results'},indent=2)+'\n')
             browser.close()
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--url');p.add_argument('--output',default='artifacts/performance-browser');args=p.parse_args()

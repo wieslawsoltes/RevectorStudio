@@ -1,0 +1,531 @@
+{
+  "library": "ezdxf",
+  "libraryVersion": "1.4.4",
+  "files": 35,
+  "auditErrors": 0,
+  "auditFixes": 0,
+  "results": [
+    {
+      "file": "actual-page-1.dxf",
+      "version": "AC1032",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page-2.dxf",
+      "version": "AC1032",
+      "entities": 37,
+      "types": {
+        "LWPOLYLINE": 1,
+        "TEXT": 13,
+        "SPLINE": 13,
+        "HATCH": 2,
+        "INSERT": 8
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page1-2000.dxf",
+      "version": "AC1015",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page1-2004.dxf",
+      "version": "AC1018",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page1-2007.dxf",
+      "version": "AC1021",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page1-2010.dxf",
+      "version": "AC1024",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page1-2013.dxf",
+      "version": "AC1027",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page1-2018.dxf",
+      "version": "AC1032",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page2-2000.dxf",
+      "version": "AC1015",
+      "entities": 37,
+      "types": {
+        "LWPOLYLINE": 1,
+        "TEXT": 13,
+        "SPLINE": 13,
+        "HATCH": 2,
+        "INSERT": 8
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page2-2004.dxf",
+      "version": "AC1018",
+      "entities": 37,
+      "types": {
+        "LWPOLYLINE": 1,
+        "TEXT": 13,
+        "SPLINE": 13,
+        "HATCH": 2,
+        "INSERT": 8
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page2-2007.dxf",
+      "version": "AC1021",
+      "entities": 37,
+      "types": {
+        "LWPOLYLINE": 1,
+        "TEXT": 13,
+        "SPLINE": 13,
+        "HATCH": 2,
+        "INSERT": 8
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page2-2010.dxf",
+      "version": "AC1024",
+      "entities": 37,
+      "types": {
+        "LWPOLYLINE": 1,
+        "TEXT": 13,
+        "SPLINE": 13,
+        "HATCH": 2,
+        "INSERT": 8
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page2-2013.dxf",
+      "version": "AC1027",
+      "entities": 37,
+      "types": {
+        "LWPOLYLINE": 1,
+        "TEXT": 13,
+        "SPLINE": 13,
+        "HATCH": 2,
+        "INSERT": 8
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "actual-page2-2018.dxf",
+      "version": "AC1032",
+      "entities": 37,
+      "types": {
+        "LWPOLYLINE": 1,
+        "TEXT": 13,
+        "SPLINE": 13,
+        "HATCH": 2,
+        "INSERT": 8
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "browser-export.dxf",
+      "version": "AC1032",
+      "entities": 134,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 23,
+        "CIRCLE": 1,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "browser-page1-2000.dxf",
+      "version": "AC1015",
+      "entities": 134,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 23,
+        "CIRCLE": 1,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "browser-page1-2004.dxf",
+      "version": "AC1018",
+      "entities": 134,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 23,
+        "CIRCLE": 1,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "browser-page1-2007.dxf",
+      "version": "AC1021",
+      "entities": 134,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 23,
+        "CIRCLE": 1,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "browser-page1-2010.dxf",
+      "version": "AC1024",
+      "entities": 134,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 23,
+        "CIRCLE": 1,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "browser-page1-2013.dxf",
+      "version": "AC1027",
+      "entities": 134,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 23,
+        "CIRCLE": 1,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "browser-page1-2018.dxf",
+      "version": "AC1032",
+      "entities": 134,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 23,
+        "CIRCLE": 1,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "cli-test.dxf",
+      "version": "AC1032",
+      "entities": 137,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 46,
+        "TEXT": 42,
+        "SPLINE": 27,
+        "INSERT": 6,
+        "HATCH": 7
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "contract-2000.dxf",
+      "version": "AC1015",
+      "entities": 5,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "contract-2004.dxf",
+      "version": "AC1018",
+      "entities": 5,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "contract-2007.dxf",
+      "version": "AC1021",
+      "entities": 5,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "contract-2010.dxf",
+      "version": "AC1024",
+      "entities": 5,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "contract-2013.dxf",
+      "version": "AC1027",
+      "entities": 5,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "contract-2018.dxf",
+      "version": "AC1032",
+      "entities": 5,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "semantic-accepted.dxf",
+      "version": "AC1032",
+      "entities": 107,
+      "types": {
+        "LWPOLYLINE": 9,
+        "LINE": 44,
+        "TEXT": 34,
+        "SPLINE": 3,
+        "CIRCLE": 6,
+        "INSERT": 6,
+        "HATCH": 3,
+        "DIMENSION": 2
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "smoke-2000.dxf",
+      "version": "AC1015",
+      "entities": 6,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1,
+        "DIMENSION": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "smoke-2004.dxf",
+      "version": "AC1018",
+      "entities": 6,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1,
+        "DIMENSION": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "smoke-2007.dxf",
+      "version": "AC1021",
+      "entities": 6,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1,
+        "DIMENSION": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "smoke-2010.dxf",
+      "version": "AC1024",
+      "entities": 6,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1,
+        "DIMENSION": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "smoke-2013.dxf",
+      "version": "AC1027",
+      "entities": 6,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1,
+        "DIMENSION": 1
+      },
+      "errors": [],
+      "fixes": []
+    },
+    {
+      "file": "smoke-2018.dxf",
+      "version": "AC1032",
+      "entities": 6,
+      "types": {
+        "LINE": 1,
+        "TEXT": 1,
+        "SPLINE": 1,
+        "HATCH": 1,
+        "INSERT": 1,
+        "DIMENSION": 1
+      },
+      "errors": [],
+      "fixes": []
+    }
+  ],
+  "qualification": "Independent file structure/entity validation; not certification in Autodesk AutoCAD, BricsCAD, or every downstream CAD product."
+}

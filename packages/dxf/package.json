@@ -1,6 +1,6 @@
 {
   "name": "@revector/dxf",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "description": "DXF 2000\u20132018 writer and reader for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -24,8 +24,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.6.0",
-    "@revector/model": "0.6.0"
+    "@revector/geometry": "0.7.0",
+    "@revector/model": "0.7.0"
   },
   "repository": {
     "type": "git",

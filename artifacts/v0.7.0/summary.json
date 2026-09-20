@@ -1,0 +1,16 @@
+{
+  "version": "0.7.0",
+  "baselineCommit": "f3dcd9fa6ecdfc4e2944379d0b59b177b7395ad7",
+  "sourcePayloadSha256": "ff92462d8a45d246725b07c1d855f1ee82dbb9748c046eae88c1ddf12f71f95f",
+  "schedulerRefinementSha256": "6bb2db1472c8a97aa616a12f4dee7e45f21b2e4d6b0e2e1393cf83dd4c9ba591",
+  "workflowRun": "35534383916",
+  "nodeTests": 226,
+  "nodeFailures": 0,
+  "differentialChecks": 1454,
+  "benchmarks": 16,
+  "performanceBrowserChecks": 14,
+  "independentBaselineDxfFiles": 35,
+  "isolatedNpmImports": 16,
+  "npmPublication": "not attempted; dry-run only",
+  "qualification": "Authored workloads, not the unsupplied slow customer PDFs. Recognition engine and quality settings are unchanged. Preprocessing timing is not full OCR throughput. Historical and current benchmark runs use different machines and are not multiplied together."
+}

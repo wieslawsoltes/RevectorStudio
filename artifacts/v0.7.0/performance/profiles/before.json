@@ -1,0 +1,97 @@
+{
+  "schema": "revector.performance/1",
+  "label": "before",
+  "node": "v22.16.0",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "platform": "linux",
+  "arch": "x64",
+  "repeats": 1,
+  "warmups": 1,
+  "methodology": "Independent process per checkout; workload construction and warmup excluded; end-to-end includes correctness hashing; GC before each measurement; no OCR invoked. Real-PDF stable hashes normalize only ephemeral source.ref hashes; raw SHA-256 is also retained.",
+  "cases": [
+    {
+      "name": "semantic-classification",
+      "medianMs": 240.879621,
+      "minMs": 240.879621,
+      "maxMs": 240.879621,
+      "samplesMs": [
+        240.879621
+      ],
+      "memoryAfter": [
+        {
+          "rss": 107302912,
+          "heapTotal": 45195264,
+          "heapUsed": 17242904,
+          "external": 1877994,
+          "arrayBuffers": 16875
+        }
+      ],
+      "peakRssKiB": 104788,
+      "digest": "1297b9325a154c01bcbb5dbde0e255244e9d28fcc63dbba02a5dfe43a1248140",
+      "count": 800
+    },
+    {
+      "name": "semantic-metadata-groups",
+      "medianMs": 1107.148456,
+      "minMs": 1107.148456,
+      "maxMs": 1107.148456,
+      "samplesMs": [
+        1107.148456
+      ],
+      "memoryAfter": [
+        {
+          "rss": 119865344,
+          "heapTotal": 50991104,
+          "heapUsed": 23192752,
+          "external": 1957124,
+          "arrayBuffers": 16875
+        }
+      ],
+      "peakRssKiB": 117056,
+      "digest": "76ef80c053b5014547910ccdea67a955f0bf7e98497a23f2767517543b25d28a",
+      "count": 1800
+    },
+    {
+      "name": "dense-table-grid",
+      "medianMs": 427.60176,
+      "minMs": 427.60176,
+      "maxMs": 427.60176,
+      "samplesMs": [
+        427.60176
+      ],
+      "memoryAfter": [
+        {
+          "rss": 120012800,
+          "heapTotal": 48726016,
+          "heapUsed": 15809656,
+          "external": 1965944,
+          "arrayBuffers": 25695
+        }
+      ],
+      "peakRssKiB": 117200,
+      "digest": "0af84a2763d1d617f80b689caef4200d5380e3a3d7aff820c9da2d164d8160b8",
+      "count": 1764
+    },
+    {
+      "name": "sauvola-2mp",
+      "medianMs": 51.10761100000036,
+      "minMs": 51.10761100000036,
+      "maxMs": 51.10761100000036,
+      "samplesMs": [
+        51.10761100000036
+      ],
+      "memoryAfter": [
+        {
+          "rss": 159473664,
+          "heapTotal": 41484288,
+          "heapUsed": 11110080,
+          "external": 46005140,
+          "arrayBuffers": 44064891
+        }
+      ],
+      "peakRssKiB": 155860,
+      "digest": "ec1737c7a53088f59b4312de01ec6dcad5c7d4719da8e7203aa6b29902180177",
+      "count": 2000000
+    }
+  ]
+}

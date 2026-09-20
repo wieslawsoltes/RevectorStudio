@@ -1,0 +1,69 @@
+{
+  "schema": "revector.performance-comparison/1",
+  "passed": true,
+  "comparedAt": "2026-09-20T20:07:14.780Z",
+  "node": "v22.16.0",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "platform": "linux",
+  "repeats": 1,
+  "warmups": 1,
+  "cases": [
+    {
+      "name": "semantic-classification",
+      "beforeMs": 240.879621,
+      "afterMs": 61.38184699999999,
+      "speedup": 3.9242810826464707,
+      "digest": "1297b9325a154c01bcbb5dbde0e255244e9d28fcc63dbba02a5dfe43a1248140",
+      "count": 800,
+      "beforeSamplesMs": [
+        240.879621
+      ],
+      "afterSamplesMs": [
+        61.38184699999999
+      ]
+    },
+    {
+      "name": "semantic-metadata-groups",
+      "beforeMs": 1107.148456,
+      "afterMs": 85.16432900000001,
+      "speedup": 13.00014300588219,
+      "digest": "76ef80c053b5014547910ccdea67a955f0bf7e98497a23f2767517543b25d28a",
+      "count": 1800,
+      "beforeSamplesMs": [
+        1107.148456
+      ],
+      "afterSamplesMs": [
+        85.16432900000001
+      ]
+    },
+    {
+      "name": "dense-table-grid",
+      "beforeMs": 427.60176,
+      "afterMs": 26.767255000000034,
+      "speedup": 15.974808025701533,
+      "digest": "0af84a2763d1d617f80b689caef4200d5380e3a3d7aff820c9da2d164d8160b8",
+      "count": 1764,
+      "beforeSamplesMs": [
+        427.60176
+      ],
+      "afterSamplesMs": [
+        26.767255000000034
+      ]
+    },
+    {
+      "name": "sauvola-2mp",
+      "beforeMs": 51.10761100000036,
+      "afterMs": 57.42131999999992,
+      "speedup": 0.8900459097770729,
+      "digest": "ec1737c7a53088f59b4312de01ec6dcad5c7d4719da8e7203aa6b29902180177",
+      "count": 2000000,
+      "beforeSamplesMs": [
+        51.10761100000036
+      ],
+      "afterSamplesMs": [
+        57.42131999999992
+      ]
+    }
+  ],
+  "qualification": "Authored fixed workloads; no user-supplied slow PDFs and no OCR invoked. Full correctness hashing is inside each timing. Raw PDF SHA-256 matches across checkouts; stable per-repeat digests normalize only PDF.js per-instance source.ref hashes. RSS is cumulative per process, not per-case retained memory. Timing ratios are reported, not fragile CI assertions."
+}

@@ -49,5 +49,43 @@ for(let i=0;i<15;i++){
     for(let x=5;x<55;x++)pixels[(5+i%30)*w+x]=1;
     check('Raster graph '+i,await ra.traceRasterPaths(pixels,w,h),await rb.traceRasterPaths(pixels,w,h));
 }
-const result={schema:'revector.performance-equivalence/1',passed:true,checks:count,seed:19531,baseline,current,coverage:['Boolean operations and winding rules','Cubic clipping at multiple scales','accepted/conflicting/rejected semantic transactions','nested form ordering','six DXF versions with Unicode, colors, groups and source metadata','raster graph paths and logical work budgets']};
+
+const [dA,dB]=await Promise.all([load(baseline,'rules-document'),load(current,'rules-document')]);
+for(let trial=0;trial<80;trial++){
+    const width=1+trial%31,height=1+(trial*7)%29;
+    const data=Uint8ClampedArray.from({length:width*height*4},()=>Math.floor(random()*256));
+    for(const window of [3,4,31,201])for(const invert of [false,true]){
+        const options={method:'sauvola',window,invert,k:[0,.2,1][trial%3]};
+        check('Sauvola byte equality '+trial+' '+window+' '+invert,ra.binarize({width,height,data},options),rb.binarize({width,height,data},options));
+    }
+}
+for(let trial=0;trial<48;trial++){
+    const rows=2+trial%7,cols=2+(trial*3)%8,entities=[],scale=[1e-3,1,1e3][trial%3];let seq=0;
+    for(let y=0;y<=rows;y++)entities.push({...line('e'+seq++),start:[0,y*10*scale],end:[cols*10*scale,y*10*scale]});
+    for(let x=0;x<=cols;x++)entities.push({...line('e'+seq++),start:[x*10*scale,0],end:[x*10*scale,rows*10*scale]});
+    // Split segments, gaps and reversed directions exercise the exact border predicate.
+    if(trial%3===0){const v=entities.splice(rows+2,1)[0];v.start[1]=10*scale;entities.push(v);}
+    if(trial%4===0){const e=entities[0];[e.start,e.end]=[e.end,e.start];}
+    if(trial%5===0){const e=entities[1],mid=(e.start[0]+e.end[0])/2;const rest={...e,id:'split',start:[mid+scale*1e-8,e.start[1]],end:e.end};e.end=[mid,e.start[1]];entities.push(rest);}
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)entities.push({id:'t'+seq++,type:'TEXT',layer:'0',position:[(x*10+1)*scale,(y*10+2)*scale],height:scale,width:3*scale,text:'C'+seq});
+    const d=ma.createDocument({entities,pageBox:[0,0,cols*10*scale,rows*10*scale]});
+    check('Indexed table equality '+trial,dA.detectTables(d),dB.detectTables(d));
+}
+for(let trial=0;trial<20;trial++){
+    const d=ma.createDocument({entities:Array.from({length:70},(_,i)=>line('e'+i,i,trial)),groups:[{name:'empty',members:[]}]});
+    const proposals=[];
+    for(let i=0;i<160;i++){
+        const id='e'+Math.floor(random()*70),style=i%9;
+        const proposal=style===0?{groups:[{name:'g'+i,members:[id]}]}:
+            style===1?{update:[{id,patch:{semantic:{bad:NaN}}}]}:
+            style===2?{update:[{id,patch:{semantic:{bad:NaN}}},{id,patch:{semantic:{fixed:i}}}]}:
+            style===3?{update:[{id,patch:{start:[i,1]}}]}:
+            style===4?{groups:[{name:'empty'+i,members:[]}]}:
+            {update:[{id,patch:{semantic:{i},layer:'L'+(i%3)}}],layers:[{name:'L'+(i%3),color:[i%256,1,2]}]};
+        proposals.push({id:'c'+i,title:'p'+i,members:[id],confidence:1,exact:true,proposal});
+    }
+    const run=async module=>{const engine=new module.RuleEngine().register({id:'r',run:()=>proposals}),result=await engine.run(d);delete result.ruleStats;return result;};
+    check('Mixed metadata/general transaction sequence '+trial,await run(sa),await run(sb));
+}
+const result={schema:'revector.performance-equivalence/1',passed:true,checks:count,seed:19531,baseline,current,coverage:['Boolean operations and winding rules','Cubic clipping at multiple scales','accepted/conflicting/rejected semantic transactions','nested form ordering','six DXF versions with Unicode, colors, groups and source metadata','raster graph paths and logical work budgets','rolling Sauvola byte equivalence','indexed ruled-table membership at multiple scales','mixed metadata/general transactions and conflicts']};
 const output=path.resolve(option('--output','artifacts/performance/equivalence.json'));await fs.mkdir(path.dirname(output),{recursive:true});await fs.writeFile(output,JSON.stringify(result,null,2)+'\n');console.log('PASS',count,'differential equivalence checks');

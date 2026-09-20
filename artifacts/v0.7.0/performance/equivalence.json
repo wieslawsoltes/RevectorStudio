@@ -1,0 +1,19 @@
+{
+  "schema": "revector.performance-equivalence/1",
+  "passed": true,
+  "checks": 1454,
+  "seed": 19531,
+  "baseline": "/home/runner/work/_temp/revector-baseline",
+  "current": "/home/runner/work/RevectorStudio/RevectorStudio",
+  "coverage": [
+    "Boolean operations and winding rules",
+    "Cubic clipping at multiple scales",
+    "accepted/conflicting/rejected semantic transactions",
+    "nested form ordering",
+    "six DXF versions with Unicode, colors, groups and source metadata",
+    "raster graph paths and logical work budgets",
+    "rolling Sauvola byte equivalence",
+    "indexed ruled-table membership at multiple scales",
+    "mixed metadata/general transactions and conflicts"
+  ]
+}

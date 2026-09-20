@@ -2,9 +2,13 @@
 
 **Vector-first PDF → semantic DXF. Inspect the source. Recover structure. Keep the evidence.**
 
-Revector Studio 0.6.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
+Revector Studio 0.7.0 is a working, local-first HTML/JavaScript conversion IDE and a set of **16 reusable ESM/npm packages with TypeScript declarations**. The left viewport is the real PDF.js rendering of the input. The right viewport renders the **serialized DXF after parsing it back**, not a substitute drawing generated only for the demonstration.
 
 The converter reads vector painting instructions and encoded text. Raster OCR is opt-in through a self-hosted Tesseract.js integration. No remote AI service receives document data. The bundled two-page P&ID/feature fixture is an actual PDF, and is processed by the same path as an opened document.
+
+## New in 0.7.0 — metadata, large tables and raster preprocessing
+
+Consecutive metadata-only rule transactions use a private indexed batch with canonical validation fallback; general geometry rewrites retain full transaction validation. Table-cell assignment uses a single text pass and exact interval lookup instead of rescanning every label for every cell. Sauvola thresholding has byte-identical output with O(width) auxiliary sums instead of two full-page integral buffers. Single large semantic rules yield cooperatively for cancellation. See [the follow-up performance contracts](docs/PERFORMANCE-0.7.md) and [executed acceptance evidence](docs/VALIDATION-0.7.md).
 
 ## New in 0.6.0 — measured performance
 

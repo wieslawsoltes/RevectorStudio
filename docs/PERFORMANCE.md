@@ -1,5 +1,7 @@
 # Conversion performance — 0.6.0
 
+For the follow-up metadata/table/preprocessing optimizations, see [0.7.0](PERFORMANCE-0.7.md). The timings below remain the historical 0.6.0 acceptance record.
+
 ## What was measured
 
 The reference is commit `3b3bf2101c92da8f50773fe62f14c092cf31b935` (0.5.0). No customer slow PDF was supplied. The suite has thirteen authored deterministic workloads: two actual vector PDF pages, accepted classifications, twenty unchanged-rule snapshots, joined line drawings, repeated Forms, compound fills, repeated complex clipping, repeated-color DXF serialization, grouped DXF parsing, spatial indexing, binary RGBA conversion and skeleton tracing. The real PDFs go through PDF.js, extraction, semantic conversion, serialization and preview parsing. No OCR is invoked by the performance benchmark; functional OCR remains in the acceptance suite.

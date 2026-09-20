@@ -15,16 +15,38 @@ export function otsu(gray) {
     for(let t=0;t<255;t++){below+=histogram[t];moment+=t*histogram[t];const above=gray.length-below;if(!below||!above)continue;const d=moment/below-(sum-moment)/above,v=below*above*d*d;if(v>best){best=v;threshold=t;}}
     return threshold;
 }
-/** O(pixels) local Sauvola threshold using two integral images. 1 denotes ink. */
+/** O(pixels) local Sauvola threshold, with O(width) rolling sums. 1 denotes ink. */
 export function binarize(raster, {method='otsu',window=31,k=.2,invert=false,maxPixels=24_000_000,signal}={}) {
-    validateRaster(raster,maxPixels);checkAbort(signal);let g=grayscale(raster,maxPixels);if(invert)g=g.map(v=>255-v);const w=raster.width,h=raster.height,out=new Uint8Array(w*h);
+    validateRaster(raster,maxPixels);checkAbort(signal);const g=grayscale(raster,maxPixels);if(invert)for(let i=0;i<g.length;i++)g[i]=255-g[i];const w=raster.width,h=raster.height,out=new Uint8Array(w*h);
     if(method==='otsu'){const t=otsu(g);for(let i=0;i<g.length;i++)out[i]=g[i]<=t?1:0;return out;}
     if(method!=='sauvola')throw new RangeError('Unknown binarization method');
     if(w*h>8_000_000)throw new RangeError('Sauvola integral images exceed the 8 megapixel budget; select Otsu or a smaller region');
     if(!Number.isInteger(window)||window<3||window>201||!Number.isFinite(k)||k<0||k>1)throw new RangeError('Invalid Sauvola settings');
-    const stride=w+1,sum=new Float64Array(stride*(h+1)),squares=new Float64Array(sum.length),r=window>>1;
-    for(let y=0;y<h;y++){checkAbort(signal);let s=0,q=0;for(let x=0;x<w;x++){const v=g[y*w+x];s+=v;q+=v*v;const p=(y+1)*stride+x+1;sum[p]=sum[p-stride]+s;squares[p]=squares[p-stride]+q;}}
-    for(let y=0;y<h;y++){checkAbort(signal);for(let x=0;x<w;x++){const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),y0=Math.max(0,y-r),y1=Math.min(h,y+r+1),n=(x1-x0)*(y1-y0),a=y0*stride+x0,b=y0*stride+x1,c=y1*stride+x0,d=y1*stride+x1,m=(sum[d]-sum[b]-sum[c]+sum[a])/n,variance=(squares[d]-squares[b]-squares[c]+squares[a])/n-m*m;out[y*w+x]=g[y*w+x]<m*(1+k*(Math.sqrt(Math.max(0,variance))/128-1))?1:0;}}
+    // All accumulators contain integer byte sums and squared-byte sums, exactly
+    // representable in Float64 under the unchanged 8MP/window budgets. This is
+    // the same rectangle sum as the integral-image implementation, without two
+    // full-page Float64 buffers. Keep the arithmetic of mean/variance unchanged.
+    const sum=new Float64Array(w),squares=new Float64Array(w),r=window>>1;
+    for(let y=0;y<Math.min(h,r+1);y++){
+        checkAbort(signal);const row=y*w;
+        for(let x=0;x<w;x++){const v=g[row+x];sum[x]+=v;squares[x]+=v*v;}
+    }
+    for(let y=0;y<h;y++){
+        checkAbort(signal);
+        if(y){
+            const before=y-r-1,after=y+r;
+            if(before>=0){const row=before*w;for(let x=0;x<w;x++){const v=g[row+x];sum[x]-=v;squares[x]-=v*v;}}
+            if(after<h){const row=after*w;for(let x=0;x<w;x++){const v=g[row+x];sum[x]+=v;squares[x]+=v*v;}}
+        }
+        const rows=Math.min(h,y+r+1)-Math.max(0,y-r),row=y*w;
+        let s=0,q=0;
+        for(let x=0;x<Math.min(w,r+1);x++){s+=sum[x];q+=squares[x];}
+        for(let x=0;x<w;x++){
+            if(x){if(x-r-1>=0){s-=sum[x-r-1];q-=squares[x-r-1];}if(x+r<w){s+=sum[x+r];q+=squares[x+r];}}
+            const n=(Math.min(w,x+r+1)-Math.max(0,x-r))*rows,m=s/n,variance=q/n-m*m;
+            out[row+x]=g[row+x]<m*(1+k*(Math.sqrt(Math.max(0,variance))/128-1))?1:0;
+        }
+    }
     return out;
 }
 export function binaryRgba(binary,width,height){if(binary.length!==width*height)throw new RangeError('Binary size mismatch');const data=new Uint8ClampedArray(binary.length*4);for(let i=0;i<binary.length;i++){const v=binary[i]?0:255;const j=i*4;data[j]=data[j+1]=data[j+2]=v;data[j+3]=255;}return {data,width,height};}

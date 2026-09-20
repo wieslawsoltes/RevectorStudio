@@ -1888,7 +1888,7 @@ class ConversionEngine {
         checkpoint('roundtripMs');
         const colorAudit = (0, color_1.auditColors)(document, preview);
         checkpoint('colorAuditMs');
-        const report = { schema: 'revector.report/1', version: '0.6.0', color: { ...colorAudit, source: scene.colorManagement || null }, appearance: document.source.appearance || null, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const report = { schema: 'revector.report/1', version: '0.7.0', color: { ...colorAudit, source: scene.colorManagement || null }, appearance: document.source.appearance || null, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
         report.timings.totalMs = performance.now() - start;
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
@@ -3228,8 +3228,11 @@ function checkAbort(signal) {
         throw new AbortConversionError();
 }
 const yieldTask = () => {
-    if (globalThis.scheduler?.yield)
-        return globalThis.scheduler.yield();
+    // A boosted yield continuation can starve ordinary timer tasks (including
+    // cancellation). Post an ordinary visible task instead; do not inherit
+    // a caller's scheduler signal or elevate this conversion's priority.
+    if (typeof globalThis.scheduler?.postTask === 'function')
+        return globalThis.scheduler.postTask(() => { }, { priority: 'user-visible' });
     if (typeof globalThis.setImmediate === 'function')
         return new Promise(resolve => globalThis.setImmediate(resolve));
     return new Promise(resolve => setTimeout(resolve, 0));
@@ -3476,9 +3479,10 @@ function rotationMatrix(rotation, width, height) {
  * retained unless boxes almost coincide. Equal labels at distinct positions remain. */
 function deduplicateOcrWords(words, { maxComparisons = 1000000 } = {}) {
     const box = w => [w.bbox.x0, w.bbox.y0, w.bbox.x1, w.bbox.y1], records = words.map((word, index) => ({ word, index, box: box(word) }));
+    for (const record of records)
+        record.normalized = String(record.word.text).normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
     const index = new topology_1.SpatialIndex(records, r => r.box), suppressed = new Set(), keptIds = new Set(), kept = [];
     let work = 0;
-    const normalize = s => String(s).normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
     // A complete observation wins over a crop-edge fragment even when the OCR
     // engine assigns the fragment higher confidence. Tile-edge contact alone is
     // not a reason to discard text: unmatched observations are retained/flagged.
@@ -3493,7 +3497,7 @@ function deduplicateOcrWords(words, { maxComparisons = 1000000 } = {}) {
                 throw new RangeError('OCR duplicate comparison budget exceeded');
             if (other === record || suppressed.has(other.index) || keptIds.has(other.index))
                 continue;
-            const common = overlap(record.box, other.box), reverse = overlap(other.box, record.box), same = normalize(record.word.text) === normalize(other.word.text);
+            const common = overlap(record.box, other.box), reverse = overlap(other.box, record.box), same = record.normalized === other.normalized;
             const fragment = other.word.clippedEdges?.length && !record.word.clippedEdges?.length && Number.isInteger(record.word.tile) && Number.isInteger(other.word.tile) && record.word.tile !== other.word.tile && reverse > .9;
             if (fragment || Math.min(common, reverse) > (same ? .55 : .92))
                 suppressed.add(other.index);
@@ -3517,17 +3521,31 @@ function nativeTextBoxes(scene, pdfToPixels) {
         return (0, geometry_1.transformBox)([0, -.2, width, i.capHeight || .8], (0, geometry_1.compose)(pdfToPixels, first));
     });
 }
-function inkColor(image, box) { const bins = new Map(); const [x0, y0, x1, y1] = box.map(Math.round); for (let y = Math.max(0, y0); y < Math.min(image.height, y1); y += 2)
-    for (let x = Math.max(0, x0); x < Math.min(image.width, x1); x += 2) {
-        const j = 4 * (y * image.width + x), c = Array.from(image.data.slice(j, j + 3));
-        if (Math.min(...c) > 215)
-            continue;
-        const k = c.map(v => v >> 4).join(','), b = bins.get(k) || [0, 0, 0, 0];
-        b[0]++;
-        for (let i = 0; i < 3; i++)
-            b[i + 1] += c[i];
-        bins.set(k, b);
-    } const best = [...bins.values()].sort((a, b) => b[0] - a[0])[0]; return best ? best.slice(1).map(v => Math.round(v / best[0])) : [0, 0, 0]; }
+function inkColor(image, box) {
+    const bins = new Map(), [x0, y0, x1, y1] = box.map(Math.round), data = image.data;
+    for (let y = Math.max(0, y0); y < Math.min(image.height, y1); y += 2)
+        for (let x = Math.max(0, x0); x < Math.min(image.width, x1); x += 2) {
+            const j = 4 * (y * image.width + x), r = data[j], g = data[j + 1], b = data[j + 2];
+            if (Math.min(r, g, b) > 215)
+                continue;
+            const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+            let bin = bins.get(key);
+            if (!bin) {
+                bin = [0, 0, 0, 0];
+                bins.set(key, bin);
+            }
+            bin[0]++;
+            bin[1] += r;
+            bin[2] += g;
+            bin[3] += b;
+        }
+    // Map iteration preserves first-seen tie behavior of the prior stable sort.
+    let best;
+    for (const bin of bins.values())
+        if (!best || bin[0] > best[0])
+            best = bin;
+    return best ? [Math.round(best[1] / best[0]), Math.round(best[2] / best[0]), Math.round(best[3] / best[0])] : [0, 0, 0];
+}
 /** Pixel baseline -> PDF paint IR. No coordinates are guessed from a nominal DPI. */
 function wordToPaint(word, pixelToPdf, { page = 1, regionId = 'r0', color = [0, 0, 0], imageIds = [] } = {}) {
     const b = word.bbox, h = b.y1 - b.y0, w = b.x1 - b.x0, baseline = word.lineBaseline;
@@ -3963,7 +3981,9 @@ function paintDecoded(ctx, resource, w, h) {
         for (let y = 0; y < h; y++)
             for (let x = 0; x < w; x++) {
                 const v = data[y * stride + (x >> 3)] & (128 >> (x & 7)) ? 255 : 0;
-                out.set([v, v, v, 255], (y * w + x) * 4);
+                const j = (y * w + x) * 4;
+                out[j] = out[j + 1] = out[j + 2] = v;
+                out[j + 3] = 255;
             }
     }
     else
@@ -5067,13 +5087,14 @@ function otsu(gray) {
     }
     return threshold;
 }
-/** O(pixels) local Sauvola threshold using two integral images. 1 denotes ink. */
+/** O(pixels) local Sauvola threshold, with O(width) rolling sums. 1 denotes ink. */
 function binarize(raster, { method = 'otsu', window = 31, k = .2, invert = false, maxPixels = 24_000_000, signal } = {}) {
     validateRaster(raster, maxPixels);
     (0, model_1.checkAbort)(signal);
-    let g = grayscale(raster, maxPixels);
+    const g = grayscale(raster, maxPixels);
     if (invert)
-        g = g.map(v => 255 - v);
+        for (let i = 0; i < g.length; i++)
+            g[i] = 255 - g[i];
     const w = raster.width, h = raster.height, out = new Uint8Array(w * h);
     if (method === 'otsu') {
         const t = otsu(g);
@@ -5087,24 +5108,60 @@ function binarize(raster, { method = 'otsu', window = 31, k = .2, invert = false
         throw new RangeError('Sauvola integral images exceed the 8 megapixel budget; select Otsu or a smaller region');
     if (!Number.isInteger(window) || window < 3 || window > 201 || !Number.isFinite(k) || k < 0 || k > 1)
         throw new RangeError('Invalid Sauvola settings');
-    const stride = w + 1, sum = new Float64Array(stride * (h + 1)), squares = new Float64Array(sum.length), r = window >> 1;
-    for (let y = 0; y < h; y++) {
+    // All accumulators contain integer byte sums and squared-byte sums, exactly
+    // representable in Float64 under the unchanged 8MP/window budgets. This is
+    // the same rectangle sum as the integral-image implementation, without two
+    // full-page Float64 buffers. Keep the arithmetic of mean/variance unchanged.
+    const sum = new Float64Array(w), squares = new Float64Array(w), r = window >> 1;
+    for (let y = 0; y < Math.min(h, r + 1); y++) {
         (0, model_1.checkAbort)(signal);
-        let s = 0, q = 0;
+        const row = y * w;
         for (let x = 0; x < w; x++) {
-            const v = g[y * w + x];
-            s += v;
-            q += v * v;
-            const p = (y + 1) * stride + x + 1;
-            sum[p] = sum[p - stride] + s;
-            squares[p] = squares[p - stride] + q;
+            const v = g[row + x];
+            sum[x] += v;
+            squares[x] += v * v;
         }
     }
     for (let y = 0; y < h; y++) {
         (0, model_1.checkAbort)(signal);
+        if (y) {
+            const before = y - r - 1, after = y + r;
+            if (before >= 0) {
+                const row = before * w;
+                for (let x = 0; x < w; x++) {
+                    const v = g[row + x];
+                    sum[x] -= v;
+                    squares[x] -= v * v;
+                }
+            }
+            if (after < h) {
+                const row = after * w;
+                for (let x = 0; x < w; x++) {
+                    const v = g[row + x];
+                    sum[x] += v;
+                    squares[x] += v * v;
+                }
+            }
+        }
+        const rows = Math.min(h, y + r + 1) - Math.max(0, y - r), row = y * w;
+        let s = 0, q = 0;
+        for (let x = 0; x < Math.min(w, r + 1); x++) {
+            s += sum[x];
+            q += squares[x];
+        }
         for (let x = 0; x < w; x++) {
-            const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1), n = (x1 - x0) * (y1 - y0), a = y0 * stride + x0, b = y0 * stride + x1, c = y1 * stride + x0, d = y1 * stride + x1, m = (sum[d] - sum[b] - sum[c] + sum[a]) / n, variance = (squares[d] - squares[b] - squares[c] + squares[a]) / n - m * m;
-            out[y * w + x] = g[y * w + x] < m * (1 + k * (Math.sqrt(Math.max(0, variance)) / 128 - 1)) ? 1 : 0;
+            if (x) {
+                if (x - r - 1 >= 0) {
+                    s -= sum[x - r - 1];
+                    q -= squares[x - r - 1];
+                }
+                if (x + r < w) {
+                    s += sum[x + r];
+                    q += squares[x + r];
+                }
+            }
+            const n = (Math.min(w, x + r + 1) - Math.max(0, x - r)) * rows, m = s / n, variance = q / n - m * m;
+            out[row + x] = g[row + x] < m * (1 + k * (Math.sqrt(Math.max(0, variance)) / 128 - 1)) ? 1 : 0;
         }
     }
     return out;
@@ -6337,8 +6394,17 @@ function detectTables(document, options = {}) {
             continue;
         // Missing internal separators join elementary cells. Partial separators are
         // ambiguous: reject rather than fabricate a cell edge or truncate a stroke.
+        // Preserve the exact alignment predicate, clipped-interval ordering and
+        // partial-border test, but prepare each grid coordinate only once.
+        const alignedH = new Map(), alignedV = new Map();
         const coverage = (ss, coord, lo, hi, horizontal) => {
-            const ranges = ss.filter(s => Math.abs(s.a[horizontal ? 1 : 0] - coord) <= tol)
+            const cache = horizontal ? alignedH : alignedV;
+            let aligned = cache.get(coord);
+            if (!aligned) {
+                aligned = ss.filter(s => Math.abs(s.a[horizontal ? 1 : 0] - coord) <= tol);
+                cache.set(coord, aligned);
+            }
+            const ranges = aligned
                 .map(s => [Math.max(lo, s.box[horizontal ? 0 : 1]), Math.min(hi, s.box[horizontal ? 2 : 3])])
                 .filter(([a, b]) => b > a + tol).sort((a, b) => a[0] - b[0]);
             let end = lo, covered = 0;
@@ -6396,11 +6462,36 @@ function detectTables(document, options = {}) {
             }
         if ([...regions.values()].some(r => (r.x1 - r.x0) * (r.y1 - r.y0) !== r.count))
             continue;
-        const cells = [...regions.values()].map(r => {
-            const b = [xs[r.x0], ys[r.y0], xs[r.x1], ys[r.y1]], texts = inside.filter(e => {
-                const p = center((0, model_2.entityBox)(e, document));
-                return p[0] >= b[0] && p[0] < b[2] && p[1] >= b[1] && p[1] < b[3];
-            }).sort((a, b) => b.position[1] - a.position[1] || a.position[0] - b.position[0]);
+        // Locate each text center once in the elementary grid, then use the
+        // already verified rectangular union. This replaces cells × text scans.
+        // Half-open boundaries and original input/tie ordering remain unchanged.
+        const interval = (coordinates, value) => {
+            let lo = 0, hi = coordinates.length;
+            while (lo < hi) {
+                const mid = (lo + hi) >>> 1;
+                if (coordinates[mid] <= value)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+            return lo - 1;
+        };
+        const regionTexts = new Map();
+        for (const e of inside) {
+            const p = center((0, model_2.entityBox)(e, document));
+            if (!Number.isFinite(p[0]) || !Number.isFinite(p[1]))
+                continue;
+            const x = interval(xs, p[0]), y = interval(ys, p[1]);
+            if (x < 0 || x >= columns || y < 0 || y >= rows)
+                continue;
+            const key = sets.find(y * columns + x);
+            if (!regionTexts.has(key))
+                regionTexts.set(key, []);
+            regionTexts.get(key).push(e);
+        }
+        const cells = [...regions].map(([key, r]) => {
+            const b = [xs[r.x0], ys[r.y0], xs[r.x1], ys[r.y1]], texts = (regionTexts.get(key) || [])
+                .sort((a, b) => b.position[1] - a.position[1] || a.position[0] - b.position[0]);
             return { row: rows - r.y1, column: r.x0, rowSpan: r.y1 - r.y0, columnSpan: r.x1 - r.x0, bounds: b, text: texts.map(e => e.text).join(' '), entities: texts.map(e => e.id) };
         }).sort((a, b) => a.row - b.row || a.column - b.column);
         bounded(out, proposal('table-grid', `Table grid · ${rows} rows × ${columns} columns`, [...component.map(s => s.e), ...inside], { bounds: box, rows, columns, cells, mergedCells: cells.filter(c => c.rowSpan > 1 || c.columnSpan > 1).length }, .94));
@@ -6928,6 +7019,7 @@ exports.RuleEngine = void 0;
 exports.commitCandidate = commitCandidate;
 exports.safeRegex = safeRegex;
 exports.compileRuleSet = compileRuleSet;
+const metadata_js_1 = require("@revector/semantics/metadata.js");
 const model_1 = require("@revector/model");
 const geometry_1 = require("@revector/geometry");
 const model_2 = require("@revector/model");
@@ -7075,7 +7167,7 @@ class RuleEngine {
         const candidateIds = new Set(doc.candidates.map(c => c.id)), validate = (0, model_2.createImmutableDocumentValidator)();
         // Reuse detached frozen branches across rules. A transaction replaces each
         // modified branch, so WeakMap identity is a safe invalidation key here.
-        const frozen = new WeakMap();
+        const frozen = new WeakMap(), metadata = new metadata_js_1.MetadataTransactions(validate);
         const snapshotBranch = value => {
             if (!value || typeof value !== 'object')
                 return value;
@@ -7096,6 +7188,7 @@ class RuleEngine {
         };
         for (let index = 0; index < rules.length; index++) {
             (0, model_2.checkAbort)(options.signal);
+            metadata.reset();
             const rule = rules[index], start = performance.now();
             options.onProgress?.({ phase: 'semantics', rule: rule.id, done: index, total: rules.length });
             const snapshot = Object.freeze({ entities: snapshotList(doc.entities), blocks: snapshotList(doc.blocks),
@@ -7103,10 +7196,17 @@ class RuleEngine {
                 pageBox: snapshotBranch(doc.pageBox), units: doc.units, revision: doc.revision });
             (0, model_1._markImmutableSnapshot)(snapshot);
             const context = Object.freeze({ document: snapshot, options, signal: options.signal, checkAbort: () => (0, model_2.checkAbort)(options.signal) });
-            let proposed = 0, accepted = 0;
+            let proposed = 0, accepted = 0, iterations = 0, lastYield = performance.now();
             try {
                 const output = await rule.run(context);
                 for await (const raw of output || []) {
+                    // Keep fallback/main-thread conversion cancellable inside a
+                    // single large rule, not just between complete rule passes.
+                    if ((++iterations & 31) === 0 && performance.now() - lastYield >= 8) {
+                        await (0, model_2.yieldTask)();
+                        (0, model_2.checkAbort)(options.signal);
+                        lastYield = performance.now();
+                    }
                     (0, model_2.checkAbort)(options.signal);
                     if (doc.candidates.length >= maxCandidates)
                         throw new RangeError('Semantic candidate budget exceeded');
@@ -7120,7 +7220,7 @@ class RuleEngine {
                     const auto = c.confidence >= minConfidence && (c.exact || options.fidelity === 'inferred');
                     if (decision === 'accept' || (decision !== 'reject' && auto)) {
                         try {
-                            doc = applyCandidate(doc, c, validate);
+                            doc = metadata.apply(doc, c) || applyCandidate(doc, c, validate);
                             c.status = 'accepted';
                             c.result = (c.proposal.add || []).map(e => e.id);
                             accepted++;
@@ -7141,6 +7241,7 @@ class RuleEngine {
             }
             stats.push({ rule: rule.id, proposed, accepted, elapsedMs: performance.now() - start });
             await (0, model_2.yieldTask)();
+            (0, model_2.checkAbort)(options.signal);
         }
         doc.ruleStats = stats;
         options.onProgress?.({ phase: 'semantics', done: rules.length, total: rules.length });
@@ -7223,6 +7324,129 @@ function compileRuleSet(json) {
         return { id: r.id, version: r.version || '1.0.0', title: r.title || r.id, stage: r.stage ?? 50, priority: r.priority ?? 0, description: 'User-supplied declarative classification rule', run: ({ document }) => document.entities.filter(test).map(e => ({ title: r.title || `Classify ${e.id}`, members: [e.id], confidence: r.confidence ?? .99, exact: true, evidence: [{ kind: 'declarative-match', predicate: r.when }], proposal: { update: [{ id: e.id, patch: { ...(action.layer ? { layer: action.layer } : {}), semantic: { ...e.semantic, ...action.semantic, method: 'user-rule' } } }], layers: action.layer ? [{ name: action.layer, color: e.color || [0, 0, 0], visible: true }] : [] } })) };
     });
 }
+
+},
+"@revector/semantics/metadata.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MetadataTransactions = void 0;
+const model_1 = require("@revector/model");
+const clone = value => structuredClone(value);
+const proposalKeys = new Set(['update', 'layers', 'groups', 'add', 'remove', 'blocks']);
+const plain = value => value && typeof value === 'object' &&
+    (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+/** Private owned-run accelerator. Only metadata/layer patches and GROUP appends
+ * qualify. Identity, geometry, attributes, blocks and asset graphs cannot change.
+ * The public commitCandidate contract is intentionally not handled here.
+ *
+ * A consecutive batch owns collection shells, an ID index and a layer index.
+ * Rules only see detached, deeply frozen snapshots. reset() is required before
+ * the next rule snapshot is constructed; no externally visible list is mutated.
+ * Any unproven precondition returns null to the canonical validated transaction.
+ */
+class MetadataTransactions {
+    constructor(validate) { this.validate = validate; this.reset(); }
+    reset() { this.document = null; this.index = null; this.layers = null; this.ids = null; this.emptyGroups = undefined; this.owned = false; }
+    apply(document, candidate) {
+        const p = candidate.proposal;
+        if (!plain(p) || Object.keys(p).some(k => !proposalKeys.has(k)))
+            return null;
+        for (const key of proposalKeys)
+            if (p[key] !== undefined && !Array.isArray(p[key]))
+                return null;
+        if (p.add?.length || p.remove?.length || p.blocks?.length)
+            return null;
+        for (const u of p.update || []) {
+            if (!plain(u) || Object.keys(u).some(k => k !== 'id' && k !== 'patch') || !plain(u.patch) ||
+                Object.keys(u.patch).some(k => k !== 'semantic' && k !== 'layer'))
+                return null;
+        }
+        // Accept only ordinary names here. General/malformed plugin inputs retain
+        // their original validation order, errors and rollback via applyCandidate.
+        for (const l of p.layers || [])
+            if (!plain(l) || typeof l.name !== 'string')
+                return null;
+        for (const g of p.groups || [])
+            if (!plain(g) || !Array.isArray(g.members))
+                return null;
+        if (this.document !== document) {
+            this.reset();
+            if (!this.validate(document).valid)
+                return null;
+            this.index = new Map(document.entities.map((e, i) => [e.id, i]));
+            this.layers = new Map(document.layers.map(l => [l.name, l]));
+            this.document = document;
+            this.owned = false;
+        }
+        for (const id of candidate.members)
+            if (!this.index.has(id))
+                return null;
+        const addedLayers = new Map();
+        for (const l of p.layers || [])
+            if (!this.layers.has(l.name) && !addedLayers.has(l.name))
+                addedLayers.set(l.name, { name: l.name, color: l.color === undefined ? [0, 0, 0] : l.color,
+                    visible: l.visible === undefined ? true : l.visible });
+        const staged = new Map(), updated = [];
+        for (const u of p.update || []) {
+            const index = this.index.get(u.id);
+            if (index === undefined)
+                return null;
+            const before = staged.get(index) || document.entities[index];
+            const entity = clone(before);
+            Object.assign(entity, clone(u.patch));
+            if (!this.layers.has(entity.layer || '0') && !addedLayers.has(entity.layer || '0'))
+                return null;
+            // The source model was fully checked and only these two properties may
+            // change. Validate their recursive numeric content with the canonical
+            // validator, but without rescanning unchanged geometry/ID/block graphs.
+            const delta = { id: entity.id };
+            if (Object.hasOwn(u.patch, 'semantic'))
+                delta.semantic = entity.semantic;
+            if (Object.hasOwn(u.patch, 'layer'))
+                delta.value = entity.layer;
+            if (!(0, model_1.validateDocument)({ entities: [delta], blocks: [], layers: [{ name: '0' }], groups: [] }).valid)
+                return null;
+            updated.push({ id: u.id, before: clone(before) });
+            staged.set(index, entity);
+        }
+        if (p.groups?.length) {
+            this.ids ||= new Set([...document.entities, ...document.blocks.flatMap(b => b.entities)]
+                .flatMap(e => [e.id, ...(e.attributes || []).map(a => a.id)]));
+            for (const g of p.groups)
+                for (const id of g.members)
+                    if (!this.ids.has(id))
+                        return null;
+        }
+        // Everything above is preflight; nothing observable changes on conflict.
+        const groups = clone(p.groups || []);
+        if (!this.owned) {
+            document = { ...document, entities: document.entities.slice(), layers: document.layers.slice(),
+                groups: document.groups.slice(), history: document.history.slice(), diagnostics: document.diagnostics.slice() };
+            this.owned = true;
+        }
+        for (const [index, entity] of staged)
+            document.entities[index] = entity;
+        for (const [name, layer] of addedLayers) {
+            this.layers.set(name, layer);
+            document.layers.push(layer);
+        }
+        // Canonical transactions discard old empty groups before appending new ones.
+        // Most batches have none. Only scan once, then track newly added empties.
+        if (this.emptyGroups !== false)
+            document.groups = document.groups.filter(g => g.members.length > 0);
+        this.emptyGroups = groups.some(g => !g.members.length);
+        for (const g of groups)
+            document.groups.push(g);
+        document.revision++;
+        document.history.push({ candidate: candidate.id, rule: candidate.rule, revision: document.revision,
+            removed: [], updated, added: [], blocks: [] });
+        if (!candidate.exact)
+            document.diagnostics.push((0, model_1.diagnostic)('SEMANTIC_GEOMETRY_CHANGE', `Accepted inference: ${candidate.title}. Original primitives are retained in the conversion history.`, 'warning', { rule: candidate.rule, candidate: candidate.id, errorBound: candidate.errorBound }));
+        this.document = document;
+        return document;
+    }
+}
+exports.MetadataTransactions = MetadataTransactions;
 
 },
 "@revector/topology":(require,module,exports)=>{

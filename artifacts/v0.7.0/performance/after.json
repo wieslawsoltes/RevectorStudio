@@ -1,0 +1,1030 @@
+{
+  "schema": "revector.performance/1",
+  "label": "after",
+  "node": "v22.16.0",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "platform": "linux",
+  "arch": "x64",
+  "repeats": 3,
+  "warmups": 1,
+  "methodology": "Independent process per checkout; workload construction and warmup excluded; end-to-end includes correctness hashing; GC before each measurement; no OCR invoked. Real-PDF stable hashes normalize only ephemeral source.ref hashes; raw SHA-256 is also retained.",
+  "cases": [
+    {
+      "name": "semantic-metadata-groups",
+      "medianMs": 80.49142699999999,
+      "minMs": 77.63501200000002,
+      "maxMs": 89.09430100000003,
+      "samplesMs": [
+        77.63501200000002,
+        80.49142699999999,
+        89.09430100000003
+      ],
+      "memoryAfter": [
+        {
+          "rss": 100950016,
+          "heapTotal": 45748224,
+          "heapUsed": 18480696,
+          "external": 1877994,
+          "arrayBuffers": 16875
+        },
+        {
+          "rss": 108322816,
+          "heapTotal": 46010368,
+          "heapUsed": 17556584,
+          "external": 1878034,
+          "arrayBuffers": 16875
+        },
+        {
+          "rss": 112533504,
+          "heapTotal": 45486080,
+          "heapUsed": 19933176,
+          "external": 1878034,
+          "arrayBuffers": 16875
+        }
+      ],
+      "peakRssKiB": 109896,
+      "digest": "76ef80c053b5014547910ccdea67a955f0bf7e98497a23f2767517543b25d28a",
+      "count": 1800
+    },
+    {
+      "name": "dense-table-grid",
+      "medianMs": 25.34015599999998,
+      "minMs": 21.672335999999973,
+      "maxMs": 26.993458999999973,
+      "samplesMs": [
+        21.672335999999973,
+        25.34015599999998,
+        26.993458999999973
+      ],
+      "memoryAfter": [
+        {
+          "rss": 116412416,
+          "heapTotal": 46891008,
+          "heapUsed": 11722976,
+          "external": 1965944,
+          "arrayBuffers": 25695
+        },
+        {
+          "rss": 116609024,
+          "heapTotal": 42172416,
+          "heapUsed": 11717928,
+          "external": 1974764,
+          "arrayBuffers": 34515
+        },
+        {
+          "rss": 116645888,
+          "heapTotal": 42172416,
+          "heapUsed": 10375592,
+          "external": 1965944,
+          "arrayBuffers": 25695
+        }
+      ],
+      "peakRssKiB": 113912,
+      "digest": "0af84a2763d1d617f80b689caef4200d5380e3a3d7aff820c9da2d164d8160b8",
+      "count": 1764
+    },
+    {
+      "name": "sauvola-2mp",
+      "medianMs": 59.23062500000003,
+      "minMs": 39.28842499999996,
+      "maxMs": 62.139861999999994,
+      "samplesMs": [
+        39.28842499999996,
+        59.23062500000003,
+        62.139861999999994
+      ],
+      "memoryAfter": [
+        {
+          "rss": 124280832,
+          "heapTotal": 41746432,
+          "heapUsed": 22303528,
+          "external": 13989124,
+          "arrayBuffers": 12048875
+        },
+        {
+          "rss": 125984768,
+          "heapTotal": 40697856,
+          "heapUsed": 19229208,
+          "external": 13989124,
+          "arrayBuffers": 12048875
+        },
+        {
+          "rss": 125984768,
+          "heapTotal": 40697856,
+          "heapUsed": 6210896,
+          "external": 13989124,
+          "arrayBuffers": 12048875
+        }
+      ],
+      "peakRssKiB": 123032,
+      "digest": "ec1737c7a53088f59b4312de01ec6dcad5c7d4719da8e7203aa6b29902180177",
+      "count": 2000000
+    },
+    {
+      "name": "real-pdf-linework",
+      "medianMs": 236.0548359999998,
+      "minMs": 231.8233620000001,
+      "maxMs": 248.48697900000025,
+      "samplesMs": [
+        231.8233620000001,
+        236.0548359999998,
+        248.48697900000025
+      ],
+      "memoryAfter": [
+        {
+          "rss": 184250368,
+          "heapTotal": 66404352,
+          "heapUsed": 32838304,
+          "external": 3734505,
+          "arrayBuffers": 326428
+        },
+        {
+          "rss": 186011648,
+          "heapTotal": 67190784,
+          "heapUsed": 35404496,
+          "external": 3734505,
+          "arrayBuffers": 326428
+        },
+        {
+          "rss": 186880000,
+          "heapTotal": 66928640,
+          "heapUsed": 33487736,
+          "external": 3734505,
+          "arrayBuffers": 326428
+        }
+      ],
+      "peakRssKiB": 182500,
+      "digest": "870b426c0872bc559c1042656ab4ee6dfadb533dd59f78bd5bf1b0f05b3cc33a",
+      "rawDigest": "0a5da0d19b5d8a94bcca8bb967720d89ff8a60d89da242d718d52b05aec43056",
+      "count": 400,
+      "timings": {
+        "geometryMs": 8.121400999999878,
+        "semanticsMs": 173.242702,
+        "representationMs": 0.006010999999944033,
+        "validationMs": 2.1245340000000397,
+        "serializeMs": 9.121050000000196,
+        "roundtripMs": 7.610183999999663,
+        "colorAuditMs": 3.2076900000001842,
+        "totalMs": 203.9012859999998,
+        "pdfOpenMs": 1.766533999999865,
+        "extractionMs": 29.137288000000353,
+        "rasterImagesMs": 0.001152000000274711,
+        "ocrMs": 0.0007510000000365835,
+        "appearanceMs": 0.0008419999999205174,
+        "totalPipelineMs": 234.85955000000013
+      },
+      "rules": [
+        {
+          "rule": "geometry.join-chains",
+          "proposed": 400,
+          "accepted": 400,
+          "elapsedMs": 128.55475799999977
+        },
+        {
+          "rule": "cad.conic-recovery",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 4.997938000000431
+        },
+        {
+          "rule": "cad.sampled-curves",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.07577200000014273
+        },
+        {
+          "rule": "cad.repeated-symbols",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 4.141755999999987
+        },
+        {
+          "rule": "cad.tag-attributes",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.05812900000000809
+        },
+        {
+          "rule": "cad.dimensions",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.1536679999999251
+        },
+        {
+          "rule": "cad.centerlines",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.09414599999990969
+        },
+        {
+          "rule": "cad.hatch-families",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.038312000000132684
+        },
+        {
+          "rule": "cad.title-block",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.047739999999976135
+        },
+        {
+          "rule": "document.table-grids",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 11.583566000000246
+        },
+        {
+          "rule": "document.text-flows",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.019676999999774125
+        },
+        {
+          "rule": "document.notations",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.009047000000009575
+        },
+        {
+          "rule": "document.fields",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.013514999999642896
+        },
+        {
+          "rule": "document.diagram",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 1.4423879999999372
+        },
+        {
+          "rule": "document.parallel",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 3.218409999999949
+        },
+        {
+          "rule": "document.concentric",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.05754700000034063
+        },
+        {
+          "rule": "document.leaders",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 4.609070999999858
+        },
+        {
+          "rule": "document.borderless-tables",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.021670999999969354
+        },
+        {
+          "rule": "document.lists",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.01257400000031339
+        },
+        {
+          "rule": "document.junctions",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 3.1478579999998146
+        }
+      ],
+      "pdfSha256": "cb7103b93a154f4dff1fd14c97c4757e12e14fbdcc5d09233f34819d863dd7f2"
+    },
+    {
+      "name": "real-pdf-text-fill",
+      "medianMs": 203.715729,
+      "minMs": 203.37178600000016,
+      "maxMs": 207.02819399999998,
+      "samplesMs": [
+        203.37178600000016,
+        203.715729,
+        207.02819399999998
+      ],
+      "memoryAfter": [
+        {
+          "rss": 201183232,
+          "heapTotal": 71094272,
+          "heapUsed": 47360568,
+          "external": 3770267,
+          "arrayBuffers": 362190
+        },
+        {
+          "rss": 202485760,
+          "heapTotal": 71356416,
+          "heapUsed": 47370960,
+          "external": 3770267,
+          "arrayBuffers": 362190
+        },
+        {
+          "rss": 202567680,
+          "heapTotal": 70307840,
+          "heapUsed": 48372376,
+          "external": 3770267,
+          "arrayBuffers": 362190
+        }
+      ],
+      "peakRssKiB": 200100,
+      "digest": "9922f1cbe25f9c145fc9c5d813057777035c69b91db7aa4a648fe8fe000e8965",
+      "rawDigest": "a68e3ee619cfafbd675752697113958f3eec7cfb7079c3e504bc07b656fc5cc7",
+      "count": 801,
+      "timings": {
+        "geometryMs": 60.24347899999975,
+        "semanticsMs": 53.79273400000011,
+        "representationMs": 0.004588000000239845,
+        "validationMs": 9.668813999999657,
+        "serializeMs": 23.20030399999996,
+        "roundtripMs": 17.926460000000134,
+        "colorAuditMs": 2.3318810000000667,
+        "totalMs": 167.61884299999974,
+        "pdfOpenMs": 1.7628570000001673,
+        "extractionMs": 36.04099099999985,
+        "rasterImagesMs": 0.0010619999998198182,
+        "ocrMs": 0.0007410000002892048,
+        "appearanceMs": 0.0009119999999711581,
+        "totalPipelineMs": 205.471904
+      },
+      "rules": [
+        {
+          "rule": "geometry.join-chains",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 14.740229999999883
+        },
+        {
+          "rule": "cad.conic-recovery",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.03702000000021144
+        },
+        {
+          "rule": "cad.sampled-curves",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.1657300000001669
+        },
+        {
+          "rule": "cad.repeated-symbols",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.35606600000028266
+        },
+        {
+          "rule": "cad.tag-attributes",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.10974499999974796
+        },
+        {
+          "rule": "cad.dimensions",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.45630400000027294
+        },
+        {
+          "rule": "cad.centerlines",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.14671400000042922
+        },
+        {
+          "rule": "cad.hatch-families",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.0713940000000548
+        },
+        {
+          "rule": "cad.title-block",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.19532600000002276
+        },
+        {
+          "rule": "document.table-grids",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 4.314098999999715
+        },
+        {
+          "rule": "document.text-flows",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 7.020199999999932
+        },
+        {
+          "rule": "document.notations",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 1.7909600000002683
+        },
+        {
+          "rule": "document.fields",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.2220950000000812
+        },
+        {
+          "rule": "document.diagram",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 2.7538899999999558
+        },
+        {
+          "rule": "document.parallel",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.030737999999928434
+        },
+        {
+          "rule": "document.concentric",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.10527700000011464
+        },
+        {
+          "rule": "document.leaders",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.010099000000082015
+        },
+        {
+          "rule": "document.borderless-tables",
+          "proposed": 1,
+          "accepted": 0,
+          "elapsedMs": 10.000714999999673
+        },
+        {
+          "rule": "document.lists",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.24127099999986967
+        },
+        {
+          "rule": "document.junctions",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.1738150000001042
+        }
+      ],
+      "pdfSha256": "cb7103b93a154f4dff1fd14c97c4757e12e14fbdcc5d09233f34819d863dd7f2"
+    },
+    {
+      "name": "dxf-read-groups",
+      "medianMs": 38.81437800000003,
+      "minMs": 35.330543000000034,
+      "maxMs": 42.23244199999999,
+      "samplesMs": [
+        35.330543000000034,
+        38.81437800000003,
+        42.23244199999999
+      ],
+      "memoryAfter": [
+        {
+          "rss": 204906496,
+          "heapTotal": 76812288,
+          "heapUsed": 44250000,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 204906496,
+          "heapTotal": 65540096,
+          "heapUsed": 44165040,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 204894208,
+          "heapTotal": 65540096,
+          "heapUsed": 44166008,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "c5bf53224ec8df8099115c65d694e1cb4ee2c5cba63e8fd4e9bfa90f19011845",
+      "count": 5000,
+      "bytes": 1579921
+    },
+    {
+      "name": "binary-rgba",
+      "medianMs": 15.684835999999905,
+      "minMs": 13.302870999999868,
+      "maxMs": 18.026456999999937,
+      "samplesMs": [
+        13.302870999999868,
+        15.684835999999905,
+        18.026456999999937
+      ],
+      "memoryAfter": [
+        {
+          "rss": 209203200,
+          "heapTotal": 62287872,
+          "heapUsed": 23485720,
+          "external": 13628410,
+          "arrayBuffers": 10220333
+        },
+        {
+          "rss": 209203200,
+          "heapTotal": 60190720,
+          "heapUsed": 23489328,
+          "external": 13628410,
+          "arrayBuffers": 10220333
+        },
+        {
+          "rss": 208764928,
+          "heapTotal": 59666432,
+          "heapUsed": 23484664,
+          "external": 13628410,
+          "arrayBuffers": 10220333
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "f5b9805a518f6b6e7a7848eac4f65c98b31492ba895c58df0b965cba5aab2140",
+      "count": 2000000
+    },
+    {
+      "name": "semantic-classification",
+      "medianMs": 50.245990999999776,
+      "minMs": 48.749289999999746,
+      "maxMs": 50.79056800000035,
+      "samplesMs": [
+        48.749289999999746,
+        50.245990999999776,
+        50.79056800000035
+      ],
+      "memoryAfter": [
+        {
+          "rss": 210497536,
+          "heapTotal": 61018112,
+          "heapUsed": 36451144,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 210497536,
+          "heapTotal": 61018112,
+          "heapUsed": 34237936,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 210530304,
+          "heapTotal": 61280256,
+          "heapUsed": 34004824,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "1297b9325a154c01bcbb5dbde0e255244e9d28fcc63dbba02a5dfe43a1248140",
+      "count": 800
+    },
+    {
+      "name": "unchanged-rule-snapshots",
+      "medianMs": 90.83497699999998,
+      "minMs": 90.39176899999984,
+      "maxMs": 92.36122200000045,
+      "samplesMs": [
+        90.39176899999984,
+        90.83497699999998,
+        92.36122200000045
+      ],
+      "memoryAfter": [
+        {
+          "rss": 211722240,
+          "heapTotal": 70856704,
+          "heapUsed": 42767120,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 211722240,
+          "heapTotal": 70856704,
+          "heapUsed": 42767608,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 211722240,
+          "heapTotal": 70332416,
+          "heapUsed": 42748032,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "69ae584a6e7ca2910abd1573a20f911ea44b42025899002fbc97dccc922a627b",
+      "count": 8000
+    },
+    {
+      "name": "joined-line-drawing",
+      "medianMs": 389.5852789999999,
+      "minMs": 360.1387999999997,
+      "maxMs": 422.3818309999997,
+      "samplesMs": [
+        360.1387999999997,
+        389.5852789999999,
+        422.3818309999997
+      ],
+      "memoryAfter": [
+        {
+          "rss": 214028288,
+          "heapTotal": 73289728,
+          "heapUsed": 38297544,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 214089728,
+          "heapTotal": 71979008,
+          "heapUsed": 46608024,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 214167552,
+          "heapTotal": 71716864,
+          "heapUsed": 46508960,
+          "external": 3628410,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "8077a232adb9f8d6a06f468ebf2ff1dede876313a2d8559d0678d754a3ae8a0f",
+      "count": 600,
+      "timings": {
+        "geometryMs": 12.563439000000471,
+        "semanticsMs": 330.60468200000014,
+        "representationMs": 0.00765400000000227,
+        "validationMs": 9.145515999999589,
+        "serializeMs": 18.71712800000023,
+        "roundtripMs": 15.67616099999941,
+        "colorAuditMs": 2.2852640000000974,
+        "totalMs": 389.2706310000003
+      },
+      "rules": [
+        {
+          "rule": "geometry.join-chains",
+          "proposed": 600,
+          "accepted": 600,
+          "elapsedMs": 265.794261
+        },
+        {
+          "rule": "cad.conic-recovery",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 7.228860999999597
+        },
+        {
+          "rule": "cad.sampled-curves",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.10635900000033871
+        },
+        {
+          "rule": "cad.repeated-symbols",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 6.220454999999674
+        },
+        {
+          "rule": "cad.tag-attributes",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.11022599999978411
+        },
+        {
+          "rule": "cad.dimensions",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.4122110000007524
+        },
+        {
+          "rule": "cad.centerlines",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.13411999999971158
+        },
+        {
+          "rule": "cad.hatch-families",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.06162499999936699
+        },
+        {
+          "rule": "cad.title-block",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.11643800000001647
+        },
+        {
+          "rule": "document.table-grids",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 14.225898000000598
+        },
+        {
+          "rule": "document.text-flows",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.01584000000002561
+        },
+        {
+          "rule": "document.notations",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.009747999999490276
+        },
+        {
+          "rule": "document.fields",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.009428000000298198
+        },
+        {
+          "rule": "document.diagram",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 2.00794599999972
+        },
+        {
+          "rule": "document.parallel",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 4.281898999999612
+        },
+        {
+          "rule": "document.concentric",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.10731100000066363
+        },
+        {
+          "rule": "document.leaders",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 7.765605000000505
+        },
+        {
+          "rule": "document.borderless-tables",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.021579999999630672
+        },
+        {
+          "rule": "document.lists",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 0.022461999999904947
+        },
+        {
+          "rule": "document.junctions",
+          "proposed": 0,
+          "accepted": 0,
+          "elapsedMs": 7.398848999999245
+        }
+      ]
+    },
+    {
+      "name": "repeated-forms",
+      "medianMs": 94.58923099999993,
+      "minMs": 89.50805799999944,
+      "maxMs": 98.6170349999993,
+      "samplesMs": [
+        89.50805799999944,
+        94.58923099999993,
+        98.6170349999993
+      ],
+      "memoryAfter": [
+        {
+          "rss": 215162880,
+          "heapTotal": 77938688,
+          "heapUsed": 39648680,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 215031808,
+          "heapTotal": 66142208,
+          "heapUsed": 37468480,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 216240128,
+          "heapTotal": 66404352,
+          "heapUsed": 37619144,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "22719a634a322dc89917707a43a635c9e814ea9133f4a8dd7c534b8f30742745",
+      "count": 1600
+    },
+    {
+      "name": "compound-fill",
+      "medianMs": 28.282658999999512,
+      "minMs": 26.931516999999985,
+      "maxMs": 37.849999000000025,
+      "samplesMs": [
+        26.931516999999985,
+        28.282658999999512,
+        37.849999000000025
+      ],
+      "memoryAfter": [
+        {
+          "rss": 215556096,
+          "heapTotal": 66220032,
+          "heapUsed": 29909320,
+          "external": 3636145,
+          "arrayBuffers": 230573
+        },
+        {
+          "rss": 215556096,
+          "heapTotal": 62550016,
+          "heapUsed": 29643408,
+          "external": 3636145,
+          "arrayBuffers": 230573
+        },
+        {
+          "rss": 217128960,
+          "heapTotal": 62550016,
+          "heapUsed": 28646344,
+          "external": 3636145,
+          "arrayBuffers": 230573
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "35f528862f1d2776e09948f299d5d67695bf1bf2e580c21e724bc7d7c4b5b612",
+      "count": 320
+    },
+    {
+      "name": "shared-complex-clipping",
+      "medianMs": 21.006713000000673,
+      "minMs": 19.204211000000214,
+      "maxMs": 21.361815999999635,
+      "samplesMs": [
+        19.204211000000214,
+        21.006713000000673,
+        21.361815999999635
+      ],
+      "memoryAfter": [
+        {
+          "rss": 217149440,
+          "heapTotal": 63606784,
+          "heapUsed": 36515192,
+          "external": 3636145,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 217149440,
+          "heapTotal": 61771776,
+          "heapUsed": 37451360,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 217149440,
+          "heapTotal": 61247488,
+          "heapUsed": 37852008,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 213392,
+      "digest": "4a7d734c7e7ca0611c6d3a203a2a48a44773484b99850be6b4fe97061df85ba8",
+      "count": 719
+    },
+    {
+      "name": "dxf-repeated-colors",
+      "medianMs": 153.61780400000043,
+      "minMs": 145.47360799999933,
+      "maxMs": 159.99533299999985,
+      "samplesMs": [
+        145.47360799999933,
+        153.61780400000043,
+        159.99533299999985
+      ],
+      "memoryAfter": [
+        {
+          "rss": 252841984,
+          "heapTotal": 100225024,
+          "heapUsed": 63896360,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 261877760,
+          "heapTotal": 100843520,
+          "heapUsed": 64521376,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 261877760,
+          "heapTotal": 100843520,
+          "heapUsed": 64505376,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 255740,
+      "digest": "745db56b47ceca4e4494adc84cc40b628f420b184572a006a440bcf56ca94527",
+      "count": 18000,
+      "bytes": 4304258
+    },
+    {
+      "name": "spatial-build-query",
+      "medianMs": 52.87887899999987,
+      "minMs": 52.15771300000051,
+      "maxMs": 57.1448390000005,
+      "samplesMs": [
+        52.15771300000051,
+        52.87887899999987,
+        57.1448390000005
+      ],
+      "memoryAfter": [
+        {
+          "rss": 229064704,
+          "heapTotal": 67497984,
+          "heapUsed": 43715304,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 229064704,
+          "heapTotal": 65925120,
+          "heapUsed": 44363424,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        },
+        {
+          "rss": 229064704,
+          "heapTotal": 65925120,
+          "heapUsed": 44483888,
+          "external": 3625905,
+          "arrayBuffers": 220333
+        }
+      ],
+      "peakRssKiB": 256252,
+      "digest": "fce97f415a57a7930def84a26d8ada668c113b5aa81046fae56be7e04965f207",
+      "count": 12800
+    },
+    {
+      "name": "raster-skeleton",
+      "medianMs": 56.14017000000058,
+      "minMs": 52.7467029999998,
+      "maxMs": 95.61202000000048,
+      "samplesMs": [
+        52.7467029999998,
+        56.14017000000058,
+        95.61202000000048
+      ],
+      "memoryAfter": [
+        {
+          "rss": 228712448,
+          "heapTotal": 63336448,
+          "heapUsed": 26796312,
+          "external": 12831731,
+          "arrayBuffers": 9426159
+        },
+        {
+          "rss": 228712448,
+          "heapTotal": 61239296,
+          "heapUsed": 26686640,
+          "external": 9939719,
+          "arrayBuffers": 6534147
+        },
+        {
+          "rss": 228712448,
+          "heapTotal": 61239296,
+          "heapUsed": 26090016,
+          "external": 12831731,
+          "arrayBuffers": 9426159
+        }
+      ],
+      "peakRssKiB": 256252,
+      "digest": "f0434bf051ff41cd1ecc873cfd7dd9ffddaa91f7d864b8f24127a2f0387615aa",
+      "count": 18,
+      "stats": {
+        "foreground": 184680,
+        "skeletonPixels": 20358,
+        "iterations": 5,
+        "junctionPixels": 0,
+        "endpoints": 36,
+        "isolatedPixels": 0,
+        "graphEdges": 20340,
+        "tracedEdges": 20340,
+        "work": 4324920
+      }
+    }
+  ]
+}

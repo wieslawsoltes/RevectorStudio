@@ -44,8 +44,14 @@ export function detectTables(document,options={}) {
         if(xs.length<2||ys.length<2||xs.length*ys.length>4096)continue;
         // Missing internal separators join elementary cells. Partial separators are
         // ambiguous: reject rather than fabricate a cell edge or truncate a stroke.
+        // Preserve the exact alignment predicate, clipped-interval ordering and
+        // partial-border test, but prepare each grid coordinate only once.
+        const alignedH=new Map(),alignedV=new Map();
         const coverage=(ss,coord,lo,hi,horizontal)=>{
-            const ranges=ss.filter(s=>Math.abs(s.a[horizontal?1:0]-coord)<=tol)
+            const cache=horizontal?alignedH:alignedV;
+            let aligned=cache.get(coord);
+            if(!aligned){aligned=ss.filter(s=>Math.abs(s.a[horizontal?1:0]-coord)<=tol);cache.set(coord,aligned);}
+            const ranges=aligned
                 .map(s=>[Math.max(lo,s.box[horizontal?0:1]),Math.min(hi,s.box[horizontal?2:3])])
                 .filter(([a,b])=>b>a+tol).sort((a,b)=>a[0]-b[0]);
             let end=lo,covered=0;
@@ -77,10 +83,27 @@ export function detectTables(document,options={}) {
             r.x0=Math.min(r.x0,x);r.x1=Math.max(r.x1,x+1);r.y0=Math.min(r.y0,y);r.y1=Math.max(r.y1,y+1);r.count++;regions.set(key,r);
         }
         if([...regions.values()].some(r=>(r.x1-r.x0)*(r.y1-r.y0)!==r.count))continue;
-        const cells=[...regions.values()].map(r=>{
-            const b=[xs[r.x0],ys[r.y0],xs[r.x1],ys[r.y1]],texts=inside.filter(e=>{
-                const p=center(entityBox(e,document));return p[0]>=b[0]&&p[0]<b[2]&&p[1]>=b[1]&&p[1]<b[3];
-            }).sort((a,b)=>b.position[1]-a.position[1]||a.position[0]-b.position[0]);
+        // Locate each text center once in the elementary grid, then use the
+        // already verified rectangular union. This replaces cells × text scans.
+        // Half-open boundaries and original input/tie ordering remain unchanged.
+        const interval=(coordinates,value)=>{
+            let lo=0,hi=coordinates.length;
+            while(lo<hi){const mid=(lo+hi)>>>1;if(coordinates[mid]<=value)lo=mid+1;else hi=mid;}
+            return lo-1;
+        };
+        const regionTexts=new Map();
+        for(const e of inside){
+            const p=center(entityBox(e,document));
+            if(!Number.isFinite(p[0])||!Number.isFinite(p[1]))continue;
+            const x=interval(xs,p[0]),y=interval(ys,p[1]);
+            if(x<0||x>=columns||y<0||y>=rows)continue;
+            const key=sets.find(y*columns+x);
+            if(!regionTexts.has(key))regionTexts.set(key,[]);
+            regionTexts.get(key).push(e);
+        }
+        const cells=[...regions].map(([key,r])=>{
+            const b=[xs[r.x0],ys[r.y0],xs[r.x1],ys[r.y1]],texts=(regionTexts.get(key)||[])
+                .sort((a,b)=>b.position[1]-a.position[1]||a.position[0]-b.position[0]);
             return {row:rows-r.y1,column:r.x0,rowSpan:r.y1-r.y0,columnSpan:r.x1-r.x0,bounds:b,text:texts.map(e=>e.text).join(' '),entities:texts.map(e=>e.id)};
         }).sort((a,b)=>a.row-b.row||a.column-b.column);
         bounded(out,proposal('table-grid',`Table grid · ${rows} rows × ${columns} columns`,[...component.map(s=>s.e),...inside],

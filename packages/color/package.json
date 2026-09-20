@@ -1,6 +1,6 @@
 {
   "name": "@revector/color",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "description": "Color normalization, CIE Lab and DXF fidelity auditing",
   "main": "./src/index.js",
@@ -23,7 +23,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/model": "0.6.0"
+    "@revector/model": "0.7.0"
   },
   "repository": {
     "type": "git",

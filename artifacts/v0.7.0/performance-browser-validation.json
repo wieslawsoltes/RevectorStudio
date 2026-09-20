@@ -1,0 +1,44 @@
+{
+  "url": "http://127.0.0.1:37631/",
+  "passed": 14,
+  "checks": [
+    "Conversion uses a dedicated browser worker",
+    "Version changes reuse the idle worker",
+    "Version changes do not rerender the unchanged PDF",
+    "UI reports end-to-end elapsed time rather than kernel-only time",
+    "Cached PDF reference follows changed CAD units and drawing scale",
+    "Explicit extraction invalidates the reference cache",
+    "Replaced reference canvas allocations are released",
+    "All requested conversions retain a valid serialized-DXF preview",
+    "Busy cancellation hard-terminates the worker",
+    "A fresh worker recovers after cancellation",
+    "One large main-thread rule yields to timer cancellation",
+    "Cancelled metadata batches leave caller input untouched and permit recovery",
+    "Browser rolling Sauvola equals independent local-window sums",
+    "No uncaught browser exceptions"
+  ],
+  "errors": [],
+  "timings": {
+    "geometryMs": 4.69999999999709,
+    "semanticsMs": 15.69999999999709,
+    "representationMs": 0,
+    "validationMs": 0.7000000000116415,
+    "serializeMs": 4,
+    "roundtripMs": 4.399999999994179,
+    "colorAuditMs": 1.3999999999941792,
+    "totalMs": 31,
+    "pdfPreparationMs": 3.599999999991269,
+    "pdfReferenceMs": 8.80000000000291,
+    "pdfReferenceReused": 0,
+    "uiTotalMs": 60.39999999999418
+  },
+  "cooperativeCancellation": {
+    "cancelled": true,
+    "consumed": 224,
+    "ticks": 1,
+    "unchanged": true,
+    "recovered": true
+  },
+  "browserVersion": "152.0.7977.0",
+  "transport": "real HTTP(S), dedicated worker, no injected conversion results"
+}

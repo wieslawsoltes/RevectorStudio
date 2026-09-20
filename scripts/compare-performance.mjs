@@ -10,7 +10,7 @@ await fs.mkdir(out,{recursive:true});
 for(const name of ['before.json','after.json','comparison.json']){try{await fs.stat(path.join(out,name));throw Error('Refusing stale benchmark output: '+out);}catch(e){if(e.code!=='ENOENT')throw e;}}
 const repeats=get('--repeats','3'),warmups=get('--warmups','1');
 for(const [name,checkout]of [['before',path.resolve(baseline)],['after',root]]){
-    const command=['--expose-gc',...(args.includes('--profile')?['--cpu-prof','--cpu-prof-dir='+out,'--cpu-prof-name='+name+'.cpuprofile']:[]),path.join(root,'scripts/benchmark-performance.mjs'),'--root',checkout,'--repeats',repeats,'--warmups',warmups,'--label',name,'--output',path.join(out,name+'.json')];
+    const command=['--expose-gc',...(args.includes('--profile')?['--cpu-prof','--cpu-prof-dir='+out,'--cpu-prof-name='+name+'.cpuprofile']:[]),path.join(root,'scripts/benchmark-performance.mjs'),'--root',checkout,'--repeats',repeats,'--warmups',warmups,'--label',name,'--case',get('--case','all'),'--output',path.join(out,name+'.json')];
     const result=spawnSync(process.execPath,command,{cwd:root,stdio:'inherit',timeout:600000});
     if(result.error||result.status!==0)throw result.error||Error(name+' benchmark failed');
 }

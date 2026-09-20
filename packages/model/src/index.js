@@ -214,7 +214,11 @@ export function checkAbort(signal) {
         throw new AbortConversionError();
 }
 export const yieldTask = () => {
-    if (globalThis.scheduler?.yield) return globalThis.scheduler.yield();
+    // A boosted yield continuation can starve ordinary timer tasks (including
+    // cancellation). Post an ordinary visible task instead; do not inherit
+    // a caller's scheduler signal or elevate this conversion's priority.
+    if (typeof globalThis.scheduler?.postTask === 'function')
+        return globalThis.scheduler.postTask(() => {}, { priority: 'user-visible' });
     if (typeof globalThis.setImmediate === 'function') return new Promise(resolve => globalThis.setImmediate(resolve));
     return new Promise(resolve => setTimeout(resolve, 0));
 };

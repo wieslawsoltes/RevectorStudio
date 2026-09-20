@@ -1,6 +1,6 @@
 # @revector/cad
 
-**PDF-to-CAD lowering** — Revector Studio 0.6.0.
+**PDF-to-CAD lowering** — Revector Studio 0.7.0.
 
 Units, scale, clipping, native cubic SPLINE/HATCH generation, editable text and eligible Form-to-BLOCK/INSERT recovery. Unsupported PDF appearances create diagnostics.
 

@@ -82,8 +82,8 @@ export function rotationMatrix(rotation,width,height){
  * retained unless boxes almost coincide. Equal labels at distinct positions remain. */
 export function deduplicateOcrWords(words,{maxComparisons=1000000}={}) {
     const box=w=>[w.bbox.x0,w.bbox.y0,w.bbox.x1,w.bbox.y1],records=words.map((word,index)=>({word,index,box:box(word)}));
+    for(const record of records)record.normalized=String(record.word.text).normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
     const index=new SpatialIndex(records,r=>r.box),suppressed=new Set(),keptIds=new Set(),kept=[];let work=0;
-    const normalize=s=>String(s).normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
     // A complete observation wins over a crop-edge fragment even when the OCR
     // engine assigns the fragment higher confidence. Tile-edge contact alone is
     // not a reason to discard text: unmatched observations are retained/flagged.
@@ -92,7 +92,7 @@ export function deduplicateOcrWords(words,{maxComparisons=1000000}={}) {
         for(const other of index.search(record.box)){
             if(++work>maxComparisons)throw new RangeError('OCR duplicate comparison budget exceeded');
             if(other===record||suppressed.has(other.index)||keptIds.has(other.index))continue;
-            const common=overlap(record.box,other.box),reverse=overlap(other.box,record.box),same=normalize(record.word.text)===normalize(other.word.text);
+            const common=overlap(record.box,other.box),reverse=overlap(other.box,record.box),same=record.normalized===other.normalized;
             const fragment=other.word.clippedEdges?.length&&!record.word.clippedEdges?.length&&Number.isInteger(record.word.tile)&&Number.isInteger(other.word.tile)&&record.word.tile!==other.word.tile&&reverse>.9;
             if(fragment||Math.min(common,reverse)>(same?.55:.92))suppressed.add(other.index);
         }
@@ -107,7 +107,20 @@ export function nativeTextBoxes(scene,pdfToPixels){return scene.items.filter(i=>
     const first=i.matrix,last=i.glyphs?.at(-1),width=last?Math.hypot(last.matrix[4]+last.matrix[0]*last.width-first[4],last.matrix[5]+last.matrix[1]*last.width-first[5])/Math.max(1e-9,Math.hypot(first[0],first[1])):String(i.text).length*.55;
     return transformBox([0,-.2,width,i.capHeight||.8],compose(pdfToPixels,first));
 });}
-function inkColor(image,box){const bins=new Map();const [x0,y0,x1,y1]=box.map(Math.round);for(let y=Math.max(0,y0);y<Math.min(image.height,y1);y+=2)for(let x=Math.max(0,x0);x<Math.min(image.width,x1);x+=2){const j=4*(y*image.width+x),c=Array.from(image.data.slice(j,j+3));if(Math.min(...c)>215)continue;const k=c.map(v=>v>>4).join(','),b=bins.get(k)||[0,0,0,0];b[0]++;for(let i=0;i<3;i++)b[i+1]+=c[i];bins.set(k,b);}const best=[...bins.values()].sort((a,b)=>b[0]-a[0])[0];return best?best.slice(1).map(v=>Math.round(v/best[0])):[0,0,0];}
+function inkColor(image,box){
+    const bins=new Map(),[x0,y0,x1,y1]=box.map(Math.round),data=image.data;
+    for(let y=Math.max(0,y0);y<Math.min(image.height,y1);y+=2)
+        for(let x=Math.max(0,x0);x<Math.min(image.width,x1);x+=2){
+            const j=4*(y*image.width+x),r=data[j],g=data[j+1],b=data[j+2];
+            if(Math.min(r,g,b)>215)continue;
+            const key=((r>>4)<<8)|((g>>4)<<4)|(b>>4);
+            let bin=bins.get(key);if(!bin){bin=[0,0,0,0];bins.set(key,bin);}
+            bin[0]++;bin[1]+=r;bin[2]+=g;bin[3]+=b;
+        }
+    // Map iteration preserves first-seen tie behavior of the prior stable sort.
+    let best;for(const bin of bins.values())if(!best||bin[0]>best[0])best=bin;
+    return best?[Math.round(best[1]/best[0]),Math.round(best[2]/best[0]),Math.round(best[3]/best[0])]:[0,0,0];
+}
 /** Pixel baseline -> PDF paint IR. No coordinates are guessed from a nominal DPI. */
 export function wordToPaint(word,pixelToPdf,{page=1,regionId='r0',color=[0,0,0],imageIds=[]}={}){
     const b=word.bbox,h=b.y1-b.y0,w=b.x1-b.x0,baseline=word.lineBaseline;
