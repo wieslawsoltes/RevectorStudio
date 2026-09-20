@@ -17,6 +17,7 @@ jobs:
           git archive --format=zip --output=source.zip HEAD
           sha256sum source.zip > source.zip.sha256
           git rev-parse HEAD > revision.txt
+          git show -s --format='%H%n%T%n%s' HEAD > commit.txt
       - uses: actions/upload-artifact@v4
         with:
           name: revector-source-snapshot
@@ -24,4 +25,5 @@ jobs:
             source.zip
             source.zip.sha256
             revision.txt
+            commit.txt
           retention-days: 7
