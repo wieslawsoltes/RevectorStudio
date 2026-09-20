@@ -10,6 +10,7 @@ on:
       - 'scripts/verify-performance-equivalence.mjs'
       - 'assets/performance-stress.pdf'
       - 'tests/performance*'
+      - 'docs/PERFORMANCE-0.7.md'
       - 'package-lock.json'
       - '.github/workflows/performance.yml'
 permissions:
@@ -33,7 +34,7 @@ jobs:
         run: |
           npm ci --ignore-scripts --include=optional --no-audit --no-fund
           node scripts/link-workspaces.mjs
-          git worktree add --detach "$RUNNER_TEMP/revector-baseline" 3b3bf2101c92da8f50773fe62f14c092cf31b935
+          git worktree add --detach "$RUNNER_TEMP/revector-baseline" f3dcd9fa6ecdfc4e2944379d0b59b177b7395ad7
           cd "$RUNNER_TEMP/revector-baseline"
           npm ci --ignore-scripts --include=optional --no-audit --no-fund
           node scripts/link-workspaces.mjs
@@ -41,6 +42,8 @@ jobs:
         run: node scripts/verify-performance-equivalence.mjs --baseline "$RUNNER_TEMP/revector-baseline" --output "$RUNNER_TEMP/performance/equivalence.json"
       - name: Compare same-machine unprofiled medians and output hashes
         run: node scripts/compare-performance.mjs --baseline "$RUNNER_TEMP/revector-baseline" --output "$RUNNER_TEMP/performance" --warmups 1 --repeats 3
+      - name: Capture CPU profiles separately from headline timings
+        run: node scripts/compare-performance.mjs --baseline "$RUNNER_TEMP/revector-baseline" --output "$RUNNER_TEMP/performance/profiles" --case semantic-classification,semantic-metadata-groups,dense-table-grid,sauvola-2mp --warmups 1 --repeats 1 --profile
       - name: Bind evidence to the exact tested revision
         if: always()
         run: |
