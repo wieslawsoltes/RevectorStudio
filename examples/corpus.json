@@ -1,0 +1,64 @@
+{
+  "schema": "revector.corpus/1",
+  "root": "..",
+  "cases": [
+    {
+      "id": "vector-native",
+      "file": "assets/cooling-water.pdf",
+      "sha256": "4e055df2a8b7d6acd7250f23d67c59bbe4abb6a81d715ea9f7e0bd33ba9453fa",
+      "mode": "native",
+      "page": 1,
+      "version": "2018"
+    },
+    {
+      "id": "raster-affine",
+      "file": "assets/raster-placement.pdf",
+      "sha256": "75fa92cd6c9d7d737b0067a099d8a350c5373d7de88ce0ea460784ec5263f57c",
+      "mode": "images",
+      "page": 1,
+      "version": "2018",
+      "expectTypes": {
+        "IMAGE": 4
+      }
+    },
+    {
+      "id": "appearance-effects",
+      "file": "assets/appearance-stress.pdf",
+      "sha256": "1dbc678c26486747e30aeff742558a2a300999ab361fcdf6088dad26d2f2f831",
+      "mode": "appearance",
+      "page": 1,
+      "version": "2018",
+      "expectTypes": {
+        "IMAGE": 1
+      },
+      "requireDiagnostics": [
+        "APPEARANCE_REPRESENTATION"
+      ]
+    },
+    {
+      "id": "appearance-rotated",
+      "file": "assets/appearance-stress.pdf",
+      "sha256": "1dbc678c26486747e30aeff742558a2a300999ab361fcdf6088dad26d2f2f831",
+      "mode": "appearance",
+      "page": 2,
+      "version": "2018",
+      "expectTypes": {
+        "IMAGE": 1
+      }
+    },
+    {
+      "id": "appearance-r2000",
+      "file": "assets/appearance-stress.pdf",
+      "sha256": "1dbc678c26486747e30aeff742558a2a300999ab361fcdf6088dad26d2f2f831",
+      "mode": "appearance",
+      "page": 1,
+      "version": "2000",
+      "expectTypes": {
+        "IMAGE": 1
+      },
+      "allowErrors": [
+        "DXF2000_TRANSPARENCY"
+      ]
+    }
+  ]
+}

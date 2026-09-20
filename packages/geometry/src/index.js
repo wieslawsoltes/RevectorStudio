@@ -297,3 +297,5 @@ export function stableHash(value) {
     return (h >>> 0).toString(16).padStart(8, '0');
 }
 export { intersectEdges, pathWinding, insidePaths, clipCurveToPaths, booleanPaths } from './boolean.js';
+
+export {fitCircularPolyline,fitCubicPolyline} from './fitting.js';

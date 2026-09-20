@@ -1,0 +1,16 @@
+warning: BLEND_MODE: PDF blend mode multiply is not a DXF compositing operation.
+warning: SHADING: PDF axial/radial/mesh shading is not silently rasterized or converted to a flat fill.
+warning: TRANSPARENCY_GROUP: Transparency group isolation/knockout is not a native DXF operation. The group clip is retained; composition requires review.
+warning: SOFT_MASK: Soft-mask compositing is retained in provenance, not flattened into CAD geometry.
+warning: SOFT_MASK: Soft-mask compositing is retained in provenance, not flattened into CAD geometry.
+warning: SOFT_MASK: Soft-mask compositing is retained in provenance, not flattened into CAD geometry.
+warning: SOFT_MASK: Soft-mask compositing is retained in provenance, not flattened into CAD geometry.
+warning: RASTER_CONTENT: Raster content has no automatic vector mapping. Enable Raster OCR for local text recovery; remaining image graphics stay in the PDF.
+warning: BLEND_MODE: PDF blend mode screen is not a DXF compositing operation.
+warning: TEXT_CLIP: Text used as a clipping path requires font-outline clipping. Subsequent affected geometry is flagged.
+warning: TYPE3_FONT: Type 3 glyph programs are not flattened to CAD text outlines in this build. Editable Unicode is retained when available.
+warning: TRANSFER_FUNCTION: PDF transfer function retained only in the source representation.
+warning: UNRESOLVED_TEXT_CLIP: Filled geometry has an unresolved font-outline clip.
+warning: FONT_SUBSTITUTION: DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.
+warning: APPEARANCE_REPRESENTATION: PDF.js page appearance is a sampled IMAGE; editable CAD geometry remains on separate layers. Enable those layers and hide the appearance layer to edit without duplicate paint.
+info: DXF_EXTERNAL_IMAGES: Raster images require the adjacent PNG assets. Export the DXF package, not the DXF text alone.

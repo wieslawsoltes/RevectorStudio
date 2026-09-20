@@ -1,0 +1,2 @@
+info: RASTER_IMAGE_RETAINED: 4 raster paints retained as 2 PNG sidecars; native PDF vectors remain separate. Image color is decoded to sRGB; clips/alpha are baked at raster resolution.
+info: DXF_EXTERNAL_IMAGES: Raster images require the adjacent PNG assets. Export the DXF package, not the DXF text alone.

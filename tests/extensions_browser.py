@@ -20,7 +20,7 @@ def run(url: str, output: Path):
         try:
             page.goto(url,wait_until='domcontentloaded',timeout=60000)
             page.wait_for_function('globalThis.workbench?.result && !workbench.running',timeout=90000)
-            check('Both original and expanded rule packs are available',page.evaluate('workbench.engine.rules.length===18'))
+            check('Both original and expanded rule packs are available',page.evaluate('workbench.engine.rules.length===20'))
             check('Faithful colors and white paper are the default',page.evaluate('workbench.cadView.paper && workbench.cadView.renderer.colorMode==="faithful"'))
             colors=page.evaluate('''async () => {
                 const {PdfSource}=await import('@revector/pdf');const {ConversionEngine}=await import('@revector/engine');

@@ -1,0 +1,15 @@
+{
+  "schema": "revector.dxf-package/1",
+  "drawing": "drawing.dxf",
+  "version": "2018",
+  "assets": [
+    {
+      "id": "APPEARANCE_adda4da571392dbc524c02b5964d36ce33604b5a6800d9b7fbcf1a13faf9e4bc",
+      "path": "images/adda4da571392dbc524c02b5964d36ce33604b5a6800d9b7fbcf1a13faf9e4bc.png",
+      "width": 880,
+      "height": 1200,
+      "bytes": 67025,
+      "sha256": "adda4da571392dbc524c02b5964d36ce33604b5a6800d9b7fbcf1a13faf9e4bc"
+    }
+  ]
+}

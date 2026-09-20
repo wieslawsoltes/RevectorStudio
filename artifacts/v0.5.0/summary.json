@@ -1,0 +1,23 @@
+{
+  "version": "0.5.0",
+  "sourceBase": "6da8fa05138a531368a3d9a39f53cfbb9caf3f7d",
+  "sourcePayloadSha256": "c0e46d184c7c4da6602a4e7f16aba6964e8f985ac7cb97977c2a2b4ce2767ea6",
+  "additionalRefinement": "Two-point fits reject unrepresentable floating-point tolerances; regression included.",
+  "workflowRun": "35506816594",
+  "nodeTests": 177,
+  "nodeFailures": 0,
+  "originalBrowserChecks": 35,
+  "ocrColorChecks": 21,
+  "tiledOcrChecks": 14,
+  "imageBrowserChecks": 23,
+  "appearanceBrowserChecks": 14,
+  "appearanceTransport": "real HTTP(S)",
+  "appearanceDxfExports": 12,
+  "appearanceCliCases": 4,
+  "pinnedCorpusCases": 5,
+  "baselineDxfFiles": 35,
+  "isolatedNpmImports": 16,
+  "npmPublication": "dry-run-only; actual publication separately attempted",
+  "commercialCadValidation": "not-run; no licensed executable configured",
+  "qualification": "Authored regression fixtures and PDF.js sampled-reference agreement, not universal PDF semantics, printer coverage or commercial CAD certification."
+}

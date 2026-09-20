@@ -1,3 +1,5 @@
+import {captureAppearance} from './appearance.js';
+export {captureAppearance,DEFAULT_APPEARANCE_OPTIONS} from './appearance.js';
 import {preserveRasterImages} from './images.js';
 export {preserveRasterImages,DEFAULT_IMAGE_OPTIONS} from './images.js';
 import { interpretOperators } from './interpreter.js';
@@ -120,13 +122,13 @@ export class PdfSource {
             scene.diagnostics.push(diagnostic('XFA_DOCUMENT', 'Dynamic XFA content is previewed by PDF.js but has no complete DXF conversion mapping.', 'error'));
         return scene;
     }
-    async render(pageNumber, canvas, { scale = 1, background = '#ffffff', signal } = {}) {
+    async render(pageNumber, canvas, { scale = 1, background = '#ffffff', signal, annotationMode } = {}) {
         checkAbort(signal);
         const page = await this.pdf.getPage(pageNumber), viewport = page.getViewport({ scale });
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
         const ctx = canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' });
-        const task = page.render({ canvasContext: ctx, viewport, background, optionalContentConfigPromise: Promise.resolve(this.optionalContent), annotationMode: this.lib.AnnotationMode.ENABLE });
+        const task = page.render({ canvasContext: ctx, viewport, background, optionalContentConfigPromise: Promise.resolve(this.optionalContent), annotationMode: annotationMode ?? this.lib.AnnotationMode.ENABLE });
         const abort = () => task.cancel();
         signal?.addEventListener('abort', abort, { once: true });
         try {
@@ -147,6 +149,7 @@ export class PdfSource {
         if(item.imageType==='paintInlineImageXObject'&&args?.[0])return args[0];
         throw new Error('Unsupported inline/packed raster resource');
     }
+    captureAppearance(scene,options={}) { return captureAppearance(this,scene,options); }
     preserveRasterImages(scene,options={}) { return preserveRasterImages(this,scene,options); }
     setLayerVisible(id, visible) { this.optionalContent?.setVisibility(id, visible); }
     async outline() { return this.pdf.getOutline(); }

@@ -559,7 +559,7 @@ function assetBytes(asset) {
     return bytes;
 }
 /** Return a complete, portable set of files. The host owns ZIP creation or atomic disk writes. */
-function packageDxf(document, { filename = 'drawing.dxf', maxBytes = 128 * 1024 * 1024, ...options } = {}) {
+function packageDxf(document, { filename = 'drawing.dxf', maxBytes = 128 * 1024 * 1024, sourcePdf, ...options } = {}) {
     if (!/^[A-Za-z0-9_][A-Za-z0-9_. -]{0,180}\.dxf$/i.test(filename))
         throw new Error('DXF package filename must be a simple .dxf name');
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1)
@@ -582,7 +582,19 @@ function packageDxf(document, { filename = 'drawing.dxf', maxBytes = 128 * 1024 
         }
     if (size > maxBytes)
         throw new RangeError('DXF package byte budget exceeded');
-    const manifest = { schema: 'revector.dxf-package/1', drawing: filename, version: dxf.version, assets };
+    let sourceArchive;
+    if (sourcePdf !== undefined) {
+        if (!(sourcePdf instanceof Uint8Array) || sourcePdf.byteLength < 5 || !new TextDecoder('latin1').decode(sourcePdf.subarray(0, 1024)).includes('%PDF-'))
+            throw new TypeError('sourcePdf must contain the original PDF bytes');
+        if (size + sourcePdf.byteLength > maxBytes)
+            throw new RangeError('DXF package byte budget exceeded');
+        const bytes = new Uint8Array(sourcePdf);
+        size += bytes.byteLength;
+        const path = filename + '.source.pdf';
+        files.push({ name: path, data: bytes });
+        sourceArchive = { path, bytes: bytes.byteLength, sha256: (0, model_1.sha256Bytes)(bytes), warning: 'Exact original PDF; may include hidden content, attachments and sensitive metadata. Not a redacted artifact.' };
+    }
+    const manifest = { schema: 'revector.dxf-package/1', drawing: filename, version: dxf.version, assets, ...(sourceArchive ? { sourceArchive } : {}) };
     const json = JSON.stringify(manifest, null, 2) + '\n';
     if (size + new TextEncoder().encode(json).length > maxBytes)
         throw new RangeError('DXF package byte budget exceeded');
@@ -1657,10 +1669,69 @@ function exportDxf(doc, { version = '2018', precision = 10, strict = false, xdat
 function writeDxf(doc, options) { return exportDxf(doc, options).text; }
 
 },
+"@revector/engine/appearance.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.applyAppearance = applyAppearance;
+const dxf_1 = require("@revector/dxf");
+const model_1 = require("@revector/model");
+// Only known visual limitations can be addressed by an explicit page-composite representation.
+// Broken scopes, unknown operators, budgets, malformed geometry and rule failures remain errors.
+const VISUAL = new Set(['SOFT_MASK', 'BLEND_MODE', 'TEXT_COMPOSITING', 'TEXT_CLIP', 'TYPE3_FONT', 'TRANSPARENCY_GROUP', 'SHADING', 'SHADING_PATTERN', 'UNRESOLVED_TEXT_CLIP', 'PARTIAL_TEXT_CLIP', 'SHADING_FILL_OMITTED', 'PATTERN_NON_PATH', 'RASTER_IMAGE_UNSUPPORTED', 'RASTER_IMAGE_RESOURCE']);
+function applyAppearance(document, scene, options = {}) {
+    const a = scene.appearance;
+    if (!a)
+        return document;
+    if (a.schema !== 'revector.appearance/1' || a.pageNumber !== scene.pageNumber || a.annotationMode !== scene.annotationMode || JSON.stringify(a.pageSize) !== JSON.stringify(scene.pageSize) || JSON.stringify(a.ocgs) !== JSON.stringify(scene.ocgs))
+        throw new Error('Stale or malformed appearance snapshot; recapture this page');
+    if (!Number.isFinite(a.scale) || a.scale <= 0 || a.width !== a.asset?.width || a.height !== a.asset?.height || Math.ceil(a.pageSize[0] * a.scale) !== a.width || Math.ceil(a.pageSize[1] * a.scale) !== a.height)
+        throw new Error('Invalid appearance pixel mapping');
+    if (scene.source?.fingerprints && JSON.stringify(scene.source.fingerprints) !== JSON.stringify(a.sourceFingerprints))
+        throw new Error('Appearance source fingerprint mismatch');
+    (0, dxf_1.assetBytes)(a.asset); // Verify digest and PNG dimensions before using the snapshot as evidence.
+    const view = options.appearanceView ?? 'appearance';
+    if (!['appearance', 'semantic'].includes(view))
+        throw new RangeError('Unknown appearance view');
+    const doc = document, semanticLayers = doc.layers.map(l => ({ name: l.name, visible: l.visible !== false }));
+    let name = 'REVECTOR_APPEARANCE', suffix = 0;
+    while (doc.layers.some(l => l.name.toUpperCase() === name.toUpperCase()))
+        name = 'REVECTOR_APPEARANCE_' + (++suffix);
+    for (const layer of doc.layers)
+        if (view === 'appearance')
+            layer.visible = false;
+    (0, model_1.ensureLayer)(doc, name, [255, 255, 255], view === 'appearance');
+    const factor = (doc.pageBox[2] - doc.pageBox[0]) / a.pageSize[0];
+    if (!Number.isFinite(factor) || factor <= 0)
+        throw new Error('Invalid appearance drawing scale');
+    let id = 'appearance-' + a.asset.sha256, s = 0;
+    while (doc.entities.some(e => e.id === id))
+        id = 'appearance-' + a.asset.sha256 + '-' + (++s);
+    const existing = doc.assets.find(asset => asset.id === a.asset.id);
+    if (existing && (existing.sha256 !== a.asset.sha256 || existing.path !== a.asset.path))
+        throw new Error('Appearance asset identity collision');
+    if (!existing)
+        doc.assets.push(structuredClone(a.asset));
+    doc.entities.push({ id, type: 'IMAGE', layer: name, imageId: a.asset.id, imageSize: [a.width, a.height],
+        position: [doc.pageBox[0], doc.pageBox[3] - a.height / a.scale * factor], uPixel: [factor / a.scale, 0], vPixel: [0, factor / a.scale],
+        color: [255, 255, 255], opacity: 1, lineweight: 0, source: { kind: 'page-composite', page: scene.pageNumber, raster: { interpolate: false }, dpi: a.dpi },
+        semantic: { class: 'page-appearance', method: 'sampled-reference', confidence: 1, exact: false } });
+    const visualDiagnostics = doc.diagnostics.filter(d => VISUAL.has(d.code));
+    if (!options.strictSemantics)
+        doc.diagnostics = doc.diagnostics.map(d => VISUAL.has(d.code) ? { ...d, originalSeverity: d.severity, severity: 'warning', representation: 'semantic-layer-limitation', appearanceFallback: true } : d);
+    doc.source.appearance = { schema: a.schema, mode: a.mode, view, layer: name, semanticLayers, dpi: a.dpi, pixelSize: [a.width, a.height],
+        background: a.background, renderer: a.renderer, sha256: a.asset.sha256, editableGeometryPreserved: true,
+        nativeSemanticsComplete: false, visualLimitations: structuredClone(visualDiagnostics),
+        qualification: 'Sampled PDF.js appearance at declared DPI; not native recovery of masks/blends or arbitrary zoom equivalence' };
+    doc.diagnostics.push((0, model_1.diagnostic)('APPEARANCE_REPRESENTATION', 'PDF.js page appearance is a sampled IMAGE; editable CAD geometry remains on separate layers. Enable those layers and hide the appearance layer to edit without duplicate paint.', 'warning'));
+    return doc;
+}
+
+},
 "@revector/engine":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConversionWorker = exports.convertPdf = exports.convertScene = exports.ConversionEngine = exports.DEFAULT_CONVERSION_OPTIONS = exports.CAD_PROFILES = void 0;
+const appearance_js_1 = require("@revector/engine/appearance.js");
 const rules_document_1 = require("@revector/rules-document");
 const color_1 = require("@revector/color");
 const ocr_1 = require("@revector/ocr");
@@ -1698,6 +1769,7 @@ class ConversionEngine {
             rules.register(r);
         document = await rules.run(document, settings);
         checkpoint('semanticsMs');
+        document = (0, appearance_js_1.applyAppearance)(document, scene, settings);
         (0, model_1.checkAbort)(settings.signal);
         const validation = (0, model_1.validateDocument)(document);
         if (!validation.valid)
@@ -1721,7 +1793,7 @@ class ConversionEngine {
         if (!roundtripValidation.valid)
             throw new Error('Serialized DXF failed round-trip validation: ' + roundtripValidation.errors.join('; '));
         checkpoint('roundtripMs');
-        const report = { schema: 'revector.report/1', version: '0.4.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const report = { schema: 'revector.report/1', version: '0.5.0', color: { ...(0, color_1.auditColors)(document, preview), source: scene.colorManagement || null }, appearance: document.source.appearance || null, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: (0, model_1.summary)(document), producer: (0, rules_cad_1.detectProducerProfile)(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
     }
@@ -1733,6 +1805,8 @@ class ConversionEngine {
                 scene = await source.preserveRasterImages(scene, { ...options.rasterImages, signal: options.signal });
             if (options.ocr)
                 scene = await (0, ocr_1.recoverPdfRaster)(source, scene, { ...options.ocr, signal: options.signal, onProgress: options.onProgress });
+            if (options.appearance)
+                scene = await source.captureAppearance(scene, { ...options.appearance, signal: options.signal });
             return { ...await this.convertScene(scene, options), scene };
         }
         finally {
@@ -2069,10 +2143,194 @@ function booleanPaths(subject, clip = [], { operation = 'intersection', subjectR
 }
 
 },
+"@revector/geometry/fitting.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fitCircularPolyline = fitCircularPolyline;
+exports.fitCubicPolyline = fitCubicPolyline;
+const geometry_1 = require("@revector/geometry");
+const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+const abort = s => { if (s?.aborted)
+    throw Object.assign(Error('Curve fitting cancelled'), { name: 'AbortError' }); };
+function solve(matrix, rhs) {
+    const n = rhs.length, a = matrix.map((r, i) => [...r, rhs[i]]);
+    for (let c = 0; c < n; c++) {
+        let pivot = c;
+        for (let r = c + 1; r < n; r++)
+            if (Math.abs(a[r][c]) > Math.abs(a[pivot][c]))
+                pivot = r;
+        if (Math.abs(a[pivot][c]) < 1e-12)
+            return null;
+        [a[c], a[pivot]] = [a[pivot], a[c]];
+        const q = a[c][c];
+        for (let k = c; k <= n; k++)
+            a[c][k] /= q;
+        for (let r = 0; r < n; r++)
+            if (r !== c) {
+                const f = a[r][c];
+                for (let k = c; k <= n; k++)
+                    a[r][k] -= f * a[c][k];
+            }
+    }
+    return a.map(r => r[n]);
+}
+function prepare(points, o) {
+    abort(o.signal);
+    if (!Number.isFinite(o.tolerance) || o.tolerance <= 0)
+        throw new RangeError('Positive finite fitting tolerance required');
+    if (!Number.isSafeInteger(o.maxPoints ?? 20000) || (o.maxPoints ?? 20000) < 2)
+        throw new RangeError('Invalid fitting point budget');
+    if (!Array.isArray(points) || points.length < 2 || points.length > (o.maxPoints ?? 20000))
+        throw new RangeError('Curve fitting point budget');
+    if (points.some(p => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)))
+        throw new TypeError('Finite 2D points required');
+    const result = points.filter((p, i) => !i || distance(p, points[i - 1]) > 1e-12).map(p => [...p]);
+    if (result.length < 2)
+        throw new RangeError('Degenerate fitting points');
+    if (result.some((p, i) => i && !Number.isFinite(distance(p, result[i - 1]))))
+        throw new RangeError('Curve coordinate range overflow');
+    return result;
+}
+/** Circle/arc hypothesis. The error certificate covers each straight source chord against its
+ * corresponding monotone circular arc (endpoint radial error plus maximum chord sagitta).
+ * This is a bound relative to the supplied polyline, not the unknown original drawing.
+ */
+function fitCircularPolyline(points, options = {}) {
+    const o = { tolerance: .01, closed: false, ...options }, ps = prepare(points, o);
+    if (o.closed && distance(ps[0], ps.at(-1)) < 1e-12)
+        ps.pop();
+    if (ps.length < 6)
+        return null;
+    const center = [0, 0];
+    for (const p of ps) {
+        center[0] += p[0] / ps.length;
+        center[1] += p[1] / ps.length;
+    }
+    const scale = Math.max(...ps.map(p => distance(p, center)));
+    if (!Number.isFinite(scale))
+        throw new RangeError('Circle coordinate range overflow');
+    if (!scale)
+        return null;
+    const m = Array.from({ length: 3 }, () => [0, 0, 0]), rhs = [0, 0, 0];
+    for (const p of ps) {
+        abort(o.signal);
+        const x = (p[0] - center[0]) / scale, y = (p[1] - center[1]) / scale, v = [x, y, 1], r = -(x * x + y * y);
+        for (let i = 0; i < 3; i++) {
+            rhs[i] += v[i] * r;
+            for (let j = 0; j < 3; j++)
+                m[i][j] += v[i] * v[j];
+        }
+    }
+    const q = solve(m, rhs);
+    if (!q)
+        return null;
+    const c = [center[0] - q[0] * scale / 2, center[1] - q[1] * scale / 2], radius = Math.sqrt((q[0] * q[0] + q[1] * q[1]) / 4 - q[2]) * scale;
+    if (!Number.isFinite(radius) || radius <= o.tolerance)
+        return null;
+    const angles = ps.map(p => Math.atan2(p[1] - c[1], p[0] - c[0]));
+    let sign = 0, total = 0, bound = 0, maxRadialError = 0;
+    for (let i = 0; i < ps.length - (o.closed ? 0 : 1); i++) {
+        const j = (i + 1) % ps.length;
+        let delta = angles[j] - angles[i];
+        delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+        if (Math.abs(delta) > Math.PI / 2 || Math.abs(delta) < 1e-10)
+            return null;
+        if (sign && sign !== Math.sign(delta))
+            return null;
+        sign = Math.sign(delta);
+        total += delta;
+        const radial = Math.max(Math.abs(distance(ps[i], c) - radius), Math.abs(distance(ps[j], c) - radius));
+        maxRadialError = Math.max(maxRadialError, radial);
+        bound = Math.max(bound, radial + radius * (1 - Math.cos(Math.abs(delta) / 2)));
+    }
+    if (Math.abs(total) < Math.PI / 12 || Math.abs(total) > 2 * Math.PI + 1e-6 || (o.closed && Math.abs(Math.abs(total) - 2 * Math.PI) > 1e-6) || bound > o.tolerance)
+        return null;
+    const degree = a => (a * 180 / Math.PI + 360) % 360;
+    return { type: o.closed ? 'CIRCLE' : 'ARC', center: c, radius, ...(o.closed ? {} : { startAngle: degree(sign > 0 ? angles[0] : angles.at(-1)), endAngle: degree(sign > 0 ? angles.at(-1) : angles[0]) }),
+        evidence: { method: 'normalized-least-squares-circle', sourceDirection: sign, errorBound: bound, maxRadialError, sweep: total, samples: ps.length, metric: 'continuous-source-chord-to-arc-bound' } };
+}
+function fitCubic(ps, parameters) {
+    const first = ps[0], last = ps.at(-1), m = [[0, 0], [0, 0]], x = [0, 0], y = [0, 0];
+    for (let i = 1; i < ps.length - 1; i++) {
+        const t = parameters[i], u = 1 - t, b = [3 * u * u * t, 3 * u * t * t], p = [ps[i][0] - u * u * u * first[0] - t * t * t * last[0], ps[i][1] - u * u * u * first[1] - t * t * t * last[1]];
+        for (let j = 0; j < 2; j++) {
+            x[j] += b[j] * p[0];
+            y[j] += b[j] * p[1];
+            for (let k = 0; k < 2; k++)
+                m[j][k] += b[j] * b[k];
+        }
+    }
+    const cx = solve(m, x), cy = solve(m, y);
+    return cx && cy ? [first, [cx[0], cy[0]], [cx[1], cy[1]], last] : [first, lerp(first, last, 1 / 3), lerp(first, last, 2 / 3), last];
+}
+/** Piecewise cubic least squares with a CONTINUOUS error certificate.
+ * On each chord-length parameter interval, subtract the degree-elevated source line
+ * from the restricted cubic. The convex-hull property bounds the norm by the maximum
+ * difference of the four Bernstein control points. Failure to meet the budget splits
+ * the interval; unresolved recursion/budget limits throw instead of weakening tolerance.
+ * Joins preserve endpoints (C0). This routine makes no G1/G2 or intersection-free promise.
+ */
+function fitCubicPolyline(points, options = {}) {
+    const o = { tolerance: .01, maxSegments: 4096, maxWork: 4_000_000, closed: false, ...options }, ps = prepare(points, o);
+    for (const k of ['maxSegments', 'maxWork'])
+        if (!Number.isSafeInteger(o[k]) || o[k] < 1)
+            throw new RangeError('Invalid fitting ' + k);
+    if (o.closed && distance(ps[0], ps.at(-1)) > 1e-12)
+        ps.push([...ps[0]]);
+    const stack = [[0, ps.length - 1]], result = [];
+    let work = 0, maxError = 0;
+    while (stack.length) {
+        abort(o.signal);
+        const [lo, hi] = stack.pop(), part = ps.slice(lo, hi + 1);
+        work += part.length;
+        if (work > o.maxWork)
+            throw new RangeError('Curve fitting work budget exceeded');
+        const ts = [0];
+        for (let i = 1; i < part.length; i++)
+            ts.push(ts.at(-1) + distance(part[i - 1], part[i]));
+        const length = ts.at(-1);
+        if (!Number.isFinite(length) || length <= 0)
+            throw new RangeError('Curve length overflow');
+        for (let i = 1; i < ts.length; i++)
+            ts[i] /= length;
+        const curve = fitCubic(part, ts);
+        if (!curve.flat().every(Number.isFinite))
+            throw new RangeError('Curve coefficient overflow');
+        let bound = 0, worst = 1;
+        for (let i = 0; i < part.length - 1; i++) {
+            const restricted = (0, geometry_1.subCubic)(curve, ts[i], ts[i + 1]);
+            for (let j = 0; j < 4; j++) {
+                const error = distance(restricted[j], lerp(part[i], part[i + 1], j / 3));
+                if (error > bound) {
+                    bound = error;
+                    worst = Math.min(part.length - 2, Math.max(1, i + 1));
+                }
+            }
+        }
+        if (bound <= o.tolerance) {
+            maxError = Math.max(maxError, bound);
+            result.push({ controlPoints: curve.map(p => [...p]), errorBound: bound, sourceRange: [lo, hi] });
+            if (result.length + stack.length > o.maxSegments)
+                throw new RangeError('Curve fitting segment budget exceeded');
+        }
+        else {
+            if (part.length === 2)
+                throw new RangeError('Fitting tolerance is below representable coordinate precision');
+            if (stack.length + result.length + 2 > o.maxSegments)
+                throw new RangeError('Curve fitting segment budget exceeded');
+            const cut = lo + worst;
+            stack.push([cut, hi], [lo, cut]);
+        }
+    }
+    return { curves: result, evidence: { method: 'bounded-piecewise-cubic-least-squares', errorBound: maxError, tolerance: o.tolerance, metric: 'continuous-synchronized-polyline-distance', samples: ps.length, work, continuity: 'C0', closed: o.closed } };
+}
+
+},
 "@revector/geometry":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.booleanPaths = exports.clipCurveToPaths = exports.insidePaths = exports.pathWinding = exports.intersectEdges = exports.containsBox = exports.contains = exports.intersects = exports.validBox = exports.near = exports.lerp = exports.distance = exports.length = exports.cross = exports.dot = exports.mul = exports.sub = exports.add = exports.I = exports.EPS = void 0;
+exports.fitCubicPolyline = exports.fitCircularPolyline = exports.booleanPaths = exports.clipCurveToPaths = exports.insidePaths = exports.pathWinding = exports.intersectEdges = exports.containsBox = exports.contains = exports.intersects = exports.validBox = exports.near = exports.lerp = exports.distance = exports.length = exports.cross = exports.dot = exports.mul = exports.sub = exports.add = exports.I = exports.EPS = void 0;
 exports.finitePoint = finitePoint;
 exports.transform = transform;
 exports.vector = vector;
@@ -2424,6 +2682,9 @@ Object.defineProperty(exports, "pathWinding", { enumerable: true, get: function 
 Object.defineProperty(exports, "insidePaths", { enumerable: true, get: function () { return boolean_js_1.insidePaths; } });
 Object.defineProperty(exports, "clipCurveToPaths", { enumerable: true, get: function () { return boolean_js_1.clipCurveToPaths; } });
 Object.defineProperty(exports, "booleanPaths", { enumerable: true, get: function () { return boolean_js_1.booleanPaths; } });
+var fitting_js_1 = require("@revector/geometry/fitting.js");
+Object.defineProperty(exports, "fitCircularPolyline", { enumerable: true, get: function () { return fitting_js_1.fitCircularPolyline; } });
+Object.defineProperty(exports, "fitCubicPolyline", { enumerable: true, get: function () { return fitting_js_1.fitCubicPolyline; } });
 
 },
 "@revector/model":(require,module,exports)=>{
@@ -3255,6 +3516,66 @@ async function recoverRasterPaths(raster, pixelToPdf, scene, { words = [], regio
 }
 
 },
+"@revector/pdf/appearance.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEFAULT_APPEARANCE_OPTIONS = void 0;
+exports.captureAppearance = captureAppearance;
+const model_1 = require("@revector/model");
+exports.DEFAULT_APPEARANCE_OPTIONS = Object.freeze({ dpi: 144, maxPixels: 32_000_000, maxBytes: 64 * 1024 * 1024, maxDimension: 16384, background: '#ffffff' });
+const createCanvas = (w, h) => { const c = globalThis.document?.createElement('canvas') || new OffscreenCanvas(w, h); c.width = w; c.height = h; return c; };
+const encode = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 16384)
+    s += String.fromCharCode(...bytes.subarray(i, i + 16384)); return btoa(s); };
+/** An explicit, resolution-qualified display representation, NEVER a claim of native CAD fidelity.
+ * Keep the original paint IR untouched. The engine retains editable geometry on separate layers.
+ * Full-page composition is necessary for destination-dependent blends/knockout: isolated screenshots
+ * of individual paint items are not equivalent. All PDF.js drawing operations run unfiltered.
+ */
+async function captureAppearance(source, scene, input = {}) {
+    const o = { ...exports.DEFAULT_APPEARANCE_OPTIONS, ...input };
+    for (const k of ['maxPixels', 'maxBytes', 'maxDimension'])
+        if (!Number.isSafeInteger(o[k]) || o[k] < 1)
+            throw new RangeError('Invalid appearance ' + k);
+    if (!Number.isFinite(o.dpi) || o.dpi < 36 || o.dpi > 1200)
+        throw new RangeError('Appearance DPI must be between 36 and 1200');
+    if (!/^#[0-9a-f]{6}$/i.test(o.background))
+        throw new TypeError('Appearance background must be an opaque RGB hex color');
+    (0, model_1.checkAbort)(o.signal);
+    if (source.pdf.isPureXfa)
+        throw new Error('Pure XFA uses a separate DOM renderer; page Canvas is not a complete appearance');
+    const page = await source.pdf.getPage(scene.pageNumber), unit = page.getViewport({ scale: 1 }), scale = o.dpi / 72;
+    const width = Math.ceil(unit.width * scale), height = Math.ceil(unit.height * scale);
+    if (![width, height].every(n => Number.isSafeInteger(n) && n > 0 && n <= o.maxDimension) || width * height > o.maxPixels)
+        throw new RangeError('Appearance pixel budget exceeded; lower DPI explicitly (no silent downsampling)');
+    let canvas;
+    try {
+        canvas = (o.canvasFactory || createCanvas)(width, height);
+        const viewport = await source.render(scene.pageNumber, canvas, { scale, background: o.background, signal: o.signal, annotationMode: scene.annotationMode });
+        (0, model_1.checkAbort)(o.signal);
+        if (canvas.width !== width || canvas.height !== height)
+            throw new Error('Appearance renderer returned unexpected dimensions');
+        const bytes = typeof canvas.toBuffer === 'function' ? new Uint8Array(canvas.toBuffer('image/png')) : new Uint8Array(await (await (canvas.convertToBlob ? canvas.convertToBlob({ type: 'image/png' }) : new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(Error('PNG encoding failed')), 'image/png')))).arrayBuffer());
+        (0, model_1.checkAbort)(o.signal);
+        if (bytes.length > o.maxBytes)
+            throw new RangeError('Appearance encoded-byte budget exceeded');
+        const hash = (0, model_1.sha256Bytes)(bytes), out = structuredClone(scene);
+        out.appearance = { schema: 'revector.appearance/1', mode: 'page-composite', dpi: o.dpi, scale, width, height, background: o.background,
+            pageNumber: scene.pageNumber, pageSize: [unit.width, unit.height], pixelToPage: [1 / scale, 0, 0, -1 / scale, 0, unit.height],
+            pdfToPixels: [...viewport.transform], sourceFingerprints: [...(source.pdf.fingerprints || [])],
+            ocgs: structuredClone(scene.ocgs || {}), annotationMode: scene.annotationMode,
+            renderer: { name: 'PDF.js', version: source.lib.version, colorSpace: 'sRGB' },
+            exactSourceStreams: false, editable: false, originalDiagnostics: structuredClone(scene.diagnostics || []),
+            asset: { id: 'APPEARANCE_' + hash, path: 'images/' + hash + '.png', mimeType: 'image/png', sha256: hash, width, height, dataBase64: encode(bytes),
+                source: { kind: 'pdf-page-appearance', dpi: o.dpi, colorSpace: 'sRGB', losslessSourceEncoding: false } } };
+        return out;
+    }
+    finally {
+        if (canvas)
+            canvas.width = canvas.height = 1;
+    }
+}
+
+},
 "@revector/pdf/images.js":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -3418,8 +3739,12 @@ async function preserveRasterImages(source, scene, input = {}) {
 "@revector/pdf":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PdfSource = exports.SUPPORTED_PDFJS_VERSIONS = exports.PDFJS_VERSION = exports.DRAW_OPS = exports.OPS = exports.interpretOperators = exports.DEFAULT_IMAGE_OPTIONS = exports.preserveRasterImages = void 0;
+exports.PdfSource = exports.SUPPORTED_PDFJS_VERSIONS = exports.PDFJS_VERSION = exports.DRAW_OPS = exports.OPS = exports.interpretOperators = exports.DEFAULT_IMAGE_OPTIONS = exports.preserveRasterImages = exports.DEFAULT_APPEARANCE_OPTIONS = exports.captureAppearance = void 0;
 exports.loadPdfJs = loadPdfJs;
+const appearance_js_1 = require("@revector/pdf/appearance.js");
+var appearance_js_2 = require("@revector/pdf/appearance.js");
+Object.defineProperty(exports, "captureAppearance", { enumerable: true, get: function () { return appearance_js_2.captureAppearance; } });
+Object.defineProperty(exports, "DEFAULT_APPEARANCE_OPTIONS", { enumerable: true, get: function () { return appearance_js_2.DEFAULT_APPEARANCE_OPTIONS; } });
 const images_js_1 = require("@revector/pdf/images.js");
 var images_js_2 = require("@revector/pdf/images.js");
 Object.defineProperty(exports, "preserveRasterImages", { enumerable: true, get: function () { return images_js_2.preserveRasterImages; } });
@@ -3547,13 +3872,13 @@ class PdfSource {
             scene.diagnostics.push((0, model_1.diagnostic)('XFA_DOCUMENT', 'Dynamic XFA content is previewed by PDF.js but has no complete DXF conversion mapping.', 'error'));
         return scene;
     }
-    async render(pageNumber, canvas, { scale = 1, background = '#ffffff', signal } = {}) {
+    async render(pageNumber, canvas, { scale = 1, background = '#ffffff', signal, annotationMode } = {}) {
         (0, model_1.checkAbort)(signal);
         const page = await this.pdf.getPage(pageNumber), viewport = page.getViewport({ scale });
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
         const ctx = canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' });
-        const task = page.render({ canvasContext: ctx, viewport, background, optionalContentConfigPromise: Promise.resolve(this.optionalContent), annotationMode: this.lib.AnnotationMode.ENABLE });
+        const task = page.render({ canvasContext: ctx, viewport, background, optionalContentConfigPromise: Promise.resolve(this.optionalContent), annotationMode: annotationMode ?? this.lib.AnnotationMode.ENABLE });
         const abort = () => task.cancel();
         signal?.addEventListener('abort', abort, { once: true });
         try {
@@ -3577,6 +3902,7 @@ class PdfSource {
             return args[0];
         throw new Error('Unsupported inline/packed raster resource');
     }
+    captureAppearance(scene, options = {}) { return (0, appearance_js_1.captureAppearance)(this, scene, options); }
     preserveRasterImages(scene, options = {}) { return (0, images_js_1.preserveRasterImages)(this, scene, options); }
     setLayerVisible(id, visible) { this.optionalContent?.setVisibility(id, visible); }
     async outline() { return this.pdf.getOutline(); }
@@ -5251,11 +5577,54 @@ function linkViewports(a, b) {
 }
 
 },
+"@revector/rules-cad/curves.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.curveRecoveryRule = void 0;
+const geometry_1 = require("@revector/geometry");
+const model_1 = require("@revector/model");
+exports.curveRecoveryRule = { id: 'cad.sampled-curves', version: '1.0.0', title: 'Sampled curve reconstruction', stage: 25,
+    description: 'Reviewable ARC/CIRCLE and continuously bounded piecewise cubic hypotheses for sampled raster linework.',
+    run: ({ document, options, signal }) => {
+        if (options.profile === 'exact')
+            return [];
+        const out = [];
+        let total = 0;
+        for (const e of document.entities) {
+            (0, model_1.checkAbort)(signal);
+            if (e.type !== 'LWPOLYLINE' || e.bulges?.some(Boolean) || e.points.length < 6 || (!e.source?.rasterInference && !options.fitNativePolylines))
+                continue;
+            if ((total += e.points.length) > 200000)
+                throw new RangeError('Curve recovery sample budget exceeded');
+            const span = Math.hypot(document.pageBox[2] - document.pageBox[0], document.pageBox[3] - document.pageBox[1]);
+            const tolerance = options.curveTolerance ?? Math.max(1e-6, span * 1e-4), config = { tolerance, closed: !!e.closed, signal };
+            const circle = (0, geometry_1.fitCircularPolyline)(e.points, config), fit = circle ? null : (0, geometry_1.fitCubicPolyline)(e.points, config);
+            if (fit && fit.curves.length * 3 >= e.points.length)
+                continue; // Do not replace simple polylines with larger spline data.
+            const { points, closed, bulges, constantWidth, bounds, type, ...base } = e;
+            if (constantWidth)
+                continue;
+            const evidence = circle?.evidence || fit.evidence;
+            const add = circle ? [{ ...base, ...circle, id: e.id + '-curve' }] : fit.curves.map((c, i) => ({ ...base, id: e.id + '-fit-' + i, type: 'SPLINE', degree: 3, controlPoints: c.controlPoints, knots: [0, 0, 0, 0, 1, 1, 1, 1], weights: [], closed: false }));
+            for (const a of add) {
+                delete a.evidence;
+                a.source = { ...base.source, curveFit: evidence };
+                a.semantic = { ...base.semantic, class: 'reconstructed-curve', method: 'sampled-curve-inference' };
+            }
+            out.push({ title: `Fit ${e.points.length} sampled vertices as ${circle?.type || add.length + ' cubic splines'}`, members: [e.id], confidence: .9, exact: false, errorBound: evidence.errorBound, evidence: [evidence, { kind: 'inference', note: 'Bound is relative to sampled linework, not unknown original CAD geometry; crossing topology is not certified.' }], proposal: { remove: [e.id], add } });
+        }
+        return out;
+    } };
+
+},
 "@revector/rules-cad":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VectorTemplateLibrary = exports.CAD_PROFILES = exports.cadRules = void 0;
+exports.VectorTemplateLibrary = exports.CAD_PROFILES = exports.cadRules = exports.curveRecoveryRule = void 0;
 exports.detectProducerProfile = detectProducerProfile;
+const curves_js_1 = require("@revector/rules-cad/curves.js");
+var curves_js_2 = require("@revector/rules-cad/curves.js");
+Object.defineProperty(exports, "curveRecoveryRule", { enumerable: true, get: function () { return curves_js_2.curveRecoveryRule; } });
 const geometry_1 = require("@revector/geometry");
 const model_1 = require("@revector/model");
 const topology_1 = require("@revector/topology");
@@ -5282,7 +5651,7 @@ function offsetEntity(e, origin, id) {
     }
     return o;
 }
-exports.cadRules = [
+exports.cadRules = [curves_js_1.curveRecoveryRule,
     { id: 'geometry.join-chains', title: 'Connected line chains', version: '1.0.0', stage: 10, description: 'Join degree-2, identical-style line chains without snapping or tessellation.', run: ({ document }) => {
             const groups = new Map();
             for (const e of document.entities)
@@ -5479,7 +5848,7 @@ exports.VectorTemplateLibrary = VectorTemplateLibrary;
 "@revector/rules-document":(require,module,exports)=>{
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.documentRules = void 0;
+exports.documentRules = exports.junctionRule = exports.detectJunctions = void 0;
 exports.detectTables = detectTables;
 exports.detectTextFlows = detectTextFlows;
 exports.classifyTechnicalText = classifyTechnicalText;
@@ -5491,6 +5860,10 @@ exports.detectConcentric = detectConcentric;
 exports.detectLeaders = detectLeaders;
 exports.detectBorderlessTables = detectBorderlessTables;
 exports.detectLists = detectLists;
+const junctions_js_1 = require("@revector/rules-document/junctions.js");
+var junctions_js_2 = require("@revector/rules-document/junctions.js");
+Object.defineProperty(exports, "detectJunctions", { enumerable: true, get: function () { return junctions_js_2.detectJunctions; } });
+Object.defineProperty(exports, "junctionRule", { enumerable: true, get: function () { return junctions_js_2.junctionRule; } });
 const regions_js_1 = require("@revector/rules-document/regions.js");
 const model_1 = require("@revector/model");
 const geometry_1 = require("@revector/geometry");
@@ -5934,7 +6307,147 @@ function detectLists(document, options = {}) {
     return out;
 }
 const definitions = [['table-grids', 'Tables and schedules', detectTables], ['text-flows', 'Text reading flows', detectTextFlows], ['notations', 'Engineering and electrical notation', detectTechnicalText], ['fields', 'Labeled document fields', detectFields], ['diagram', 'Diagram nodes and connectivity', detectDiagram], ['parallel', 'Parallel boundaries', detectParallelBoundaries], ['concentric', 'Concentric mechanical features', detectConcentric], ['leaders', 'Leader callouts', detectLeaders], ['borderless-tables', 'Unruled schedules', detectBorderlessTables], ['lists', 'Numbered and bullet lists', detectLists]];
-exports.documentRules = definitions.map(([id, title, detect], i) => ({ id: 'document.' + id, title, version: ['table-grids', 'diagram'].includes(id) ? '1.1.0' : '1.0.0', stage: 60 + i, description: 'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.', run: ({ document, options, checkAbort }) => { checkAbort(); return options.profile === 'exact' ? [] : detect(document, options); } }));
+exports.documentRules = [...definitions.map(([id, title, detect], i) => ({ id: 'document.' + id, title, version: ['table-grids', 'diagram'].includes(id) ? '1.1.0' : '1.0.0', stage: 60 + i, description: 'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.', run: ({ document, options, checkAbort }) => { checkAbort(); return options.profile === 'exact' ? [] : detect(document, options); } })), junctions_js_1.junctionRule];
+
+},
+"@revector/rules-document/junctions.js":(require,module,exports)=>{
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.junctionRule = void 0;
+exports.detectJunctions = detectJunctions;
+const topology_1 = require("@revector/topology");
+const model_1 = require("@revector/model");
+const geometry_1 = require("@revector/geometry");
+const cross = (a, b) => a[0] * b[1] - a[1] * b[0], sub = (a, b) => [a[0] - b[0], a[1] - b[1]], dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const expand = (b, t) => [b[0] - t, b[1] - t, b[2] + t, b[3] + t];
+function dotMarker(e, doc) {
+    if (e.type !== 'HATCH' || e.solid === false || e.paths?.length !== 1)
+        return null;
+    const b = (0, model_1.entityBox)(e, doc);
+    if (e.paths[0].segments.length > 128)
+        return null;
+    const path = e.paths[0], points = [path.start];
+    let at = path.start;
+    for (const s of path.segments) {
+        if (s.kind === 'C') {
+            for (let i = 1; i <= 12; i++)
+                points.push((0, geometry_1.cubicPoint)([at, s.c1, s.c2, s.to], i / 12));
+        }
+        else
+            points.push(s.to);
+        at = s.to;
+    }
+    if (points.length < 9 || points.length > 512)
+        return null;
+    const c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], radius = (b[2] - b[0] + b[3] - b[1]) / 4;
+    if (radius <= 0 || Math.abs((b[2] - b[0]) - (b[3] - b[1])) > .08 * radius)
+        return null;
+    if (points.some(p => Math.abs(dist(c, p) - radius) > radius * .08))
+        return null;
+    return { e, center: c, radius, box: b };
+}
+/** Describe junction HYPOTHESES without connecting unrelated CAD entities destructively.
+ * Plain X crossings remain unknown unless a drawing convention or filled-dot evidence exists.
+ * Geometry-preserving GROUP evidence carries alternatives, incident ports and convention source.
+ */
+function detectJunctions(document, options = {}) {
+    const tol = options.semanticTolerance ?? Math.max(1e-7, Math.hypot(document.pageBox[2] - document.pageBox[0], document.pageBox[3] - document.pageBox[1]) * 1e-6), policy = options.crossingPolicy ?? 'unknown';
+    if (!Number.isFinite(tol) || tol <= 0 || !['unknown', 'connect', 'cross'].includes(policy))
+        throw new RangeError('Invalid junction options');
+    const segments = [], dots = [];
+    if (document.entities.length > (options.maxAnalysisEntities ?? 150000))
+        throw new RangeError('Junction entity budget exceeded');
+    for (const e of document.entities) {
+        (0, model_1.checkAbort)(options.signal);
+        const pts = e.type === 'LINE' ? [e.start, e.end] : e.type === 'LWPOLYLINE' && !e.bulges?.some(Boolean) ? e.closed ? [...e.points, e.points[0]] : e.points : null;
+        if (pts)
+            for (let i = 1; i < pts.length; i++) {
+                const a = pts[i - 1], b = pts[i], v = sub(b, a), length = Math.hypot(...v);
+                if (length <= tol)
+                    continue;
+                segments.push({ e, i, a, b, v, length, box: [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])], index: segments.length });
+                if (segments.length > 100000)
+                    throw new RangeError('Junction segment budget exceeded');
+            }
+        const dot = dotMarker(e, document);
+        if (dot)
+            dots.push(dot);
+    }
+    const index = new topology_1.SpatialIndex(segments, s => s.box), markers = new topology_1.SpatialIndex(dots, d => d.box), events = [], cells = new Map();
+    let work = 0;
+    const key = (x, y) => x + ',' + y;
+    const eventAt = p => {
+        const x = Math.floor(p[0] / tol), y = Math.floor(p[1] / tol);
+        let found;
+        for (let i = -1; i <= 1; i++)
+            for (let j = -1; j <= 1; j++)
+                for (const e of cells.get(key(x + i, y + j)) || [])
+                    if (dist(e.point, p) <= tol)
+                        found = e;
+        if (found)
+            return found;
+        const e = { point: p, ports: new Map() }, k = key(x, y);
+        if (!cells.has(k))
+            cells.set(k, []);
+        cells.get(k).push(e);
+        events.push(e);
+        if (events.length > 5000)
+            throw new RangeError('Junction event budget exceeded');
+        return e;
+    };
+    for (const a of segments) {
+        (0, model_1.checkAbort)(options.signal);
+        for (const b of index.search(expand(a.box, tol))) {
+            if (++work > (options.maxJunctionChecks ?? 1_000_000))
+                throw new RangeError('Junction neighborhood budget exceeded');
+            if (b.index <= a.index || a.e.id === b.e.id && Math.abs(a.i - b.i) <= 1)
+                continue;
+            const den = cross(a.v, b.v);
+            if (Math.abs(den) < 1e-10 * a.length * b.length)
+                continue;
+            const diff = sub(b.a, a.a), t = cross(diff, b.v) / den, u = cross(diff, a.v) / den;
+            if (t < -tol / a.length || t > 1 + tol / a.length || u < -tol / b.length || u > 1 + tol / b.length)
+                continue;
+            const p = [a.a[0] + a.v[0] * t, a.a[1] + a.v[1] * t], event = eventAt(p);
+            for (const [s, f] of [[a, t], [b, u]])
+                event.ports.set(s.index, { entity: s.e.id, segment: s.i - 1, parameter: Math.max(0, Math.min(1, f)), endpoint: Math.min(Math.abs(f), Math.abs(1 - f)) * s.length <= tol, direction: s.v.map(v => v / s.length), length: s.length });
+        }
+    }
+    const out = [];
+    for (const event of events) {
+        (0, model_1.checkAbort)(options.signal);
+        const ports = [...event.ports.values()], members = [...new Set(ports.map(p => p.entity))].sort();
+        if (members.length < 2)
+            continue;
+        const near = markers.search(expand([...event.point, ...event.point], tol)).filter(d => dist(d.center, event.point) <= Math.max(tol, d.radius * .35) && ports.every(p => d.radius < p.length / 4));
+        const ends = ports.filter(p => p.endpoint).length;
+        let classification = ends === ports.length ? 'endpoint-join' : ends ? 'tee-contact' : 'unmarked-crossing', connection = ends ? 'connected' : 'unknown', evidence = 'geometric-contact', confidence = ends ? .9 : .5;
+        if (near.length === 1) {
+            classification = 'dot-junction';
+            connection = 'connected';
+            evidence = 'filled-round-marker';
+            confidence = .97;
+            members.push(near[0].e.id);
+        }
+        else if (near.length > 1) {
+            connection = 'unknown';
+            classification = 'ambiguous-markers';
+            confidence = .5;
+        }
+        else if (!ends && policy !== 'unknown') {
+            connection = policy === 'connect' ? 'connected' : 'not-connected';
+            evidence = 'explicit-user-convention';
+            confidence = .96;
+        }
+        const metadata = { class: 'junction-hypothesis', classification, point: event.point, ports, connection, alternatives: connection === 'unknown' ? ['connected', 'not-connected'] : [], convention: policy, evidence, geometryPreserved: true };
+        const name = 'JUNCTION_' + (0, geometry_1.stableHash)([members, event.point]);
+        out.push({ title: `${classification} · ${members.length} members`, members, confidence, exact: true, evidence: [{ kind: 'junction-hypothesis', ...metadata }], proposal: { groups: [{ name, description: 'Reviewable junction hypothesis', members, semantic: metadata }] } });
+    }
+    return out;
+}
+exports.junctionRule = { id: 'document.junctions', version: '1.0.0', title: 'Crossing and junction hypotheses', stage: 79,
+    description: 'Distinguishes filled-dot junctions, endpoint/tee contacts and unresolved crossings; never silently connects a plain X.',
+    run: ({ document, options }) => options.profile === 'exact' ? [] : detectJunctions(document, options) };
 
 },
 "@revector/rules-document/regions.js":(require,module,exports)=>{
@@ -6557,7 +7070,7 @@ const select = (id, values, value) => (0, ui_1.element)('select', { id, value },
 const iconButton = (label, fn, title) => (0, ui_1.button)(label, fn, { className: 'icon-button', title });
 /** Owns UI state only; every conversion runs through reusable packages and exported-DXF reparse. */
 class Workbench {
-    constructor(root, config = {}) { this.root = root; this.config = config; this.engine = new engine_1.ConversionEngine(); this.worker = config.conversionWorkerUrl ? new engine_1.ConversionWorker(config.conversionWorkerUrl) : null; this.disposables = new ui_1.DisposableStore(); this.abort = new AbortController(); this.source = null; this.bytes = null; this.scene = null; this.result = null; this.page = 1; this.fileName = 'Untitled.pdf'; this.decisions = {}; this.undo = []; this.redo = []; this.disabledRules = []; this.ruleSet = null; this.tab = 'recovery'; this.selected = null; this.job = 0; this.running = false; this.linked = true; this.ocrSettings = null; this.build(); this.bind(); this.showOverview(); }
+    constructor(root, config = {}) { this.root = root; this.config = config; this.engine = new engine_1.ConversionEngine(); this.worker = config.conversionWorkerUrl ? new engine_1.ConversionWorker(config.conversionWorkerUrl) : null; this.disposables = new ui_1.DisposableStore(); this.abort = new AbortController(); this.source = null; this.bytes = null; this.scene = null; this.result = null; this.page = 1; this.fileName = 'Untitled.pdf'; this.decisions = {}; this.undo = []; this.redo = []; this.disabledRules = []; this.ruleSet = null; this.tab = 'recovery'; this.selected = null; this.job = 0; this.running = false; this.linked = true; this.ocrSettings = null; this.archiveSource = false; this.build(); this.bind(); this.showOverview(); }
     build() {
         const shell = (0, ui_1.element)('div', { class: 'rv-shell' });
         this.root.replaceChildren(shell);
@@ -6572,11 +7085,14 @@ class Workbench {
         this.pageSelect = select('page', [['1', 'Page 1']], '1');
         this.strict = (0, ui_1.element)('input', { type: 'checkbox', id: 'strict' });
         this.convertButton = (0, ui_1.button)('Convert', () => this.run(true), { className: 'primary', id: 'convert', title: 'Convert page · Ctrl/Cmd+Enter' });
+        this.appearanceMode = select('appearance-mode', [['off', 'Native CAD'], ['appearance', 'Appearance + CAD'], ['semantic', 'CAD + reference']], 'off');
+        this.appearanceMode.title = 'Explicit sampled PDF appearance with separate editable CAD layers';
+        this.appearanceMode.addEventListener('change', () => void this.run(true));
         this.retainImages = (0, ui_1.element)('input', { id: 'retain-images', type: 'checkbox', checked: !!this.config.rasterImages });
         this.retainImages.addEventListener('change', () => void this.run(true));
         this.exportButton = (0, ui_1.button)('Export DXF ↗', () => this.exportDxf(), { className: 'primary', id: 'export-dxf', disabled: true });
         const top = (0, ui_1.element)('header', { class: 'rv-top' }, (0, ui_1.element)('div', { class: 'brand' }, (0, ui_1.element)('span', { class: 'brand-mark', text: 'R' }), (0, ui_1.element)('b', { text: 'revector' }), (0, ui_1.element)('span', { class: 'brand-edition', text: 'STUDIO' })), (0, ui_1.element)('span', { class: 'top-separator' }), this.title, (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.element)('span', { class: 'local-badge', text: '● Local workspace' }), (0, ui_1.button)('Guide', () => this.help()), (0, ui_1.button)('Project', () => this.projectMenu()), this.exportButton);
-        const toolbar = (0, ui_1.element)('div', { class: 'rv-toolbar' }, (0, ui_1.button)('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), (0, ui_1.button)('Sample drawing', () => this.demo(), { id: 'demo' }), (0, ui_1.button)('Raster OCR', () => this.configureOcr(), { id: 'configure-ocr', title: 'Opt-in local raster text recognition' }), (0, ui_1.element)('label', { class: 'check-label', title: 'Retain decoded PDF raster images as portable DXF + PNG assets' }, this.retainImages, 'Keep images'), (0, ui_1.element)('i', { class: 'separator' }), this.pageSelect, field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), (0, ui_1.element)('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
+        const toolbar = (0, ui_1.element)('div', { class: 'rv-toolbar' }, (0, ui_1.button)('＋ Open PDF', () => this.fileInput.click(), { id: 'open-pdf' }), (0, ui_1.button)('Sample drawing', () => this.demo(), { id: 'demo' }), (0, ui_1.button)('Raster OCR', () => this.configureOcr(), { id: 'configure-ocr', title: 'Opt-in local raster text recognition' }), (0, ui_1.element)('label', { class: 'check-label', title: 'Retain decoded PDF raster images as portable DXF + PNG assets' }, this.retainImages, 'Keep images'), (0, ui_1.element)('i', { class: 'separator' }), this.pageSelect, field('VIEW', this.appearanceMode), field('PROFILE', this.profile), field('DXF', this.version), field('UNITS', this.units), field('SCALE', this.scale), (0, ui_1.element)('label', { class: 'check-label', title: 'Strict export stops when unsupported content remains' }, this.strict, 'Strict'), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Cancel', () => this.cancel(), { id: 'cancel' }), this.convertButton);
         this.explorer = (0, ui_1.element)('aside', { class: 'rv-explorer' }, (0, ui_1.element)('div', { class: 'section-label', text: 'DOCUMENT EXPLORER' }));
         const rail = (0, ui_1.element)('nav', { class: 'rv-rail', 'aria-label': 'Workspace panels' }, iconButton('▤', () => this.explorer.classList.toggle('collapsed'), 'Toggle document explorer'), iconButton('⌘', () => this.setTab('recovery'), 'Semantic recovery'), iconButton('⚙', () => this.setTab('rules'), 'Rule engine'), iconButton('!', () => this.setTab('diagnostics'), 'Conversion diagnostics'), (0, ui_1.element)('div', { class: 'top-spacer' }), iconButton('?', () => this.help(), 'Guide'));
         this.pdfCanvas = (0, ui_1.element)('canvas', { id: 'pdf-canvas', 'aria-label': 'Source PDF drawing viewport' });
@@ -6591,7 +7107,8 @@ class Workbench {
         this.linkButton = iconButton('↔', () => this.toggleLink(), 'Link viewport cameras');
         this.linkButton.classList.add('active');
         this.measureButton = iconButton('⌁', () => { this.cadView.measureMode = !this.cadView.measureMode; this.measureButton.classList.toggle('active', this.cadView.measureMode); this.setStatus(this.cadView.measureMode ? 'Measure: click two points in the DXF viewport.' : 'Selection mode'); }, 'Two-point measurement');
-        const targetPane = (0, ui_1.element)('section', { class: 'viewport-pane' }, (0, ui_1.element)('header', { class: 'pane-heading' }, (0, ui_1.element)('span', { class: 'pane-indicator' }), (0, ui_1.element)('b', { text: 'RECOVERED DXF' }), this.cadInfo, (0, ui_1.element)('div', { class: 'top-spacer' }), this.linkButton, this.gridButton, this.themeButton, this.colorMode, this.measureButton, iconButton('⊡', () => this.fit(), 'Fit both pages')), (0, ui_1.element)('div', { class: 'canvas-host' }, this.cadCanvas, (0, ui_1.element)('span', { class: 'canvas-caption', text: 'Editable entities · select to inspect' })));
+        this.targetCaption = (0, ui_1.element)('span', { class: 'canvas-caption', text: 'Editable entities · select to inspect' });
+        const targetPane = (0, ui_1.element)('section', { class: 'viewport-pane' }, (0, ui_1.element)('header', { class: 'pane-heading' }, (0, ui_1.element)('span', { class: 'pane-indicator' }), (0, ui_1.element)('b', { text: 'RECOVERED DXF' }), this.cadInfo, (0, ui_1.element)('div', { class: 'top-spacer' }), this.linkButton, this.gridButton, this.themeButton, this.colorMode, this.measureButton, iconButton('⊡', () => this.fit(), 'Fit both pages')), (0, ui_1.element)('div', { class: 'canvas-host' }, this.cadCanvas, this.targetCaption));
         this.panes = (0, ui_1.element)('div', { class: 'rv-panes' }, sourcePane, targetPane);
         this.inspector = (0, ui_1.element)('aside', { class: 'rv-inspector' });
         this.tabs = (0, ui_1.element)('div', { class: 'bottom-tabs' });
@@ -6677,7 +7194,7 @@ class Workbench {
         const scale = Number(this.scale.value);
         if (!Number.isFinite(scale) || scale <= 0)
             throw Error('Drawing scale must be a positive number.');
-        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet, ocr: this.ocrSettings, rasterImages: this.retainImages.checked ? {} : undefined };
+        return { version: this.version.value, units: this.units.value, drawingScale: scale, profile: this.profile.value, strict: this.strict.checked, decisions: this.decisions[this.page] || {}, disabledRules: [...this.disabledRules], ruleSet: this.ruleSet, ocr: this.ocrSettings, archiveSource: this.archiveSource, appearance: this.appearanceMode.value === 'off' ? undefined : { dpi: 144 }, appearanceView: this.appearanceMode.value === 'semantic' ? 'semantic' : 'appearance', rasterImages: this.retainImages.checked ? {} : undefined };
     }
     pdfOptions(name) { const base = this.config.assetBase || './vendor/pdfjs/'; return { name, moduleUrl: this.config.pdfjsModuleUrl || base + 'legacy/build/pdf.mjs', workerUrl: this.config.pdfjsWorkerUrl || base + 'legacy/build/pdf.worker.mjs', pdfOptions: { cMapUrl: base + 'cmaps/', cMapPacked: true, wasmUrl: base + 'wasm/', iccUrl: base + 'iccs/', ...this.config.pdfOptions }, onPassword: reason => (0, ui_1.askValue)(reason === 2 ? 'Incorrect PDF password' : 'Encrypted PDF', 'Enter the password to open this PDF', '', { type: 'password' }) }; }
     async openFile(file) {
@@ -6721,6 +7238,8 @@ class Workbench {
         this.disabledRules = project?.disabledRules || [];
         this.ruleSet = project?.ruleSet || null;
         this.ocrSettings = project?.settings?.ocr || null;
+        this.archiveSource = !!project?.settings?.archiveSource;
+        this.appearanceMode.value = project?.settings?.appearance ? (project.settings.appearanceView || 'appearance') : 'off';
         this.retainImages.checked = project ? !!project.settings?.rasterImages : this.retainImages.checked;
         this.exportButton.disabled = true;
         this.setStatus('Opening PDF locally…');
@@ -6767,6 +7286,8 @@ class Workbench {
                     next = await this.source.preserveRasterImages(next, { signal: controller.signal });
                 if (this.ocrSettings)
                     next = await (0, ocr_1.recoverPdfRaster)(this.source, next, { ...this.ocrSettings, assetBase: this.config.ocrAssetBase || './vendor/ocr/', signal: controller.signal, onProgress: progress });
+                if (options.appearance)
+                    next = await this.source.captureAppearance(next, { ...options.appearance, signal: controller.signal });
                 if (id !== this.job)
                     return;
                 this.scene = next;
@@ -6867,6 +7388,7 @@ class Workbench {
         this.explorer.append((0, ui_1.element)('div', { class: 'section-label', text: `BLOCK LIBRARY · ${d.blocks.length}` }));
         for (const b of d.blocks)
             this.explorer.append((0, ui_1.button)(`◇ ${b.name}`, () => this.inspectBlock(b), { className: 'tree-row' }));
+        this.targetCaption.textContent = this.result?.report.appearance?.view === 'appearance' ? 'Sampled appearance · editable CAD on hidden layers' : 'Editable entities · select to inspect';
         this.explorer.append((0, ui_1.element)('div', { class: 'explorer-foot' }, (0, ui_1.element)('b', { text: this.result?.report.ocr ? 'Raster OCR recovery' : 'Vector-first recovery' }), (0, ui_1.element)('span', { text: this.result?.report.ocr ? `${this.result.report.ocr.accepted} inferred words · ${this.result.report.ocr.lines} lines · ${this.result.report.ocr.paths || 0} paths. Native text is preserved.` : 'Native vectors and encoded text are preserved. Raster OCR is opt-in.' })));
     }
     setTab(tab) {
@@ -6954,7 +7476,7 @@ class Workbench {
         if (this.ruleSet)
             this.bottomContent.append((0, ui_1.element)('div', { class: 'rule-custom', text: `Custom rules loaded: ${this.ruleSet.rules.length}` }));
     }
-    renderSource() { const r = this.result.report; this.bottomContent.append((0, ui_1.element)('div', { class: 'recovery-bar' }, (0, ui_1.element)('b', { text: 'Conversion provenance' }), (0, ui_1.element)('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Save report', () => (0, ui_1.download)(enc(r), this.baseName() + '.report.json', 'application/json')), (0, ui_1.button)('Save intermediate model', () => (0, ui_1.download)(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), (0, ui_1.element)('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, color: r.color, ocr: r.ocr, rasterImages: r.rasterImages, timings: r.timings, validation: r.validation }) })); }
+    renderSource() { const r = this.result.report; this.bottomContent.append((0, ui_1.element)('div', { class: 'recovery-bar' }, (0, ui_1.element)('b', { text: 'Conversion provenance' }), (0, ui_1.element)('span', { class: 'muted', text: 'Source paint IDs, rule evidence, history, and measured conversion timings' }), (0, ui_1.element)('div', { class: 'top-spacer' }), (0, ui_1.button)('Save report', () => (0, ui_1.download)(enc(r), this.baseName() + '.report.json', 'application/json')), (0, ui_1.button)('Save intermediate model', () => (0, ui_1.download)(enc(this.result.document), this.baseName() + '.cad.json', 'application/json'))), (0, ui_1.element)('pre', { class: 'source-report', text: enc({ source: { name: r.source.name, producer: r.source.producer, page: this.page }, target: r.target, coverage: r.coverage, color: r.color, ocr: r.ocr, rasterImages: r.rasterImages, appearance: r.appearance, timings: r.timings, validation: r.validation }) })); }
     showOverview() {
         this.inspector.replaceChildren((0, ui_1.element)('div', { class: 'section-label', text: 'CONVERSION INSPECTOR' }), (0, ui_1.element)('div', { class: 'inspector-intro' }, (0, ui_1.element)('span', { class: 'eyebrow', text: 'FROM PLOT TO MODEL' }), (0, ui_1.element)('h2', { text: 'Structure,\nnot just strokes.' }), (0, ui_1.element)('p', { class: 'muted', text: 'Review recovered entities alongside the original PDF. Every semantic proposal keeps its evidence.' })));
         if (this.result) {
@@ -6963,7 +7485,7 @@ class Workbench {
             for (const [label, value] of [['ENTITIES', s.entities], ['LAYERS', d.layers.length], ['BLOCKS', d.blocks.length], ['TO REVIEW', d.candidates.filter(c => c.status === 'pending').length]])
                 stats.append((0, ui_1.element)('div', {}, (0, ui_1.element)('b', { text: fmt(value) }), (0, ui_1.element)('span', { text: label })));
             this.inspector.append(stats, (0, ui_1.element)('div', { class: 'section-label', text: 'OUTPUT CONTRACT' }));
-            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster recovery', this.result.report.ocr ? `${this.result.report.ocr.accepted} OCR words · ${this.result.report.ocr.lines} lines · ${this.result.report.ocr.paths || 0} paths` : 'OCR off'], ['Raster images', this.result.report.rasterImages ? `${this.result.report.rasterImages.retained} paints · ${this.result.report.rasterImages.assets} PNG assets` : 'Not retained']])
+            for (const [k, v] of [['Format', `DXF ${this.version.value}`], ['Coordinates', `${this.units.value} · Y up`], ['Drawing scale', `1 : ${this.scale.value}`], ['Curves', 'Native cubic SPLINE'], ['Text', 'Editable Unicode'], ['Raster recovery', this.result.report.ocr ? `${this.result.report.ocr.accepted} OCR words · ${this.result.report.ocr.lines} lines · ${this.result.report.ocr.paths || 0} paths` : 'OCR off'], ['Appearance', this.result.report.appearance ? `${this.result.report.appearance.dpi} DPI · separate CAD layers` : 'Native only'], ['Raster images', this.result.report.rasterImages ? `${this.result.report.rasterImages.retained} paints · ${this.result.report.rasterImages.assets} PNG assets` : 'Not retained']])
                 this.inspector.append(this.property(k, v));
         }
         this.inspector.append((0, ui_1.element)('div', { class: 'inspector-note' }, (0, ui_1.element)('b', { text: 'Evidence-first recovery' }), (0, ui_1.element)('p', { text: 'A PDF form is reusable structure, not proof of an original CAD block. Inferred names and meanings are identified explicitly.' })), (0, ui_1.button)('Convert all pages to ZIP', () => this.exportAll(), { className: 'wide', disabled: !this.source }));
@@ -7029,9 +7551,9 @@ class Workbench {
     exportDxf() {
         if (!this.result || !this.exportReady)
             return (0, ui_1.toast)('Open and convert a PDF first.');
-        if (this.result.document.assets?.length) {
+        if (this.result.document.assets?.length || this.archiveSource) {
             try {
-                const pack = (0, dxf_1.packageDxf)(this.result.document, { version: this.version.value, strict: this.strict.checked, filename: 'drawing-' + this.baseName().replace(/[^a-zA-Z0-9_. -]/g, '_') + `.R${this.version.value}.dxf` });
+                const pack = (0, dxf_1.packageDxf)(this.result.document, { version: this.version.value, strict: this.strict.checked, sourcePdf: this.archiveSource ? this.bytes : undefined, filename: 'drawing-' + this.baseName().replace(/[^a-zA-Z0-9_. -]/g, '_') + `.R${this.version.value}.dxf` });
                 pack.files.push({ name: 'conversion.report.json', data: enc(this.result.report) });
                 (0, ui_1.download)((0, ui_1.zipFiles)(pack.files), this.baseName() + '.dxf-package.zip');
                 this.setStatus(`Exported DXF + ${pack.manifest.assets.length} PNG assets`);
@@ -7046,7 +7568,9 @@ class Workbench {
     }
     baseName() { return this.fileName.replace(/\.pdf$/i, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') + `-page-${this.page}`; }
     projectMenu() {
-        (0, ui_1.dialog)({ title: 'Project & interchange', content: (0, ui_1.element)('p', { text: 'Save a reproducible project with the original PDF, conversion settings, rule decisions, and custom rules. Conversion is local; nothing is uploaded.' }), actions: [{ label: 'Open project', run: d => { d.close(); this.fileInput.click(); } }, { label: 'Save project', primary: true, run: d => {
+        const archive = (0, ui_1.element)('input', { type: 'checkbox', id: 'archive-source', checked: this.archiveSource });
+        archive.addEventListener('change', () => { this.archiveSource = archive.checked; });
+        (0, ui_1.dialog)({ title: 'Project & interchange', content: (0, ui_1.element)('div', {}, (0, ui_1.element)('p', { text: 'Save a reproducible project with the original PDF, conversion settings, rule decisions, and custom rules. Conversion is local; nothing is uploaded.' }), (0, ui_1.element)('label', { class: 'check-label' }, archive, 'Include original PDF in DXF packages'), (0, ui_1.element)('p', { text: 'The original PDF is byte-preserved and may include hidden content, attachments and sensitive metadata. It is not a redacted export.' })), actions: [{ label: 'Open project', run: d => { d.close(); this.fileInput.click(); } }, { label: 'Save project', primary: true, run: d => {
                         if (!this.bytes)
                             return;
                         (0, ui_1.download)(enc({ schema: 'revector.project/1', name: this.fileName, pdf: Array.from(this.bytes), page: this.page, settings: this.options(), decisions: this.decisions, disabledRules: this.disabledRules, ruleSet: this.ruleSet }), this.baseName() + '.revector.json', 'application/json');
@@ -7068,10 +7592,17 @@ class Workbench {
                     scene = await this.source.preserveRasterImages(scene, { signal: controller.signal });
                 if (this.ocrSettings && !scene.ocr)
                     scene = await (0, ocr_1.recoverPdfRaster)(this.source, scene, { ...this.ocrSettings, assetBase: this.config.ocrAssetBase || './vendor/ocr/', signal: controller.signal });
+                if (options.appearance && !scene.appearance)
+                    scene = await this.source.captureAppearance(scene, { ...options.appearance, signal: controller.signal });
                 const config = { ...options, decisions: this.decisions[p] || {} };
                 const r = this.worker ? await this.worker.convert(scene, config, { signal: controller.signal }) : await this.engine.convertScene(scene, { ...config, signal: controller.signal });
                 const pack = (0, dxf_1.packageDxf)(r.document, { version: options.version, strict: options.strict, filename: `page-${p}.R${options.version}.dxf` });
                 files.push(...pack.files, { name: `page-${p}.report.json`, data: enc(r.report) });
+            }
+            if (this.archiveSource) {
+                const archive = (0, dxf_1.packageDxf)(this.result.document, { version: options.version, filename: 'original-source.dxf', sourcePdf: this.bytes });
+                const meta = archive.manifest.sourceArchive;
+                files.push(archive.files.find(f => f.name === meta.path), { name: 'source-archive.json', data: enc(meta) });
             }
             (0, ui_1.download)((0, ui_1.zipFiles)([...new Map(files.map(f => [f.name, f])).values()]), this.fileName.replace(/\.pdf$/i, '') + '-converted.zip');
             this.setStatus(`Exported ${this.source.numPages} pages and reports`);
@@ -7112,7 +7643,7 @@ class Workbench {
                         }
                     } }] });
     }
-    help() { (0, ui_1.dialog)({ title: 'Revector Studio · vector-first CAD recovery', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('h3', { text: 'A local, inspectable conversion workflow' }), (0, ui_1.element)('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), (0, ui_1.element)('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), (0, ui_1.element)('h3', { text: 'Meaning is recovered, not assumed' }), (0, ui_1.element)('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), (0, ui_1.element)('h3', { text: 'Explicit format boundaries' }), (0, ui_1.element)('p', { text: 'Keep images exports native DXF IMAGE references together with PNG sidecars in a ZIP. Clips and constant alpha are baked into native-resolution raster pixels. Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. PDF shading meshes, soft masks, complex blend composition, Type 3 glyphs, clipped text, and some pattern cases require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), (0, ui_1.element)('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), (0, ui_1.element)('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
+    help() { (0, ui_1.dialog)({ title: 'Revector Studio · vector-first CAD recovery', content: (0, ui_1.element)('div', { class: 'guide' }, (0, ui_1.element)('h3', { text: 'A local, inspectable conversion workflow' }), (0, ui_1.element)('p', { text: 'Open a vector PDF, select a page, choose units and the drawing scale, then Convert. PDF points are converted to the selected unit; a 1:100 printed drawing needs drawing scale 100 to recover model distances.' }), (0, ui_1.element)('p', { text: 'The left panel shows PDF.js rendering. The right panel reads the actual serialized DXF. Drag to pan, use the wheel to zoom, double-click or press F to fit, and click entities or proposals to inspect source evidence. The ↔ control synchronizes views.' }), (0, ui_1.element)('h3', { text: 'Meaning is recovered, not assumed' }), (0, ui_1.element)('p', { text: 'Exact form reuse and conservative structural rules can apply automatically. Review inferred circles, dimensions, tags, hatching, and centerlines. Accept/reject decisions replay from the source scene; Undo and Redo never accumulate geometry damage.' }), (0, ui_1.element)('h3', { text: 'Explicit format boundaries' }), (0, ui_1.element)('p', { text: 'Keep images exports native DXF IMAGE references together with PNG sidecars in a ZIP. Clips and constant alpha are baked into native-resolution raster pixels. Raster OCR is opt-in and local. Confidence filtering, native-text suppression and optional ruled-line estimation do not guarantee exact recognition. Original-color mode preserves RGB; CAD contrast is display-only. Appearance + CAD retains PDF.js-rendered shading, masks, blends and clipped text in a sampled IMAGE layer with separate hidden editable geometry. It is resolution-qualified, not native reconstruction of those effects. CAD + reference hides that appearance layer instead. Native-only unsupported cases still require review. Embedded font programs are not exported. Substituted CAD fonts can change text appearance. Strict mode blocks exports with unresolved error diagnostics.' }), (0, ui_1.element)('p', { text: 'DXF 2000 uses indexed colors; newer versions retain true color. Printed dimensions are inferred non-associative DIMENSION entities with retained display geometry, not recovered original CAD constraints.' }), (0, ui_1.element)('p', { class: 'mono', text: 'Ctrl/Cmd+O Open  ·  Ctrl/Cmd+Enter Convert  ·  Ctrl/Cmd+S Export  ·  F Fit  ·  Escape Cancel' })), actions: [{ label: 'Close', primary: true, run: d => d.close() }] }); }
     setStatus(text) {
         if (this.status)
             this.status.textContent = text;

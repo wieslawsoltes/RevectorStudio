@@ -23,8 +23,8 @@ export function decodeDxfString(value: string): string;
 export function nearestACI(rgb: RGB): number;
 
 export function assetBytes(asset:import('@revector/model').RasterAsset):Uint8Array;
-export function packageDxf(document:CadDocument,options?:Parameters<typeof exportDxf>[1] & {filename?:string;maxBytes?:number}): {
+export function packageDxf(document:CadDocument,options?:Parameters<typeof exportDxf>[1] & {filename?:string;maxBytes?:number;sourcePdf?:Uint8Array}): {
     dxf:DxfResult;
     files:Array<{name:string;data:string|Uint8Array}>;
-    manifest:{schema:'revector.dxf-package/1';drawing:string;version:DxfVersion;assets:Array<{id:string;path:string;width:number;height:number;bytes:number;sha256:string|null}>};
+    manifest:{schema:'revector.dxf-package/1';drawing:string;version:DxfVersion;sourceArchive?:{path:string;bytes:number;sha256:string;warning:string};assets:Array<{id:string;path:string;width:number;height:number;bytes:number;sha256:string|null}>};
 };

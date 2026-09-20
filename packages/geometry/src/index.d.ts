@@ -126,3 +126,7 @@ export function pathWinding(p: Point, paths: Path[]): number;
 export function insidePaths(p: Point, paths: Path[], rule?: FillRule): boolean;
 export function clipCurveToPaths(edge: Edge, paths: Path[], rule?: FillRule, options?: BooleanOptions): Edge[];
 export function booleanPaths(subject: Path[], clip?: Path[], options?: BooleanOptions): Path[];
+
+export interface CurveFitOptions {tolerance?:number;closed?:boolean;maxPoints?:number;maxSegments?:number;maxWork?:number;signal?:AbortSignal}
+export function fitCircularPolyline(points:Point[],options?:CurveFitOptions):({type:'CIRCLE'|'ARC';center:Point;radius:number;startAngle?:number;endAngle?:number;evidence:Record<string,any>})|null;
+export function fitCubicPolyline(points:Point[],options?:CurveFitOptions):{curves:{controlPoints:Cubic;errorBound:number;sourceRange:[number,number]}[];evidence:Record<string,any>};

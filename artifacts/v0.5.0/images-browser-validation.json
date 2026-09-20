@@ -1,0 +1,1929 @@
+{
+  "pages": [
+    {
+      "page": 1,
+      "stats": {
+        "retained": 4,
+        "skipped": 0,
+        "assets": 2,
+        "bytes": 327,
+        "pixels": 1024,
+        "complete": true,
+        "mode": "decoded-image-resources",
+        "colorSpace": "sRGB",
+        "clips": "baked PNG alpha at native resolution"
+      },
+      "samples": [
+        {
+          "point": [
+            40,
+            210
+          ],
+          "pdf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "dxf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            80,
+            210
+          ],
+          "pdf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "dxf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            40,
+            170
+          ],
+          "pdf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "dxf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            80,
+            170
+          ],
+          "pdf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "dxf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            180,
+            210
+          ],
+          "pdf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "dxf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            140,
+            210
+          ],
+          "pdf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "dxf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            180,
+            170
+          ],
+          "pdf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "dxf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            140,
+            170
+          ],
+          "pdf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "dxf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            35,
+            75
+          ],
+          "pdf": [
+            217,
+            139,
+            144,
+            255
+          ],
+          "dxf": [
+            217,
+            140,
+            145,
+            255
+          ],
+          "error": 1
+        },
+        {
+          "point": [
+            60,
+            45
+          ],
+          "pdf": [
+            248,
+            230,
+            196,
+            255
+          ],
+          "dxf": [
+            248,
+            230,
+            196,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            85,
+            45
+          ],
+          "pdf": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "dxf": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            290,
+            195
+          ],
+          "pdf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "dxf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            60,
+            180
+          ],
+          "pdf": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "dxf": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "error": 0
+        }
+      ],
+      "unchanged": true,
+      "released": true,
+      "images": 4,
+      "native": 1,
+      "errors": [],
+      "assets": [
+        {
+          "id": "IMG_3e91d997280d5f0bec2c09cef00a24d65002db7a609133c5267f6a75698b887c",
+          "path": "images/3e91d997280d5f0bec2c09cef00a24d65002db7a609133c5267f6a75698b887c.png",
+          "width": 16,
+          "height": 16,
+          "sha256": "3e91d997280d5f0bec2c09cef00a24d65002db7a609133c5267f6a75698b887c"
+        },
+        {
+          "id": "IMG_4ebb132b71ba30cdf0696b6868bd7038f83bb6b267f4f7fa57f0cc824580c787",
+          "path": "images/4ebb132b71ba30cdf0696b6868bd7038f83bb6b267f4f7fa57f0cc824580c787.png",
+          "width": 16,
+          "height": 16,
+          "sha256": "4ebb132b71ba30cdf0696b6868bd7038f83bb6b267f4f7fa57f0cc824580c787"
+        }
+      ],
+      "bitmapsClosed": true
+    },
+    {
+      "page": 2,
+      "stats": {
+        "retained": 4,
+        "skipped": 0,
+        "assets": 2,
+        "bytes": 327,
+        "pixels": 1024,
+        "complete": true,
+        "mode": "decoded-image-resources",
+        "colorSpace": "sRGB",
+        "clips": "baked PNG alpha at native resolution"
+      },
+      "samples": [
+        {
+          "point": [
+            40,
+            210
+          ],
+          "pdf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "dxf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            80,
+            210
+          ],
+          "pdf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "dxf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            40,
+            170
+          ],
+          "pdf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "dxf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            80,
+            170
+          ],
+          "pdf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "dxf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            180,
+            210
+          ],
+          "pdf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "dxf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            140,
+            210
+          ],
+          "pdf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "dxf": [
+            20,
+            150,
+            60,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            180,
+            170
+          ],
+          "pdf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "dxf": [
+            25,
+            65,
+            200,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            140,
+            170
+          ],
+          "pdf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "dxf": [
+            242,
+            205,
+            137,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            35,
+            75
+          ],
+          "pdf": [
+            217,
+            140,
+            145,
+            255
+          ],
+          "dxf": [
+            217,
+            140,
+            145,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            60,
+            45
+          ],
+          "pdf": [
+            249,
+            230,
+            196,
+            255
+          ],
+          "dxf": [
+            248,
+            230,
+            196,
+            255
+          ],
+          "error": 1
+        },
+        {
+          "point": [
+            85,
+            45
+          ],
+          "pdf": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "dxf": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            290,
+            195
+          ],
+          "pdf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "dxf": [
+            180,
+            25,
+            35,
+            255
+          ],
+          "error": 0
+        },
+        {
+          "point": [
+            60,
+            180
+          ],
+          "pdf": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "dxf": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "error": 0
+        }
+      ],
+      "unchanged": true,
+      "released": true,
+      "images": 4,
+      "native": 1,
+      "errors": [],
+      "assets": [
+        {
+          "id": "IMG_3e91d997280d5f0bec2c09cef00a24d65002db7a609133c5267f6a75698b887c",
+          "path": "images/3e91d997280d5f0bec2c09cef00a24d65002db7a609133c5267f6a75698b887c.png",
+          "width": 16,
+          "height": 16,
+          "sha256": "3e91d997280d5f0bec2c09cef00a24d65002db7a609133c5267f6a75698b887c"
+        },
+        {
+          "id": "IMG_4ebb132b71ba30cdf0696b6868bd7038f83bb6b267f4f7fa57f0cc824580c787",
+          "path": "images/4ebb132b71ba30cdf0696b6868bd7038f83bb6b267f4f7fa57f0cc824580c787.png",
+          "width": 16,
+          "height": 16,
+          "sha256": "4ebb132b71ba30cdf0696b6868bd7038f83bb6b267f4f7fa57f0cc824580c787"
+        }
+      ],
+      "bitmapsClosed": true
+    }
+  ],
+  "rasterColorProfiles": {
+    "stats": {
+      "retained": 3,
+      "skipped": 0,
+      "assets": 3,
+      "bytes": 300,
+      "pixels": 12,
+      "complete": true,
+      "mode": "decoded-image-resources",
+      "colorSpace": "sRGB",
+      "clips": "baked PNG alpha at native resolution"
+    },
+    "samples": [
+      {
+        "point": [
+          30,
+          30
+        ],
+        "source": [
+          200,
+          60,
+          23,
+          255
+        ],
+        "target": [
+          200,
+          60,
+          23,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          30,
+          50
+        ],
+        "source": [
+          200,
+          60,
+          23,
+          255
+        ],
+        "target": [
+          200,
+          60,
+          23,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          30,
+          70
+        ],
+        "source": [
+          4,
+          18,
+          64,
+          255
+        ],
+        "target": [
+          4,
+          18,
+          64,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          70,
+          30
+        ],
+        "source": [
+          30,
+          170,
+          65,
+          255
+        ],
+        "target": [
+          30,
+          170,
+          65,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          70,
+          50
+        ],
+        "source": [
+          30,
+          170,
+          65,
+          255
+        ],
+        "target": [
+          30,
+          170,
+          65,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          70,
+          70
+        ],
+        "source": [
+          120,
+          45,
+          200,
+          255
+        ],
+        "target": [
+          120,
+          45,
+          200,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          130,
+          30
+        ],
+        "source": [
+          255,
+          235,
+          61,
+          255
+        ],
+        "target": [
+          255,
+          235,
+          61,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          130,
+          50
+        ],
+        "source": [
+          255,
+          235,
+          61,
+          255
+        ],
+        "target": [
+          255,
+          235,
+          61,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          130,
+          70
+        ],
+        "source": [
+          0,
+          185,
+          242,
+          255
+        ],
+        "target": [
+          0,
+          185,
+          242,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          170,
+          30
+        ],
+        "source": [
+          93,
+          95,
+          100,
+          255
+        ],
+        "target": [
+          93,
+          95,
+          100,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          170,
+          50
+        ],
+        "source": [
+          93,
+          95,
+          100,
+          255
+        ],
+        "target": [
+          93,
+          95,
+          100,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          170,
+          70
+        ],
+        "source": [
+          251,
+          49,
+          153,
+          255
+        ],
+        "target": [
+          251,
+          49,
+          153,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          240,
+          30
+        ],
+        "source": [
+          63,
+          63,
+          191,
+          255
+        ],
+        "target": [
+          63,
+          63,
+          191,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          240,
+          50
+        ],
+        "source": [
+          127,
+          63,
+          95,
+          255
+        ],
+        "target": [
+          127,
+          63,
+          95,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          240,
+          70
+        ],
+        "source": [
+          191,
+          63,
+          0,
+          255
+        ],
+        "target": [
+          191,
+          63,
+          0,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          250,
+          30
+        ],
+        "source": [
+          127,
+          127,
+          127,
+          255
+        ],
+        "target": [
+          127,
+          127,
+          127,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          250,
+          50
+        ],
+        "source": [
+          127,
+          127,
+          63,
+          255
+        ],
+        "target": [
+          127,
+          127,
+          63,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          250,
+          70
+        ],
+        "source": [
+          127,
+          127,
+          0,
+          255
+        ],
+        "target": [
+          127,
+          127,
+          0,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          260,
+          30
+        ],
+        "source": [
+          191,
+          191,
+          63,
+          255
+        ],
+        "target": [
+          191,
+          191,
+          63,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          260,
+          50
+        ],
+        "source": [
+          127,
+          191,
+          31,
+          255
+        ],
+        "target": [
+          127,
+          191,
+          31,
+          255
+        ],
+        "error": 0
+      },
+      {
+        "point": [
+          260,
+          70
+        ],
+        "source": [
+          63,
+          191,
+          0,
+          255
+        ],
+        "target": [
+          63,
+          191,
+          0,
+          255
+        ],
+        "error": 0
+      }
+    ],
+    "errors": [],
+    "interpolate": [
+      false,
+      false,
+      true
+    ]
+  },
+  "tracing": {
+    "stats": {
+      "foreground": 656,
+      "skeletonPixels": 166,
+      "iterations": 3,
+      "junctionPixels": 1,
+      "endpoints": 6,
+      "isolatedPixels": 0,
+      "graphEdges": 164,
+      "tracedEdges": 164,
+      "work": 20507,
+      "paths": 6,
+      "nativePixelsExcluded": 400,
+      "regionId": "0",
+      "method": "zhang-suen/pixel-graph/rdp"
+    },
+    "paths": [
+      {
+        "id": "raster-path-0-0",
+        "kind": "path",
+        "operator": -1,
+        "visible": true,
+        "layerId": "REVECTOR_RASTER_PATHS",
+        "paths": [
+          {
+            "start": [
+              69.5,
+              72.5
+            ],
+            "segments": [
+              {
+                "kind": "L",
+                "to": [
+                  69.5,
+                  58.5
+                ]
+              }
+            ],
+            "closed": false
+          }
+        ],
+        "stroke": true,
+        "fill": false,
+        "clips": [],
+        "formPath": [],
+        "style": {
+          "stroke": [
+            20,
+            40,
+            70
+          ],
+          "lineWidth": 0,
+          "strokeAlpha": 1,
+          "dash": []
+        },
+        "rasterInference": {
+          "method": "zhang-suen/pixel-graph/rdp",
+          "confidence": 0.65,
+          "geometry": "estimated centerline",
+          "color": "median skeleton samples",
+          "imageIds": [
+            "source-image"
+          ],
+          "regionId": "0",
+          "pixelToPdf": [
+            1,
+            0,
+            0,
+            -1,
+            0,
+            90
+          ],
+          "maxDeviationPixels": 0.65,
+          "samples": 15,
+          "startDegree": 1,
+          "endDegree": 4,
+          "touchesBorder": false
+        }
+      },
+      {
+        "id": "raster-path-0-1",
+        "kind": "path",
+        "operator": -1,
+        "visible": true,
+        "layerId": "REVECTOR_RASTER_PATHS",
+        "paths": [
+          {
+            "start": [
+              38.5,
+              58.5
+            ],
+            "segments": [
+              {
+                "kind": "L",
+                "to": [
+                  11.5,
+                  31.5
+                ]
+              }
+            ],
+            "closed": false
+          }
+        ],
+        "stroke": true,
+        "fill": false,
+        "clips": [],
+        "formPath": [],
+        "style": {
+          "stroke": [
+            20,
+            40,
+            70
+          ],
+          "lineWidth": 0,
+          "strokeAlpha": 1,
+          "dash": []
+        },
+        "rasterInference": {
+          "method": "zhang-suen/pixel-graph/rdp",
+          "confidence": 0.65,
+          "geometry": "estimated centerline",
+          "color": "median skeleton samples",
+          "imageIds": [
+            "source-image"
+          ],
+          "regionId": "0",
+          "pixelToPdf": [
+            1,
+            0,
+            0,
+            -1,
+            0,
+            90
+          ],
+          "maxDeviationPixels": 0.65,
+          "samples": 28,
+          "startDegree": 1,
+          "endDegree": 1,
+          "touchesBorder": false
+        }
+      },
+      {
+        "id": "raster-path-0-2",
+        "kind": "path",
+        "operator": -1,
+        "visible": true,
+        "layerId": "REVECTOR_RASTER_PATHS",
+        "paths": [
+          {
+            "start": [
+              54.5,
+              58.5
+            ],
+            "segments": [
+              {
+                "kind": "L",
+                "to": [
+                  69.5,
+                  58.5
+                ]
+              }
+            ],
+            "closed": false
+          }
+        ],
+        "stroke": true,
+        "fill": false,
+        "clips": [],
+        "formPath": [],
+        "style": {
+          "stroke": [
+            20,
+            40,
+            70
+          ],
+          "lineWidth": 0,
+          "strokeAlpha": 1,
+          "dash": []
+        },
+        "rasterInference": {
+          "method": "zhang-suen/pixel-graph/rdp",
+          "confidence": 0.65,
+          "geometry": "estimated centerline",
+          "color": "median skeleton samples",
+          "imageIds": [
+            "source-image"
+          ],
+          "regionId": "0",
+          "pixelToPdf": [
+            1,
+            0,
+            0,
+            -1,
+            0,
+            90
+          ],
+          "maxDeviationPixels": 0.65,
+          "samples": 16,
+          "startDegree": 1,
+          "endDegree": 4,
+          "touchesBorder": false
+        }
+      },
+      {
+        "id": "raster-path-0-3",
+        "kind": "path",
+        "operator": -1,
+        "visible": true,
+        "layerId": "REVECTOR_RASTER_PATHS",
+        "paths": [
+          {
+            "start": [
+              69.5,
+              58.5
+            ],
+            "segments": [
+              {
+                "kind": "L",
+                "to": [
+                  85.5,
+                  58.5
+                ]
+              }
+            ],
+            "closed": false
+          }
+        ],
+        "stroke": true,
+        "fill": false,
+        "clips": [],
+        "formPath": [],
+        "style": {
+          "stroke": [
+            20,
+            40,
+            70
+          ],
+          "lineWidth": 0,
+          "strokeAlpha": 1,
+          "dash": []
+        },
+        "rasterInference": {
+          "method": "zhang-suen/pixel-graph/rdp",
+          "confidence": 0.65,
+          "geometry": "estimated centerline",
+          "color": "median skeleton samples",
+          "imageIds": [
+            "source-image"
+          ],
+          "regionId": "0",
+          "pixelToPdf": [
+            1,
+            0,
+            0,
+            -1,
+            0,
+            90
+          ],
+          "maxDeviationPixels": 0.65,
+          "samples": 17,
+          "startDegree": 4,
+          "endDegree": 1,
+          "touchesBorder": false
+        }
+      },
+      {
+        "id": "raster-path-0-4",
+        "kind": "path",
+        "operator": -1,
+        "visible": true,
+        "layerId": "REVECTOR_RASTER_PATHS",
+        "paths": [
+          {
+            "start": [
+              69.5,
+              58.5
+            ],
+            "segments": [
+              {
+                "kind": "L",
+                "to": [
+                  69.5,
+                  42.5
+                ]
+              }
+            ],
+            "closed": false
+          }
+        ],
+        "stroke": true,
+        "fill": false,
+        "clips": [],
+        "formPath": [],
+        "style": {
+          "stroke": [
+            20,
+            40,
+            70
+          ],
+          "lineWidth": 0,
+          "strokeAlpha": 1,
+          "dash": []
+        },
+        "rasterInference": {
+          "method": "zhang-suen/pixel-graph/rdp",
+          "confidence": 0.65,
+          "geometry": "estimated centerline",
+          "color": "median skeleton samples",
+          "imageIds": [
+            "source-image"
+          ],
+          "regionId": "0",
+          "pixelToPdf": [
+            1,
+            0,
+            0,
+            -1,
+            0,
+            90
+          ],
+          "maxDeviationPixels": 0.65,
+          "samples": 17,
+          "startDegree": 4,
+          "endDegree": 1,
+          "touchesBorder": false
+        }
+      },
+      {
+        "id": "raster-path-0-5",
+        "kind": "path",
+        "operator": -1,
+        "visible": true,
+        "layerId": "REVECTOR_RASTER_PATHS",
+        "paths": [
+          {
+            "start": [
+              95.5,
+              41.5
+            ],
+            "segments": [
+              {
+                "kind": "L",
+                "to": [
+                  104.5,
+                  41.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  109.5,
+                  37.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  111.5,
+                  33.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  111.5,
+                  26.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  109.5,
+                  22.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  103.5,
+                  18.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  96.5,
+                  18.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  92.5,
+                  20.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  88.5,
+                  25.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  88.5,
+                  34.5
+                ]
+              },
+              {
+                "kind": "L",
+                "to": [
+                  89.5,
+                  36.5
+                ]
+              }
+            ],
+            "closed": true
+          }
+        ],
+        "stroke": true,
+        "fill": false,
+        "clips": [],
+        "formPath": [],
+        "style": {
+          "stroke": [
+            20,
+            40,
+            70
+          ],
+          "lineWidth": 0,
+          "strokeAlpha": 1,
+          "dash": []
+        },
+        "rasterInference": {
+          "method": "zhang-suen/pixel-graph/rdp",
+          "confidence": 0.65,
+          "geometry": "estimated centerline",
+          "color": "median skeleton samples",
+          "imageIds": [
+            "source-image"
+          ],
+          "regionId": "0",
+          "pixelToPdf": [
+            1,
+            0,
+            0,
+            -1,
+            0,
+            90
+          ],
+          "maxDeviationPixels": 0.65,
+          "samples": 77,
+          "startDegree": 2,
+          "endDegree": 2,
+          "touchesBorder": false
+        }
+      }
+    ],
+    "entities": [
+      {
+        "id": "e1",
+        "layer": "PDF_142846_300",
+        "color": [
+          20,
+          40,
+          70
+        ],
+        "lineweight": 1.0583333333333331,
+        "opacity": 1,
+        "dash": [],
+        "dashPhase": 0,
+        "source": {
+          "ids": [
+            "native"
+          ],
+          "page": 1,
+          "operator": null,
+          "formPath": [],
+          "markedContent": [],
+          "kind": "path"
+        },
+        "semantic": {
+          "class": null,
+          "confidence": 1,
+          "method": "source"
+        },
+        "type": "LINE",
+        "start": [
+          10,
+          10
+        ],
+        "end": [
+          110,
+          10
+        ]
+      },
+      {
+        "id": "e2",
+        "layer": "INFERRED_PATHS",
+        "color": [
+          20,
+          40,
+          70
+        ],
+        "lineweight": 0,
+        "opacity": 1,
+        "dash": [],
+        "dashPhase": 0,
+        "source": {
+          "ids": [
+            "raster-path-0-0"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "markedContent": [],
+          "kind": "path",
+          "rasterInference": {
+            "method": "zhang-suen/pixel-graph/rdp",
+            "confidence": 0.65,
+            "geometry": "estimated centerline",
+            "color": "median skeleton samples",
+            "imageIds": [
+              "source-image"
+            ],
+            "regionId": "0",
+            "pixelToPdf": [
+              1,
+              0,
+              0,
+              -1,
+              0,
+              90
+            ],
+            "maxDeviationPixels": 0.65,
+            "samples": 15,
+            "startDegree": 1,
+            "endDegree": 4,
+            "touchesBorder": false
+          }
+        },
+        "semantic": {
+          "class": "raster-line",
+          "confidence": 0.65,
+          "method": "raster-inference"
+        },
+        "type": "LINE",
+        "start": [
+          69.5,
+          72.5
+        ],
+        "end": [
+          69.5,
+          58.5
+        ]
+      },
+      {
+        "id": "e3",
+        "layer": "INFERRED_PATHS",
+        "color": [
+          20,
+          40,
+          70
+        ],
+        "lineweight": 0,
+        "opacity": 1,
+        "dash": [],
+        "dashPhase": 0,
+        "source": {
+          "ids": [
+            "raster-path-0-1"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "markedContent": [],
+          "kind": "path",
+          "rasterInference": {
+            "method": "zhang-suen/pixel-graph/rdp",
+            "confidence": 0.65,
+            "geometry": "estimated centerline",
+            "color": "median skeleton samples",
+            "imageIds": [
+              "source-image"
+            ],
+            "regionId": "0",
+            "pixelToPdf": [
+              1,
+              0,
+              0,
+              -1,
+              0,
+              90
+            ],
+            "maxDeviationPixels": 0.65,
+            "samples": 28,
+            "startDegree": 1,
+            "endDegree": 1,
+            "touchesBorder": false
+          }
+        },
+        "semantic": {
+          "class": "raster-line",
+          "confidence": 0.65,
+          "method": "raster-inference"
+        },
+        "type": "LINE",
+        "start": [
+          38.5,
+          58.5
+        ],
+        "end": [
+          11.5,
+          31.5
+        ]
+      },
+      {
+        "id": "e4",
+        "layer": "INFERRED_PATHS",
+        "color": [
+          20,
+          40,
+          70
+        ],
+        "lineweight": 0,
+        "opacity": 1,
+        "dash": [],
+        "dashPhase": 0,
+        "source": {
+          "ids": [
+            "raster-path-0-2"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "markedContent": [],
+          "kind": "path",
+          "rasterInference": {
+            "method": "zhang-suen/pixel-graph/rdp",
+            "confidence": 0.65,
+            "geometry": "estimated centerline",
+            "color": "median skeleton samples",
+            "imageIds": [
+              "source-image"
+            ],
+            "regionId": "0",
+            "pixelToPdf": [
+              1,
+              0,
+              0,
+              -1,
+              0,
+              90
+            ],
+            "maxDeviationPixels": 0.65,
+            "samples": 16,
+            "startDegree": 1,
+            "endDegree": 4,
+            "touchesBorder": false
+          }
+        },
+        "semantic": {
+          "class": "raster-line",
+          "confidence": 0.65,
+          "method": "raster-inference"
+        },
+        "type": "LINE",
+        "start": [
+          54.5,
+          58.5
+        ],
+        "end": [
+          69.5,
+          58.5
+        ]
+      },
+      {
+        "id": "e5",
+        "layer": "INFERRED_PATHS",
+        "color": [
+          20,
+          40,
+          70
+        ],
+        "lineweight": 0,
+        "opacity": 1,
+        "dash": [],
+        "dashPhase": 0,
+        "source": {
+          "ids": [
+            "raster-path-0-3"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "markedContent": [],
+          "kind": "path",
+          "rasterInference": {
+            "method": "zhang-suen/pixel-graph/rdp",
+            "confidence": 0.65,
+            "geometry": "estimated centerline",
+            "color": "median skeleton samples",
+            "imageIds": [
+              "source-image"
+            ],
+            "regionId": "0",
+            "pixelToPdf": [
+              1,
+              0,
+              0,
+              -1,
+              0,
+              90
+            ],
+            "maxDeviationPixels": 0.65,
+            "samples": 17,
+            "startDegree": 4,
+            "endDegree": 1,
+            "touchesBorder": false
+          }
+        },
+        "semantic": {
+          "class": "raster-line",
+          "confidence": 0.65,
+          "method": "raster-inference"
+        },
+        "type": "LINE",
+        "start": [
+          69.5,
+          58.5
+        ],
+        "end": [
+          85.5,
+          58.5
+        ]
+      },
+      {
+        "id": "e6",
+        "layer": "INFERRED_PATHS",
+        "color": [
+          20,
+          40,
+          70
+        ],
+        "lineweight": 0,
+        "opacity": 1,
+        "dash": [],
+        "dashPhase": 0,
+        "source": {
+          "ids": [
+            "raster-path-0-4"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "markedContent": [],
+          "kind": "path",
+          "rasterInference": {
+            "method": "zhang-suen/pixel-graph/rdp",
+            "confidence": 0.65,
+            "geometry": "estimated centerline",
+            "color": "median skeleton samples",
+            "imageIds": [
+              "source-image"
+            ],
+            "regionId": "0",
+            "pixelToPdf": [
+              1,
+              0,
+              0,
+              -1,
+              0,
+              90
+            ],
+            "maxDeviationPixels": 0.65,
+            "samples": 17,
+            "startDegree": 4,
+            "endDegree": 1,
+            "touchesBorder": false
+          }
+        },
+        "semantic": {
+          "class": "raster-line",
+          "confidence": 0.65,
+          "method": "raster-inference"
+        },
+        "type": "LINE",
+        "start": [
+          69.5,
+          58.5
+        ],
+        "end": [
+          69.5,
+          42.5
+        ]
+      },
+      {
+        "id": "e7",
+        "layer": "INFERRED_PATHS",
+        "color": [
+          20,
+          40,
+          70
+        ],
+        "lineweight": 0,
+        "opacity": 1,
+        "dash": [],
+        "dashPhase": 0,
+        "source": {
+          "ids": [
+            "raster-path-0-5"
+          ],
+          "page": 1,
+          "operator": -1,
+          "formPath": [],
+          "markedContent": [],
+          "kind": "path",
+          "rasterInference": {
+            "method": "zhang-suen/pixel-graph/rdp",
+            "confidence": 0.65,
+            "geometry": "estimated centerline",
+            "color": "median skeleton samples",
+            "imageIds": [
+              "source-image"
+            ],
+            "regionId": "0",
+            "pixelToPdf": [
+              1,
+              0,
+              0,
+              -1,
+              0,
+              90
+            ],
+            "maxDeviationPixels": 0.65,
+            "samples": 77,
+            "startDegree": 2,
+            "endDegree": 2,
+            "touchesBorder": false
+          }
+        },
+        "semantic": {
+          "class": "raster-line",
+          "confidence": 0.65,
+          "method": "raster-inference"
+        },
+        "type": "LWPOLYLINE",
+        "points": [
+          [
+            95.5,
+            41.5
+          ],
+          [
+            104.5,
+            41.5
+          ],
+          [
+            109.5,
+            37.5
+          ],
+          [
+            111.5,
+            33.5
+          ],
+          [
+            111.5,
+            26.5
+          ],
+          [
+            109.5,
+            22.5
+          ],
+          [
+            103.5,
+            18.5
+          ],
+          [
+            96.5,
+            18.5
+          ],
+          [
+            92.5,
+            20.5
+          ],
+          [
+            88.5,
+            25.5
+          ],
+          [
+            88.5,
+            34.5
+          ],
+          [
+            89.5,
+            36.5
+          ]
+        ],
+        "closed": true
+      }
+    ],
+    "released": true
+  },
+  "checks": [
+    "High-level convertPdf accepts an injected image factory without serializing host callbacks",
+    "Page 1 retains four source-image paints and one native vector",
+    "Page 1 shares identical raster resources",
+    "Page 1 original scene unchanged and temporary canvases released",
+    "Page 1 image assets decode and are closed when the renderer is disposed",
+    "Page 1 source/DXF color, alpha, clipping, reflection and shear samples agree",
+    "Page 1 six DXF generations audit with resolved assets and reactors",
+    "Page 2 retains four source-image paints and one native vector",
+    "Page 2 shares identical raster resources",
+    "Page 2 original scene unchanged and temporary canvases released",
+    "Page 2 image assets decode and are closed when the renderer is disposed",
+    "Page 2 source/DXF color, alpha, clipping, reflection and shear samples agree",
+    "Page 2 six DXF generations audit with resolved assets and reactors",
+    "UI download includes DXF, PNG assets and asset manifest",
+    "ICCBased and CMYK raster image paints retain decoded colors",
+    "PDF interpolation hint survives serialization and preview",
+    "Raster graph recovers diagonal paths, junctions and closed curved outlines",
+    "Native PDF paint is excluded from raster path inference",
+    "Traced paths retain explicit source-image provenance and release masks",
+    "Recovered general linework passes independent DXF audit",
+    "Disabling raster retention removes IMAGE entities and resources",
+    "No document requests leave the application origin",
+    "No uncaught browser errors"
+  ],
+  "passed": 23,
+  "errors": [],
+  "externalRequests": [],
+  "url": "http://127.0.0.1:35673/",
+  "transport": "real HTTP(S)",
+  "browser": "152.0.7977.0"
+}

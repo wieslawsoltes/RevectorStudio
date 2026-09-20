@@ -1,3 +1,5 @@
+import {curveRecoveryRule} from './curves.js';
+export {curveRecoveryRule} from './curves.js';
 import { inferCircle, stableHash, near, sub, add, mul, dot, cross, length, distance, emptyBox, union, transform, compose, inverse, pathBox } from '@revector/geometry';
 import { entityBox, entityPaths } from '@revector/model';
 import { SpatialIndex, connectedComponents, endpoints, joinLineChains } from '@revector/topology';
@@ -24,7 +26,7 @@ function offsetEntity(e, origin, id) {
     }
     return o;
 }
-export const cadRules = [
+export const cadRules = [curveRecoveryRule,
     { id: 'geometry.join-chains', title: 'Connected line chains', version: '1.0.0', stage: 10, description: 'Join degree-2, identical-style line chains without snapping or tessellation.', run: ({ document }) => {
             const groups = new Map();
             for (const e of document.entities)

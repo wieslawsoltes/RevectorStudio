@@ -1,3 +1,4 @@
+import {applyAppearance} from './appearance.js';
 import { documentRules } from '@revector/rules-document';
 import { auditColors } from '@revector/color';
 import { recoverPdfRaster } from '@revector/ocr';
@@ -34,6 +35,7 @@ export class ConversionEngine {
             rules.register(r);
         document = await rules.run(document, settings);
         checkpoint('semanticsMs');
+        document=applyAppearance(document,scene,settings);
         checkAbort(settings.signal);
         const validation = validateDocument(document);
         if (!validation.valid)
@@ -54,7 +56,7 @@ export class ConversionEngine {
         if (!roundtripValidation.valid)
             throw new Error('Serialized DXF failed round-trip validation: ' + roundtripValidation.errors.join('; '));
         checkpoint('roundtripMs');
-        const report = { schema: 'revector.report/1', version: '0.4.0', color: {...auditColors(document, preview), source: scene.colorManagement || null}, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: summary(document), producer: detectProducerProfile(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
+        const report = { schema: 'revector.report/1', version: '0.5.0', color: {...auditColors(document, preview), source: scene.colorManagement || null}, appearance:document.source.appearance||null, ocr: scene.ocr || null, rasterImages: scene.rasterImages || null, source: document.source, target: { version: dxf.version, acadVersion: dxf.acadVersion, units: document.units }, summary: summary(document), producer: detectProducerProfile(scene.source), diagnostics: [...document.diagnostics, ...dxf.diagnostics, ...preview.diagnostics], rules: document.ruleStats || [], timings: { ...times, totalMs: performance.now() - start }, coverage: { paintItems: scene.items.length, vectorPaths: scene.items.filter(i => i.kind === 'path').length, textRuns: scene.items.filter(i => i.kind === 'text').length, forms: scene.forms.length, rasterItems: scene.items.filter(i => i.kind === 'image').length, shadings: scene.items.filter(i => i.kind === 'shading').length }, validation: { model: validation, roundtrip: roundtripValidation } };
         options.onProgress?.({ phase: 'complete', done: 1, total: 1 });
         return { document, preview, dxf, report };
     }
@@ -64,6 +66,7 @@ export class ConversionEngine {
             let scene = await source.extract(options.page || 1, options);
             if (options.rasterImages) scene = await source.preserveRasterImages(scene,{...options.rasterImages,signal:options.signal});
             if (options.ocr) scene = await recoverPdfRaster(source, scene, {...options.ocr, signal: options.signal, onProgress: options.onProgress});
+            if (options.appearance) scene = await source.captureAppearance(scene,{...options.appearance,signal:options.signal});
             return { ...await this.convertScene(scene, options), scene };
         }
         finally {

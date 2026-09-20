@@ -1,0 +1,21 @@
+{
+  "schema": "revector.dxf-package/1",
+  "drawing": "page-1.dxf",
+  "version": "2000",
+  "assets": [
+    {
+      "id": "APPEARANCE_d2c1ca1aaedab08b844d1af880deee542a0da3fc55cf5b98d31355f7c996d294",
+      "path": "images/d2c1ca1aaedab08b844d1af880deee542a0da3fc55cf5b98d31355f7c996d294.png",
+      "width": 641,
+      "height": 481,
+      "bytes": 20996,
+      "sha256": "d2c1ca1aaedab08b844d1af880deee542a0da3fc55cf5b98d31355f7c996d294"
+    }
+  ],
+  "sourceArchive": {
+    "path": "page-1.dxf.source.pdf",
+    "bytes": 3341,
+    "sha256": "1dbc678c26486747e30aeff742558a2a300999ab361fcdf6088dad26d2f2f831",
+    "warning": "Exact original PDF; may include hidden content, attachments and sensitive metadata. Not a redacted artifact."
+  }
+}

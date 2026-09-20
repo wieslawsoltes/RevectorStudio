@@ -222,7 +222,17 @@ export interface PdfPaintItem {
     matrix?: Matrix;
     [key: string]: unknown;
 }
+export interface AppearanceSnapshot {
+    schema:'revector.appearance/1'; mode:'page-composite'; dpi:number; scale:number;
+    width:number; height:number; background:string; pageNumber:number; pageSize:Point;
+    pixelToPage:Matrix; pdfToPixels:Matrix; sourceFingerprints:string[];
+    ocgs:PdfScene['ocgs']; annotationMode?:number;
+    renderer:{name:string;version:string;colorSpace:'sRGB'};
+    exactSourceStreams:false; editable:false; originalDiagnostics:Diagnostic[]; asset:RasterAsset;
+}
 export interface PdfScene {
+    appearance?:AppearanceSnapshot;
+    annotationMode?:number;
     schema: 'revector.pdf/1';
     pageNumber: number;
     box: Box;

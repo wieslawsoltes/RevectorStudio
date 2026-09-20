@@ -1,6 +1,6 @@
 {
   "name": "revector-studio",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Vector-first PDF to semantic DXF conversion workbench",
@@ -23,7 +23,11 @@
     "test:extensions": "python tests/extensions_browser.py",
     "test:recovery": "python tests/recovery_browser.py",
     "test:images": "python tests/images_browser.py",
-    "test:images:cli": "python tests/images_cli.py"
+    "test:images:cli": "python tests/images_cli.py",
+    "test:appearance": "python tests/appearance_browser.py",
+    "test:appearance:cli": "python tests/appearance_cli.py",
+    "test:corpus": "python scripts/validate-corpus.py examples/corpus.json --output artifacts/corpus",
+    "publish:packages": "node scripts/publish-npm.mjs"
   },
   "optionalDependencies": {
     "pdfjs-dist": "6.3.289"

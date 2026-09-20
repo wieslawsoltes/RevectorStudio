@@ -1,3 +1,5 @@
+import {junctionRule} from './junctions.js';
+export {detectJunctions,junctionRule} from './junctions.js';
 import {diagramRegion} from './regions.js';
 import { checkAbort as abortAnalysis, entityBox, entityPaths } from '@revector/model';
 import { stableHash, distance, containsBox, intersects, dot, sub, length, near, pathEdges, emptyBox, union } from '@revector/geometry';
@@ -235,4 +237,4 @@ export function detectLists(document, options={}) {
     return out;
 }
 const definitions=[['table-grids','Tables and schedules',detectTables],['text-flows','Text reading flows',detectTextFlows],['notations','Engineering and electrical notation',detectTechnicalText],['fields','Labeled document fields',detectFields],['diagram','Diagram nodes and connectivity',detectDiagram],['parallel','Parallel boundaries',detectParallelBoundaries],['concentric','Concentric mechanical features',detectConcentric],['leaders','Leader callouts',detectLeaders],['borderless-tables','Unruled schedules',detectBorderlessTables],['lists','Numbered and bullet lists',detectLists]];
-export const documentRules=definitions.map(([id,title,detect],i)=>({id:'document.'+id,title,version:['table-grids','diagram'].includes(id)?'1.1.0':'1.0.0',stage:60+i,description:'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.',run:({document,options,checkAbort})=>{checkAbort();return options.profile==='exact'?[]:detect(document,options);}}));
+export const documentRules=[...definitions.map(([id,title,detect],i)=>({id:'document.'+id,title,version:['table-grids','diagram'].includes(id)?'1.1.0':'1.0.0',stage:60+i,description:'Evidence-bearing, geometry-preserving grouping; ambiguous meaning requires review.',run:({document,options,checkAbort})=>{checkAbort();return options.profile==='exact'?[]:detect(document,options);}})),junctionRule];

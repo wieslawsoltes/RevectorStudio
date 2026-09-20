@@ -57,7 +57,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Back to overview',exact=True).click();page.get_by_title('Two-point measurement').click()
  # Entity and candidate inspectors, JSON-rule extension.
  page.locator('.candidate-name').first.click();check('Recovery inspector shows rule evidence',page.locator('.evidence').count()==1)
- page.locator('[data-tab="rules"]').click();check('All eighteen built-in rules have toggles',page.locator('.rule-card input').count()==18)
+ page.locator('[data-tab="rules"]').click();check('All twenty built-in rules have toggles',page.locator('.rule-card input').count()==20)
  page.get_by_role('button',name='Edit JSON rules',exact=True).click()
  rule={'schema':'revector.rules/1','rules':[{'id':'test.tags','when':{'all':[{'field':'type','value':'TEXT'},{'field':'text','op':'prefix','value':'V-'}]},'then':{'layer':'TEST_TAGS','semantic':{'class':'test-tag'}}}]}
  page.locator('.rule-editor').fill(json.dumps(rule));page.get_by_role('button',name='Validate & apply',exact=True).click();settled(page)

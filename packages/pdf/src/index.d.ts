@@ -52,6 +52,7 @@ export interface ImageOptions {
 export const DEFAULT_IMAGE_OPTIONS:Readonly<Required<Omit<ImageOptions,'signal'|'canvasFactory'>>>;
 export function preserveRasterImages(source:PdfSource,scene:PdfScene,options?:ImageOptions):Promise<PdfScene>;
 export class PdfSource {
+    captureAppearance(scene:PdfScene,options?:AppearanceOptions):Promise<PdfScene>;
     preserveRasterImages(scene:PdfScene,options?:ImageOptions):Promise<PdfScene>;
     rasterResource(scene:PdfScene,item:import('@revector/model').PdfPaintItem):Promise<any>;
     static open(bytes: Uint8Array | ArrayBuffer, options?: PdfOptions): Promise<PdfSource>;
@@ -62,6 +63,7 @@ export class PdfSource {
     render(page: number, canvas: HTMLCanvasElement, options?: {
         scale?: number;
         background?: string;
+        annotationMode?: number;
         signal?: AbortSignal;
     }): Promise<unknown>;
     setLayerVisible(id: string, visible: boolean): void;
@@ -73,3 +75,7 @@ export class PdfSource {
     }>>;
     dispose(): Promise<void>;
 }
+
+export interface AppearanceOptions {dpi?:number;maxPixels?:number;maxBytes?:number;maxDimension?:number;background?:string;signal?:AbortSignal;canvasFactory?:(width:number,height:number)=>any}
+export const DEFAULT_APPEARANCE_OPTIONS:Readonly<Required<Omit<AppearanceOptions,'signal'|'canvasFactory'>>>;
+export function captureAppearance(source:PdfSource,scene:PdfScene,options?:AppearanceOptions):Promise<PdfScene>;

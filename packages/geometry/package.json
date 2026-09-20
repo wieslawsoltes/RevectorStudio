@@ -1,6 +1,6 @@
 {
   "name": "@revector/geometry",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "Affine and cubic geometry kernel for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -22,5 +22,10 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wieslawsoltes/RevectorStudio.git",
+    "directory": "packages/geometry"
+  }
 }

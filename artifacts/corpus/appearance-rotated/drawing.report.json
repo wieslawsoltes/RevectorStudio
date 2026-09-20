@@ -1,0 +1,733 @@
+{
+  "schema": "revector.report/1",
+  "version": "0.5.0",
+  "color": {
+    "rasterImages": 1,
+    "imagePixelsAudited": false,
+    "space": "sRGB",
+    "metric": "CIEDE2000 / D65",
+    "compared": 14,
+    "changed": 0,
+    "missing": 0,
+    "invalid": 0,
+    "unresolved": 0,
+    "complete": false,
+    "rgbExact": false,
+    "maxChannelError": 0,
+    "maxDeltaE": 0,
+    "opacityCompared": 14,
+    "opacityChanged": 1,
+    "maxOpacityError": 0.0019607843137254832,
+    "opacityExact": false,
+    "samples": [
+      {
+        "id": "e3",
+        "reason": "opacity-quantization-or-loss",
+        "sourceOpacity": 0.7,
+        "exportedOpacity": 0.7019607843137254,
+        "error": 0.0019607843137254832
+      }
+    ],
+    "exact": false,
+    "profilePolicy": "PDF.js resolves supported source color spaces once; DXF receives RGB, not embedded ICC profiles.",
+    "scope": "Explicit entity RGB and opacity; not a proof of PDF blend modes, overprint, image profiles, or inherited CAD colors.",
+    "source": {
+      "engine": "PDF.js",
+      "version": "6.4.172",
+      "output": "sRGB",
+      "useWasm": true,
+      "iccResourcesConfigured": true,
+      "policy": "Supported ICCBased/CalRGB/CalGray/Lab/Separation/DeviceN colors are resolved by PDF.js; no second profile conversion is applied."
+    }
+  },
+  "appearance": {
+    "schema": "revector.appearance/1",
+    "mode": "page-composite",
+    "view": "appearance",
+    "layer": "REVECTOR_APPEARANCE",
+    "semanticLayers": [
+      {
+        "name": "0",
+        "visible": true
+      },
+      {
+        "name": "PDF_EDF0F5_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_1A8CCC_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_CC334C_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_000000_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_FFFFFF_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_808080_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_1AB266_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_1A80CC_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_FF4C1A_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_0D33CC_35",
+        "visible": true
+      },
+      {
+        "name": "PDF_B200CC_53",
+        "visible": true
+      }
+    ],
+    "dpi": 144,
+    "pixelSize": [
+      880,
+      1200
+    ],
+    "background": "#ffffff",
+    "renderer": {
+      "name": "PDF.js",
+      "version": "6.4.172",
+      "colorSpace": "sRGB"
+    },
+    "sha256": "adda4da571392dbc524c02b5964d36ce33604b5a6800d9b7fbcf1a13faf9e4bc",
+    "editableGeometryPreserved": true,
+    "nativeSemanticsComplete": false,
+    "visualLimitations": [
+      {
+        "code": "BLEND_MODE",
+        "message": "PDF blend mode multiply is not a DXF compositing operation.",
+        "severity": "error",
+        "page": 2,
+        "operator": 9,
+        "sourceId": "p2-3"
+      },
+      {
+        "code": "SHADING",
+        "message": "PDF axial/radial/mesh shading is not silently rasterized or converted to a flat fill.",
+        "severity": "error",
+        "page": 2,
+        "operator": 14
+      },
+      {
+        "code": "TRANSPARENCY_GROUP",
+        "message": "Transparency group isolation/knockout is not a native DXF operation. The group clip is retained; composition requires review.",
+        "severity": "error",
+        "page": 2,
+        "operator": 17
+      },
+      {
+        "code": "SOFT_MASK",
+        "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+        "severity": "error",
+        "page": 2,
+        "operator": 21,
+        "sourceId": "p2-5"
+      },
+      {
+        "code": "SOFT_MASK",
+        "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+        "severity": "error",
+        "page": 2,
+        "operator": 23,
+        "sourceId": "p2-6"
+      },
+      {
+        "code": "SOFT_MASK",
+        "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+        "severity": "error",
+        "page": 2,
+        "operator": 25,
+        "sourceId": "p2-7"
+      },
+      {
+        "code": "SOFT_MASK",
+        "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+        "severity": "error",
+        "page": 2,
+        "operator": 31,
+        "sourceId": "p2-8"
+      },
+      {
+        "code": "BLEND_MODE",
+        "message": "PDF blend mode screen is not a DXF compositing operation.",
+        "severity": "error",
+        "page": 2,
+        "operator": 48,
+        "sourceId": "p2-11"
+      },
+      {
+        "code": "TEXT_CLIP",
+        "message": "Text used as a clipping path requires font-outline clipping. Subsequent affected geometry is flagged.",
+        "severity": "error",
+        "page": 2,
+        "operator": 59,
+        "sourceId": "p2-12"
+      },
+      {
+        "code": "TYPE3_FONT",
+        "message": "Type 3 glyph programs are not flattened to CAD text outlines in this build. Editable Unicode is retained when available.",
+        "severity": "error",
+        "page": 2,
+        "operator": 69,
+        "sourceId": "p2-14"
+      },
+      {
+        "code": "UNRESOLVED_TEXT_CLIP",
+        "message": "Filled geometry has an unresolved font-outline clip.",
+        "severity": "error",
+        "sourceId": "p2-13",
+        "page": 2
+      }
+    ],
+    "qualification": "Sampled PDF.js appearance at declared DPI; not native recovery of masks/blends or arbitrary zoom equivalence"
+  },
+  "ocr": null,
+  "rasterImages": null,
+  "source": {
+    "name": "appearance-stress.pdf",
+    "fingerprints": [
+      "61bbc3dfcab974d63fd9bca22ce3751b",
+      null
+    ],
+    "producer": "",
+    "creator": "",
+    "pdfVersion": "1.7",
+    "PDFFormatVersion": "1.7",
+    "Language": null,
+    "EncryptFilterName": null,
+    "IsLinearized": false,
+    "IsAcroFormPresent": false,
+    "IsXFAPresent": false,
+    "IsCollectionPresent": false,
+    "IsSignaturesPresent": false,
+    "page": 2,
+    "coordinateTransform": [
+      0,
+      -0.7055555555555555,
+      0.7055555555555555,
+      0,
+      -7.231944444444443,
+      218.89861111111108
+    ],
+    "options": {
+      "units": "mm",
+      "drawingScale": 1,
+      "includeHidden": false,
+      "clip": true,
+      "preserveForms": true,
+      "textMode": "adaptive",
+      "styleLayers": true,
+      "strict": false,
+      "precision": 10,
+      "patternLimit": 2500,
+      "booleanTolerance": 1e-8,
+      "name": "Exact geometry",
+      "description": "Only coordinate-preserving transformations are accepted automatically.",
+      "fidelity": "exact",
+      "minConfidence": 0.98,
+      "version": "2018",
+      "profile": "exact",
+      "strictSemantics": false
+    },
+    "irSchema": "revector.pdf/1",
+    "operatorCount": 83,
+    "paintItems": 16,
+    "rasterItems": 2,
+    "appearance": {
+      "schema": "revector.appearance/1",
+      "mode": "page-composite",
+      "view": "appearance",
+      "layer": "REVECTOR_APPEARANCE",
+      "semanticLayers": [
+        {
+          "name": "0",
+          "visible": true
+        },
+        {
+          "name": "PDF_EDF0F5_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_1A8CCC_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_CC334C_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_000000_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_FFFFFF_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_808080_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_1AB266_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_1A80CC_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_FF4C1A_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_0D33CC_35",
+          "visible": true
+        },
+        {
+          "name": "PDF_B200CC_53",
+          "visible": true
+        }
+      ],
+      "dpi": 144,
+      "pixelSize": [
+        880,
+        1200
+      ],
+      "background": "#ffffff",
+      "renderer": {
+        "name": "PDF.js",
+        "version": "6.4.172",
+        "colorSpace": "sRGB"
+      },
+      "sha256": "adda4da571392dbc524c02b5964d36ce33604b5a6800d9b7fbcf1a13faf9e4bc",
+      "editableGeometryPreserved": true,
+      "nativeSemanticsComplete": false,
+      "visualLimitations": [
+        {
+          "code": "BLEND_MODE",
+          "message": "PDF blend mode multiply is not a DXF compositing operation.",
+          "severity": "error",
+          "page": 2,
+          "operator": 9,
+          "sourceId": "p2-3"
+        },
+        {
+          "code": "SHADING",
+          "message": "PDF axial/radial/mesh shading is not silently rasterized or converted to a flat fill.",
+          "severity": "error",
+          "page": 2,
+          "operator": 14
+        },
+        {
+          "code": "TRANSPARENCY_GROUP",
+          "message": "Transparency group isolation/knockout is not a native DXF operation. The group clip is retained; composition requires review.",
+          "severity": "error",
+          "page": 2,
+          "operator": 17
+        },
+        {
+          "code": "SOFT_MASK",
+          "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+          "severity": "error",
+          "page": 2,
+          "operator": 21,
+          "sourceId": "p2-5"
+        },
+        {
+          "code": "SOFT_MASK",
+          "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+          "severity": "error",
+          "page": 2,
+          "operator": 23,
+          "sourceId": "p2-6"
+        },
+        {
+          "code": "SOFT_MASK",
+          "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+          "severity": "error",
+          "page": 2,
+          "operator": 25,
+          "sourceId": "p2-7"
+        },
+        {
+          "code": "SOFT_MASK",
+          "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+          "severity": "error",
+          "page": 2,
+          "operator": 31,
+          "sourceId": "p2-8"
+        },
+        {
+          "code": "BLEND_MODE",
+          "message": "PDF blend mode screen is not a DXF compositing operation.",
+          "severity": "error",
+          "page": 2,
+          "operator": 48,
+          "sourceId": "p2-11"
+        },
+        {
+          "code": "TEXT_CLIP",
+          "message": "Text used as a clipping path requires font-outline clipping. Subsequent affected geometry is flagged.",
+          "severity": "error",
+          "page": 2,
+          "operator": 59,
+          "sourceId": "p2-12"
+        },
+        {
+          "code": "TYPE3_FONT",
+          "message": "Type 3 glyph programs are not flattened to CAD text outlines in this build. Editable Unicode is retained when available.",
+          "severity": "error",
+          "page": 2,
+          "operator": 69,
+          "sourceId": "p2-14"
+        },
+        {
+          "code": "UNRESOLVED_TEXT_CLIP",
+          "message": "Filled geometry has an unresolved font-outline clip.",
+          "severity": "error",
+          "sourceId": "p2-13",
+          "page": 2
+        }
+      ],
+      "qualification": "Sampled PDF.js appearance at declared DPI; not native recovery of masks/blends or arbitrary zoom equivalence"
+    }
+  },
+  "target": {
+    "version": "2018",
+    "acadVersion": "AC1032",
+    "units": "mm"
+  },
+  "summary": {
+    "entities": 10,
+    "blockDefinitions": 2,
+    "layers": 13,
+    "types": {
+      "HATCH": 5,
+      "INSERT": 2,
+      "TEXT": 1,
+      "LINE": 1,
+      "IMAGE": 1
+    },
+    "diagnostics": 15,
+    "accepted": 2,
+    "pending": 0
+  },
+  "producer": {
+    "family": "Generic vector PDF",
+    "confidence": 1
+  },
+  "diagnostics": [
+    {
+      "code": "BLEND_MODE",
+      "message": "PDF blend mode multiply is not a DXF compositing operation.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 9,
+      "sourceId": "p2-3",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "SHADING",
+      "message": "PDF axial/radial/mesh shading is not silently rasterized or converted to a flat fill.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 14,
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "TRANSPARENCY_GROUP",
+      "message": "Transparency group isolation/knockout is not a native DXF operation. The group clip is retained; composition requires review.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 17,
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "SOFT_MASK",
+      "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 21,
+      "sourceId": "p2-5",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "SOFT_MASK",
+      "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 23,
+      "sourceId": "p2-6",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "SOFT_MASK",
+      "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 25,
+      "sourceId": "p2-7",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "SOFT_MASK",
+      "message": "Soft-mask compositing is retained in provenance, not flattened into CAD geometry.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 31,
+      "sourceId": "p2-8",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "RASTER_CONTENT",
+      "message": "Raster content has no automatic vector mapping. Enable Raster OCR for local text recovery; remaining image graphics stay in the PDF.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 37
+    },
+    {
+      "code": "BLEND_MODE",
+      "message": "PDF blend mode screen is not a DXF compositing operation.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 48,
+      "sourceId": "p2-11",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "TEXT_CLIP",
+      "message": "Text used as a clipping path requires font-outline clipping. Subsequent affected geometry is flagged.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 59,
+      "sourceId": "p2-12",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "TYPE3_FONT",
+      "message": "Type 3 glyph programs are not flattened to CAD text outlines in this build. Editable Unicode is retained when available.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 69,
+      "sourceId": "p2-14",
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "TRANSFER_FUNCTION",
+      "message": "PDF transfer function retained only in the source representation.",
+      "severity": "warning",
+      "page": 2,
+      "operator": 73
+    },
+    {
+      "code": "UNRESOLVED_TEXT_CLIP",
+      "message": "Filled geometry has an unresolved font-outline clip.",
+      "severity": "warning",
+      "sourceId": "p2-13",
+      "page": 2,
+      "originalSeverity": "error",
+      "representation": "semantic-layer-limitation",
+      "appearanceFallback": true
+    },
+    {
+      "code": "FONT_SUBSTITUTION",
+      "message": "DXF stores editable Unicode and positioned metrics, not embedded PDF font programs. Target CAD fonts and shaping may differ.",
+      "severity": "warning",
+      "page": 2
+    },
+    {
+      "code": "APPEARANCE_REPRESENTATION",
+      "message": "PDF.js page appearance is a sampled IMAGE; editable CAD geometry remains on separate layers. Enable those layers and hide the appearance layer to edit without duplicate paint.",
+      "severity": "warning"
+    },
+    {
+      "code": "DXF_EXTERNAL_IMAGES",
+      "message": "Raster images require the adjacent PNG assets. Export the DXF package, not the DXF text alone.",
+      "severity": "info"
+    }
+  ],
+  "rules": [
+    {
+      "rule": "geometry.join-chains",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.8228469999999675
+    },
+    {
+      "rule": "cad.conic-recovery",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.5732479999999782
+    },
+    {
+      "rule": "cad.sampled-curves",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.5495029999999588
+    },
+    {
+      "rule": "cad.repeated-symbols",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.8196009999999774
+    },
+    {
+      "rule": "cad.tag-attributes",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.8195920000000001
+    },
+    {
+      "rule": "cad.dimensions",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.7138719999999807
+    },
+    {
+      "rule": "cad.centerlines",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.37567599999999857
+    },
+    {
+      "rule": "cad.hatch-families",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.43808400000000347
+    },
+    {
+      "rule": "cad.title-block",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.47189700000001267
+    },
+    {
+      "rule": "document.table-grids",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.325792999999976
+    },
+    {
+      "rule": "document.text-flows",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.26693299999999454
+    },
+    {
+      "rule": "document.notations",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.2615320000000452
+    },
+    {
+      "rule": "document.fields",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.29194899999998825
+    },
+    {
+      "rule": "document.diagram",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.2585260000000176
+    },
+    {
+      "rule": "document.parallel",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.2560709999999631
+    },
+    {
+      "rule": "document.concentric",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.29237000000000535
+    },
+    {
+      "rule": "document.leaders",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.2682540000000131
+    },
+    {
+      "rule": "document.borderless-tables",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.26422600000000784
+    },
+    {
+      "rule": "document.lists",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.26839499999999816
+    },
+    {
+      "rule": "document.junctions",
+      "proposed": 0,
+      "accepted": 0,
+      "elapsedMs": 0.2878210000000081
+    }
+  ],
+  "timings": {
+    "geometryMs": 8.103144999999984,
+    "semanticsMs": 38.03024300000004,
+    "serializeMs": 28.810986999999955,
+    "roundtripMs": 3.375948000000051,
+    "totalMs": 79.15758800000003
+  },
+  "coverage": {
+    "paintItems": 16,
+    "vectorPaths": 11,
+    "textRuns": 2,
+    "forms": 2,
+    "rasterItems": 2,
+    "shadings": 1
+  },
+  "validation": {
+    "model": {
+      "valid": true,
+      "errors": []
+    },
+    "roundtrip": {
+      "valid": true,
+      "errors": []
+    }
+  }
+}

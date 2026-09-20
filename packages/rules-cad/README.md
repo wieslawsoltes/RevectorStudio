@@ -1,6 +1,6 @@
 # @revector/rules-cad
 
-**CAD-print recovery rules** — Revector Studio 0.4.0.
+**CAD-print recovery rules** — Revector Studio 0.5.0.
 
 Eight reusable rules for joining, circles, repeat components, attributes, dimensions, centerlines, hatch families and title blocks; profiles and explicit translation-normalized templates.
 

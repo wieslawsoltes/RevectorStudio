@@ -1,6 +1,6 @@
 {
   "name": "@revector/pdf",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "PDF.js vector adapter for vector-first PDF to semantic DXF conversion",
   "main": "./src/index.js",
@@ -23,9 +23,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@revector/geometry": "0.4.0",
-    "@revector/model": "0.4.0",
-    "@revector/color": "0.4.0"
+    "@revector/geometry": "0.5.0",
+    "@revector/model": "0.5.0",
+    "@revector/color": "0.5.0"
   },
   "peerDependencies": {
     "pdfjs-dist": "6.3.289"
@@ -34,5 +34,10 @@
     "pdfjs-dist": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wieslawsoltes/RevectorStudio.git",
+    "directory": "packages/pdf"
   }
 }

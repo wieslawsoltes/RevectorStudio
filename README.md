@@ -149,3 +149,7 @@ Original Revector source: MIT. PDF.js and vendored data/decoders retain upstream
 ## Current validation
 
 See [version 0.4.0 validation](docs/VALIDATION-0.4.md) and [algorithm contracts](docs/RECOVERY-0.4.md) for native raster assets, general path inference, contour-aware semantics and browser/CLI verification. Historical 0.1–0.3 evidence is retained separately.
+
+## Version 0.5.0 — remaining-boundary handling
+
+[Recovery 0.5](docs/RECOVERY-0.5.md) adds an explicit appearance/reference layer for PDF.js-composited effects, while preserving editable CAD on separate layers; continuous-error-bounded arc/circle/cubic hypotheses; junction/crossing alternatives; optional byte-exact original PDF archival; a SHA-pinned corpus runner with optional licensed CAD regeneration; and verified npm publication tooling. There are twenty built-in rules. Representation limits, ambiguity and external acceptance are not hidden by a raster reference or a passing structural audit.

@@ -22,3 +22,5 @@ export class VectorTemplateLibrary {
         confidence: number;
     }>;
 }
+
+export const curveRecoveryRule:Rule;

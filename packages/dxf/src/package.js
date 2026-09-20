@@ -13,7 +13,7 @@ export function assetBytes(asset) {
     return bytes;
 }
 /** Return a complete, portable set of files. The host owns ZIP creation or atomic disk writes. */
-export function packageDxf(document,{filename='drawing.dxf',maxBytes=128*1024*1024,...options}={}) {
+export function packageDxf(document,{filename='drawing.dxf',maxBytes=128*1024*1024,sourcePdf,...options}={}) {
     if(!/^[A-Za-z0-9_][A-Za-z0-9_. -]{0,180}\.dxf$/i.test(filename))throw new Error('DXF package filename must be a simple .dxf name');
     if(!Number.isSafeInteger(maxBytes)||maxBytes<1)throw new RangeError('Invalid package byte budget');
     const dxf=exportDxf(document,options),files=[{name:filename,data:dxf.text}],assets=[];
@@ -27,7 +27,15 @@ export function packageDxf(document,{filename='drawing.dxf',maxBytes=128*1024*10
         files.push({name:asset.path,data:bytes});assets.push({id:asset.id,path:asset.path,width:asset.width,height:asset.height,bytes:bytes.length,sha256:asset.sha256||sha256Bytes(bytes)});
     }
     if(size>maxBytes)throw new RangeError('DXF package byte budget exceeded');
-    const manifest={schema:'revector.dxf-package/1',drawing:filename,version:dxf.version,assets};
+    let sourceArchive;
+    if(sourcePdf!==undefined){
+        if(!(sourcePdf instanceof Uint8Array)||sourcePdf.byteLength<5||!new TextDecoder('latin1').decode(sourcePdf.subarray(0,1024)).includes('%PDF-'))throw new TypeError('sourcePdf must contain the original PDF bytes');
+        if(size+sourcePdf.byteLength>maxBytes)throw new RangeError('DXF package byte budget exceeded');
+        const bytes=new Uint8Array(sourcePdf);size+=bytes.byteLength;
+        const path=filename+'.source.pdf';files.push({name:path,data:bytes});
+        sourceArchive={path,bytes:bytes.byteLength,sha256:sha256Bytes(bytes),warning:'Exact original PDF; may include hidden content, attachments and sensitive metadata. Not a redacted artifact.'};
+    }
+    const manifest={schema:'revector.dxf-package/1',drawing:filename,version:dxf.version,assets,...(sourceArchive?{sourceArchive}:{})};
     const json=JSON.stringify(manifest,null,2)+'\n';
     if(size+new TextEncoder().encode(json).length>maxBytes)throw new RangeError('DXF package byte budget exceeded');
     files.push({name:filename+'.assets.json',data:json});

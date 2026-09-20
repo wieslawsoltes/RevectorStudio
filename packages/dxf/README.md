@@ -1,6 +1,6 @@
 # @revector/dxf
 
-**DXF 2000–2018 writer and reader** — Revector Studio 0.4.0.
+**DXF 2000–2018 writer and reader** — Revector Studio 0.5.0.
 
 Version-aware DXF serialization with tables, handles, owners, blocks, supported entities, groups and metadata; reader for the writer-supported subset, not a universal DXF parser.
 
