@@ -1,0 +1,91 @@
+name: Finalize recovery v0.3
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/upgrade-recovery-v03.yml]
+permissions:
+  contents: write
+concurrency:
+  group: source-recovery-v03
+  cancel-in-progress: false
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify source base and exact tested patch
+        run: |
+          git diff --exit-code b7e35d90cd0899422f853339cfc4c5e8a31a2f37 HEAD -- packages scripts tests examples docs README.md package.json package-lock.json
+          python - <<'PY'
+          import base64,hashlib,lzma,pathlib,os
+          encoded=''.join(pathlib.Path(f'.bootstrap/recovery-v03-{i}.b64').read_text().strip() for i in range(2))
+          data=base64.b64decode(encoded,validate=True)
+          actual=hashlib.sha256(data).hexdigest()
+          assert actual=='cdaeb5ae6244156a1088e6c35c9b00a7ce3a978294aa0bce9254a1373e661b59',actual
+          pathlib.Path(os.environ['RUNNER_TEMP'],'recovery.patch').write_bytes(lzma.decompress(data))
+          PY
+          git apply --unidiff-zero --check "$RUNNER_TEMP/recovery.patch"
+          git apply --unidiff-zero "$RUNNER_TEMP/recovery.patch"
+      - name: Install reproducible build and browser dependencies
+        run: |
+          npm ci --ignore-scripts --include=optional --no-audit --no-fund
+          node scripts/link-workspaces.mjs
+          python -m pip install -r tests/requirements.txt --quiet
+          python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -100 "$RUNNER_TEMP/browser-install.log"; exit 1; }
+      - name: Validate source, types, original workbench and color-space regressions
+        run: |
+          npm run build
+          npm test | tee "$RUNNER_TEMP/node-tests.log"
+          npm run test:types
+          npm run test:browser
+          npm run test:extensions
+      - name: Verify real tiled and deskewed PDF OCR
+        run: npm run test:recovery
+      - name: Verify CLI, independent DXF audits and sixteen npm packages
+        run: |
+          python tests/ocr_cli.py
+          npm run test:dxf
+          npm run pack:all
+          python - <<'PY'
+          import json,pathlib,hashlib,tarfile
+          root=pathlib.Path.cwd(); records=json.loads((root/'release/npm/manifest.json').read_text())
+          assert len(records)==16
+          for r in records:
+              assert r['version']=='0.3.0',r['name']
+              path=root/'release/npm'/r['file']
+              assert hashlib.sha256(path.read_bytes()).hexdigest()==r['sha256']
+              with tarfile.open(path,'r:gz') as tar:
+                  p=json.load(tar.extractfile('package/package.json'))
+                  assert p['version']=='0.3.0'
+          PY
+      - name: Commit tested source, generated bundles, packages and evidence
+        run: |
+          rm .bootstrap/recovery-v03-{0,1}.b64
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git add -f release/npm apps/studio/conversion-worker.js apps/studio/offline-bootstrap.js revector-studio.html artifacts/recovery-next
+          git commit -m 'Extend semantic recovery, tiled deskewed OCR and complete RGBA auditing (v0.3.0)'
+          git push origin HEAD:main
+          git rev-parse HEAD > "$RUNNER_TEMP/recovery-revision.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recovery-v03-validation
+          path: |
+            artifacts/
+            release/npm/
+            ${{ runner.temp }}/node-tests.log
+            ${{ runner.temp }}/recovery-revision.txt
+          retention-days: 14
